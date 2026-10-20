@@ -1,0 +1,13 @@
+{
+  "steps": [
+    {
+      "op": "start"
+    },
+    {
+      "op": "levels"
+    },
+    {
+      "op": "snapshot"
+    }
+  ]
+}

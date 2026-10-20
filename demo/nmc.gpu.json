@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "page": "index.html",
+  "ops": ["render"],
+  "ready": "window.nmcGpu.ready"
+}
