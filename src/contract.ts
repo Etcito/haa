@@ -292,6 +292,8 @@ export interface AudioOptions {
   maxListeners?: 1 | 2 | 3 | 4
   spatial?: SpatialModel
   seed?: number
+  /** Family ids to load; default is every registered family, built-ins included. */
+  families?: readonly string[]
 }
 /** Audio engine controls shared by browser and offline implementations. */
 export interface AudioControls {

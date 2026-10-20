@@ -24,9 +24,9 @@ HAA is not on a registry yet (`"private": true`). The package installs from a ta
 ```
 npm ci                                          # from the checkout: development dependencies
 npm run build                                   # dist/ (JS ESM and .d.ts); prepack runs it too
-npm pack --pack-destination ../haa-pack         # writes ../haa-pack/etcito-haa-0.1.0.tgz
+npm pack --pack-destination ../haa-pack         # writes ../haa-pack/etcito-haa-0.1.1.tgz
 mkdir my-app && cd my-app && npm init -y
-npm install ../haa-pack/etcito-haa-0.1.0.tgz    # installs /haa and its lamejs dependency
+npm install ../haa-pack/etcito-haa-0.1.1.tgz    # installs /haa and its lamejs dependency
 ```
 
 The tarball contains `dist/`, the prebuilt worklet, this README, PROVENANCE.md and LICENSE. Node >= 22.18 is required.
@@ -45,7 +45,7 @@ https://github.com/Etcito/haa/releases/download/v<version>/SHA256SUMS
 Install a release in your game (npm also installs `lamejs`):
 
 ```sh
-npm install https://github.com/Etcito/haa/releases/download/v0.1.0/etcito-haa-0.1.0.tgz
+npm install https://github.com/Etcito/haa/releases/download/v0.1.1/etcito-haa-0.1.1.tgz
 ```
 
 To cut a release: set the same `version` in `package.json`, commit, then `git tag v<version>` and
@@ -74,7 +74,7 @@ const HAA_CONTRACT_VERSION = 0, AUDIO_RATE = 48000, BLOCK = 128, MAX_LISTENERS =
 
 interface FamilyDef { id: string; bus: BusId; category: VoiceCategory; variants: number; maxSeconds: number; seed: number;
   render(out: Float32Array, sr: number, rng: AudioRng, v: number): number }   // ADDS mono, returns frames written
-type FamilySpec = Omit<FamilyDef, 'seed'> & { seed?: number }
+type FamilySpec = Omit<FamilyDef, 'seed'> & { seed?: number; families?: readonly string[] }
 interface BedDef { id: string; bus: BusId; params: readonly string[]; defaults: readonly number[]; unsmoothed?: readonly string[];
   positional: boolean; create(sr: number, seed: number): BedVoice }
 interface MixPreset { id: string; priority: number; buses: Record<BusId, BusPreset>; master: {...}; ducks: Record<string, DuckPreset>;
@@ -290,7 +290,7 @@ import { createAudio, createOfflineAudio, FLAT_SPATIAL } from '@etcito/haa'
 // Browser only. Rejects Error('[haa] worklet unavailable: <reason>') when ctx.audioWorklet is missing
 // or addModule / node creation fails; an unknown mix id rejects '[haa] unknown mix <id>'.
 function createAudio(ctx: BaseAudioContext, o: AudioOptions): Promise<HaaAudio>
-interface AudioOptions { manifestUrl: string; processorUrl: string; mix?: string | MixPreset; maxListeners?: 1 | 2 | 3 | 4; spatial?: SpatialModel; seed?: number }
+interface AudioOptions { manifestUrl: string; processorUrl: string; mix?: string | MixPreset; maxListeners?: 1 | 2 | 3 | 4; spatial?: SpatialModel; seed?: number; families?: readonly string[] }
 interface HaaAudio extends AudioControls {
   readonly ctx: BaseAudioContext
   readonly meters: { mix: AnalyserNode; left: AnalyserNode; right: AnalyserNode } | null   // null unless ctx is an AudioContext

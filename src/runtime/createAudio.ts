@@ -137,7 +137,7 @@ export async function createAudio(ctx: BaseAudioContext, o: AudioOptions): Promi
     variantLength: (id, v) => loader.variantLength(id, v),
     loadRate: ctx.sampleRate,
   })
-  const ready = loader.ensure().catch((error: unknown) => {
+  const ready = loader.ensure(o.families).catch((error: unknown) => {
     console.warn(`[haa] bank load failed: ${String(error)}`)
   })
 
