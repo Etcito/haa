@@ -1,64 +1,25 @@
 {
-  "name": "@etcito/haa",
-  "version": "0.1.1",
+  "name": "haa-workspace",
   "private": true,
   "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=22.18"
   },
-  "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build:types": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "proof:m1": "node scripts/proof/m1.ts",
-    "bake": "node scripts/bake.ts",
-    "proof:m2": "node scripts/proof/m2.ts",
-    "proof:m3": "node scripts/proof/m3.ts",
-    "build:worklet": "node scripts/build-worklet.ts",
-    "build:demo": "node scripts/build-demo.ts",
-    "serve": "node scripts/serve.ts",
-    "gpu:run": "node scripts/gpu-run.ts",
-    "proof:m4": "node scripts/proof/m4.ts",
-    "proof:m5": "node scripts/proof/m5.ts",
-    "build": "node scripts/build-dist.ts",
-    "prepack": "npm run build",
-    "release:pack": "node scripts/release-pack.mjs"
-  },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "description": "Game-agnostic procedural sound engine for authored sound families, music, ambience and spatial audio.",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Etcito/haa"
-  },
-  "files": [
-    "dist",
-    "worklet/haa-processors.js",
-    "README.md",
-    "PROVENANCE.md",
-    "LICENSE"
+  "workspaces": [
+    "packages/haa"
   ],
-  "exports": {
-    ".": {
-      "haa-source": "./src/index.ts",
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./node": {
-      "haa-source": "./src/node.ts",
-      "types": "./dist/node.d.ts",
-      "default": "./dist/node.js"
-    },
-    "./worklet": "./worklet/haa-processors.js"
-  },
-  "dependencies": {
-    "lamejs": "1.2.1"
+  "scripts": {
+    "build": "node scripts/build-wasm.mjs && npm run build -w @etcito/haa",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cargo test --workspace --quiet",
+    "render": "cargo run -q --release -p haa-cli -- render",
+    "inputs": "cargo run -q --release -p haa-cli -- inputs",
+    "release:pack": "node scripts/release-pack.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
     "esbuild": "0.28.2",
-    "typescript": "5.9.3",
-    "vitest": "3.2.7"
+    "typescript": "5.9.3"
   }
 }

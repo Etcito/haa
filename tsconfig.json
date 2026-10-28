@@ -7,13 +7,18 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "outDir": "out/types",
-    "rootDir": ".",
-    "lib": ["ES2022", "DOM"],
-    "types": ["node"],
-    "customConditions": ["haa-source"]
+    "noEmit": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src", "scripts", "test", "demo", "examples"]
+  "include": [
+    "packages/haa/src",
+    "packages/haa/test",
+    "tools/listen"
+  ]
 }

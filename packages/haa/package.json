@@ -1,0 +1,34 @@
+{
+  "name": "@etcito/haa",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "files": ["dist", "pkg", "README.md", "LICENSE"],
+  "bin": {
+    "haa-node": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./offline": {
+      "types": "./dist/offline.d.ts",
+      "default": "./dist/offline.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./worklet": "./dist/worklet.js",
+    "./wasm": "./pkg/haa.wasm",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}
