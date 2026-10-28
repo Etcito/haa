@@ -9,6 +9,7 @@
 use std::sync::Mutex;
 
 // Module list (append-only): later milestones add `mod <name>;` lines here.
+mod voice;
 
 /// A pointer as the ABI sees it: a `u32` offset into the wasm linear memory.
 /// Native tests run at pointer width, so there the same value is a `usize` that
