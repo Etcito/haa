@@ -15,7 +15,10 @@
     "test": "cargo test --workspace --quiet",
     "render": "cargo run -q --release -p haa-cli -- render",
     "inputs": "cargo run -q --release -p haa-cli -- inputs",
-    "release:pack": "node scripts/release-pack.mjs"
+    "release:pack": "node scripts/release-pack.mjs",
+    "render:node": "node packages/haa/dist/cli.js render",
+    "test:host": "node --test packages/haa/test/",
+    "listen": "node tools/listen/serve.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

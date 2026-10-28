@@ -103,4 +103,47 @@ gh release create v<version> release/etcito-haa-<version>.tgz
 ## Status
 
 - **M0.1 Rust workspace: done.** Cargo and npm workspaces, patch loader and validation, interpreter, offline render, `haa render` and `haa inputs`, `patches/examples/osc-curve.json`.
-- M0.2 and later: planned. Each later milestone appends one section below.
+- M0.2 The wasm engine plays in the browser, renders offline, and a published input drives it live: see below.
+- M0.3 and later: planned. Each later milestone appends one section below.
+
+## M0.2 — The wasm engine in the browser and in Node
+
+### Offline render in Node
+
+```sh
+npm run build
+npm run render:node -- patches/examples/osc-curve.json --out out/render/osc-curve-node.wav
+```
+
+`render:node` runs `packages/haa/dist/cli.js render` with the same flags and rules as `haa render`. Errors print as one `[haa-node] <reason>` line and exit 1.
+
+### Host tests
+
+```sh
+npm run test:host       # node --test packages/haa/test/ (pure logic such as WAV encoding, no browser)
+```
+
+### Listening page
+
+```sh
+npm run build
+npm run listen          # serves the repo root on 127.0.0.1; port from HAA_LISTEN_PORT, default 8010
+```
+
+Open the printed URL, then review a patch:
+
+1. Pick a patch from `patches/` or open a file with the picker (Sona project files work too).
+2. Press **Play**: Sona's JS engine (A) and the HAA wasm engine (B) start together.
+3. Press **Match levels** so both sides have the same loudness.
+4. Toggle **A/B** (or press `a`) and listen for any difference.
+5. Move the input sliders (the `pedal` slider also drives Sona) and watch the traces.
+
+### JS entry points
+
+- `@etcito/haa`: `createPlayer`, `loadHaaModule`, `HaaEngine` (browser main thread, AudioWorklet player).
+- `@etcito/haa/offline`: `renderPatch`, `encodeWav` (realm-neutral, usable in a Worker).
+- `@etcito/haa/node`: `loadModule`, `renderPatchFile`, `writeWav` (Node only; also re-exports the offline API).
+
+### Input nodes
+
+The `input` node outputs the current value of a published input. The `map` node turns a value into another through breakpoints drawn against the input range (`in`, `inMin`, `inMax`, `scale`, `outMin`, `outMax`). `patches/examples/siren.json` wires an input through `input` and `map` to an oscillator pitch.
