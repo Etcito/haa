@@ -11,6 +11,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "haa-wasm"
+version = "0.2.0"
+dependencies = [
+ "haa-core",
+ "serde_json",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"

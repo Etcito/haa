@@ -1,0 +1,13 @@
+[package]
+name = "haa-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+haa-core = { path = "../haa-core" }
+serde_json.workspace = true
