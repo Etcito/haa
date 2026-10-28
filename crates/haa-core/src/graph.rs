@@ -9,14 +9,14 @@
 
 use crate::catalog::{NodeTypeDef, ParamKind};
 use crate::consts::{
-    BLOCK, EDGE_SMOOTH_S, END_FADE_S, LIMIT_PEAK, PARAM_SMOOTH_S, RESERVED_INPUTS, START_FADE_S,
-    TIMELINE_START_FADE_S,
+    BLOCK, DEFAULT_INPUT_SMOOTH_S, EDGE_SMOOTH_S, END_FADE_S, LIMIT_PEAK, PARAM_SMOOTH_S,
+    RESERVED_INPUTS, START_FADE_S, TIMELINE_START_FADE_S,
 };
 use crate::dsp::dc_blocker::DcBlocker;
 use crate::dsp::smoother::Smoother;
 use crate::issues::{Issue, has_errors};
 use crate::node::{Node, NodeInit, SampleCtx};
-use crate::patch::{GraphMode, Patch, PerfMode, load_patch};
+use crate::patch::{GraphMode, InputKind, Patch, PerfMode, load_patch};
 use crate::rng::node_seed;
 use crate::validate::{Plan, validate};
 
@@ -53,6 +53,8 @@ pub struct Voice {
     trace: Vec<f32>,
     /// Current input values: header inputs, then reserved inputs.
     input_values: Vec<f64>,
+    input_smoothers: Vec<Smoother>,
+    pending_triggers: Vec<bool>,
     /// Trigger pulses for the current sample, same indexing as `input_values`.
     triggers: Vec<bool>,
     // Clock (Sona `frame`, `totalFrames`, `startFrames`, `durationFrames`, `ended`).
@@ -96,6 +98,8 @@ impl Voice {
             output_indices: Vec::new(),
             trace: Vec::new(),
             input_values: Vec::new(),
+            input_smoothers: Vec::new(),
+            pending_triggers: Vec::new(),
             triggers: Vec::new(),
             frame: 0,
             live_frames: 0,
@@ -154,6 +158,74 @@ impl Voice {
         self.plan.is_some()
     }
 
+    /// Host metadata, with published inputs serialized as their complete InputDef JSON.
+    pub fn info_json(&self) -> String {
+        let plan = self.plan.as_ref();
+        serde_json::json!({
+            "nodes": self.node_ids,
+            "inputs": plan.map(|p| p.inputs.as_slice()).unwrap_or(&[]),
+            "mode": self.mode(),
+            "duration": plan.map_or(0.0, |p| p.duration),
+            "loop": plan.is_some_and(|p| p.r#loop),
+        })
+        .to_string()
+    }
+
+    /// Finds a published input, followed by the three reserved spatial inputs.
+    pub fn input_index(&self, name: &str) -> Option<usize> {
+        let plan = self.plan.as_ref()?;
+        plan.inputs
+            .iter()
+            .position(|input| input.name == name)
+            .or_else(|| {
+                RESERVED_INPUTS
+                    .iter()
+                    .position(|(reserved, _)| *reserved == name)
+                    .map(|index| plan.inputs.len() + index)
+            })
+    }
+
+    /// Sets an input target in game units; enum indices change without smoothing.
+    pub fn set_input(&mut self, index: usize, value: f64) {
+        if !value.is_finite() {
+            return;
+        }
+        let Some(smoother) = self.input_smoothers.get_mut(index) else {
+            return;
+        };
+        let Some(plan) = &self.plan else { return };
+        if let Some(input) = plan.inputs.get(index) {
+            match input.kind {
+                InputKind::Continuous => smoother.set_target(clamp(value, input.min, input.max)),
+                InputKind::Enum => {
+                    let value = clamp(
+                        value.floor(),
+                        0.0,
+                        input.values.len().saturating_sub(1) as f64,
+                    );
+                    smoother.jump(value);
+                    self.input_values[index] = value;
+                }
+                InputKind::Trigger => {}
+            }
+        } else {
+            // Reserved inputs have no header range; their host supplies game-unit values.
+            smoother.set_target(value);
+        }
+    }
+
+    /// Queues a trigger input's pulse for exactly the next rendered sample.
+    pub fn trigger(&mut self, index: usize) {
+        if self
+            .plan
+            .as_ref()
+            .and_then(|p| p.inputs.get(index))
+            .is_some_and(|input| input.kind == InputKind::Trigger)
+        {
+            self.pending_triggers[index] = true;
+        }
+    }
+
     /// Node ids in plan order.
     pub fn node_ids(&self) -> &[String] {
         &self.node_ids
@@ -196,6 +268,8 @@ impl Voice {
         self.looped = false;
         self.ended = false;
         self.perf_rebase = false;
+        self.pending_triggers.fill(false);
+        self.triggers.fill(false);
         self.reset_chain();
         if let Some(plan) = &self.plan {
             for (i, pn) in plan.nodes.iter().enumerate() {
@@ -374,6 +448,7 @@ impl Voice {
         self.live_frames += 1;
         self.start_frames += 1;
         self.looped = false;
+        self.perf_rebase = false;
         if mode == GraphMode::Timeline && self.frame >= self.duration_frames {
             if looping {
                 self.frame = 0;
@@ -386,16 +461,195 @@ impl Voice {
         (l * gain, r * gain)
     }
 
-    /// Next task: smooth continuous inputs toward their targets and turn pending triggers into one-sample pulses.
-    fn advance_inputs(&mut self) {}
+    /// Smooth continuous values and consume pending trigger pulses before processing nodes.
+    fn advance_inputs(&mut self) {
+        let Some(plan) = &self.plan else { return };
+        for (index, smoother) in self.input_smoothers.iter_mut().enumerate() {
+            self.triggers[index] = core::mem::take(&mut self.pending_triggers[index]);
+            self.input_values[index] = if plan
+                .inputs
+                .get(index)
+                .is_some_and(|input| input.kind == InputKind::Trigger)
+            {
+                f64::from(self.triggers[index])
+            } else {
+                smoother.next()
+            };
+        }
+    }
 
-    /// Next task: Sona's performance macro (manual value from the `pedal` input, `perf_rebase` on a mode switch).
-    fn advance_performance(&mut self) {}
+    /// sona: app.js setPerformanceMode/Value applies the macro before GraphDSP sees it.
+    /// HAA applies those base/edge rules per sample so the published pedal can drive it.
+    fn advance_performance(&mut self) {
+        let Some(plan) = &self.plan else { return };
+        let Some(perf) = &plan.performance else {
+            return;
+        };
+        let live = perf.mode == PerfMode::Live;
+        let base = if live {
+            perf.pedal
+                .map_or(plan.nodes[perf.node].params[perf.param], |i| {
+                    clamp(self.input_values[i], 0.0, 1.0)
+                })
+        } else {
+            0.0
+        };
+        let smoother = &mut self.param_smoothers[perf.node][perf.param];
+        if self.perf_rebase {
+            // Sona setGraph rebases bookkeeping, preserving the control node's response.
+            smoother.jump(base);
+        }
+        smoother.set_target(base);
+        for (m, smoother) in plan.nodes[perf.node]
+            .mods
+            .iter()
+            .zip(&mut self.mod_smoothers[perf.node])
+        {
+            if perf.edge.as_deref() == Some(m.conn_id.as_str()) {
+                // Sona control-edge amounts switch immediately (only audio edges glide).
+                smoother.jump(if live { 0.0 } else { 1.0 });
+            }
+        }
+    }
 
-    /// Next task: with `keep_state`, keep the nodes with the same id and type (`configure`), the clock and the smoothers,
-    /// like Sona `setGraph(graph, true)`. Returns true when it reused the previous state; for now every load is fresh.
-    fn reuse_state(&mut self, _plan: &Plan, _keep_state: bool) -> bool {
-        false
+    /// Rebind by id/type, preserving node instances, smoother values and input targets.
+    fn reuse_state(&mut self, plan: &Plan, keep_state: bool) -> bool {
+        let Some(old) = self.plan.as_ref().filter(|_| keep_state) else {
+            return false;
+        };
+        self.perf_rebase = old
+            .performance
+            .as_ref()
+            .is_some_and(|p| p.mode == PerfMode::Live)
+            != plan
+                .performance
+                .as_ref()
+                .is_some_and(|p| p.mode == PerfMode::Live);
+        let sr = self.sample_rate;
+        let mut nodes: Vec<_> = core::mem::take(&mut self.nodes)
+            .into_iter()
+            .map(Some)
+            .collect();
+        let mut params = core::mem::take(&mut self.param_smoothers);
+        let mut wires = core::mem::take(&mut self.wire_smoothers);
+        let mut mods = core::mem::take(&mut self.mod_smoothers);
+        for pn in &plan.nodes {
+            let previous = old
+                .nodes
+                .iter()
+                .position(|n| n.id == pn.id && n.def.type_name == pn.def.type_name);
+            let init = NodeInit {
+                id: &pn.id,
+                seed: node_seed(&pn.id, self.voice_seed),
+                sample_rate: sr,
+                params: &pn.params,
+                texts: &pn.texts,
+                curve: pn.curve.as_ref(),
+                inputs: &plan.inputs,
+                duration: plan.duration,
+            };
+            let node = if let Some(i) = previous {
+                let mut node = nodes[i].take().expect("validated unique node ids");
+                node.configure(&init);
+                node
+            } else {
+                (pn.def.create)(&init)
+            };
+            self.nodes.push(node);
+            let mut smoothers = previous.map_or_else(
+                || param_smoothers(pn.def, &pn.params, sr),
+                |i| core::mem::take(&mut params[i]),
+            );
+            for (s, &base) in smoothers.iter_mut().zip(&pn.params) {
+                s.set_target(base);
+            }
+            self.param_smoothers.push(smoothers);
+            // Sona matches audio edges globally by connection id. HAA also smooths mods.
+            self.wire_smoothers.push(
+                pn.audio_in
+                    .iter()
+                    .map(|wire| {
+                        let value = old
+                            .nodes
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, n)| {
+                                n.audio_in
+                                    .iter()
+                                    .position(|w| w.conn_id == wire.conn_id)
+                                    .map(|j| wires[i][j].value())
+                            })
+                            .unwrap_or(wire.amount);
+                        let mut s = Smoother::new(EDGE_SMOOTH_S, sr, value);
+                        s.set_target(wire.amount);
+                        s
+                    })
+                    .collect(),
+            );
+            self.mod_smoothers.push(
+                pn.mods
+                    .iter()
+                    .map(|m| {
+                        let value = old
+                            .nodes
+                            .iter()
+                            .enumerate()
+                            .find_map(|(i, n)| {
+                                n.mods
+                                    .iter()
+                                    .position(|w| w.conn_id == m.conn_id)
+                                    .map(|j| mods[i][j].value())
+                            })
+                            .unwrap_or(m.amount);
+                        let mut s = Smoother::new(EDGE_SMOOTH_S, sr, value);
+                        s.set_target(m.amount);
+                        s
+                    })
+                    .collect(),
+            );
+        }
+        wires.clear();
+        mods.clear();
+        let mut inputs: Vec<_> = core::mem::take(&mut self.input_smoothers)
+            .into_iter()
+            .map(Some)
+            .collect();
+        let old_values = core::mem::take(&mut self.input_values);
+        let old_pending = core::mem::take(&mut self.pending_triggers);
+        for i in 0..plan.inputs.len() + RESERVED_INPUTS.len() {
+            let def = plan.inputs.get(i);
+            let previous = if let Some(input) = def {
+                old.inputs
+                    .iter()
+                    .position(|p| p.name == input.name && p.kind == input.kind)
+            } else {
+                Some(old.inputs.len() + i - plan.inputs.len())
+            };
+            let default =
+                def.map_or_else(|| RESERVED_INPUTS[i - plan.inputs.len()].1, |d| d.default);
+            let time = def.map_or(DEFAULT_INPUT_SMOOTH_S, |d| {
+                if d.kind == InputKind::Continuous {
+                    d.smooth
+                } else {
+                    0.0
+                }
+            });
+            let mut smoother = previous
+                .and_then(|j| inputs[j].take())
+                .unwrap_or_else(|| Smoother::new(time, sr, default));
+            smoother.set_time(time, sr);
+            self.input_smoothers.push(smoother);
+            self.input_values
+                .push(previous.map_or(default, |j| old_values[j]));
+            self.pending_triggers
+                .push(previous.is_some_and(|j| old_pending[j]));
+        }
+        self.triggers = vec![false; self.input_values.len()];
+        // Sona wraps the timeline when duration changes; HAA's live clock stays continuous.
+        if plan.mode == GraphMode::Timeline {
+            self.frame %= self.duration_frames;
+        }
+        true
     }
 
     /// Drops the plan: the voice keeps `issues` and plays silence.
@@ -413,6 +667,8 @@ impl Voice {
         self.output_indices.clear();
         self.trace.clear();
         self.input_values.clear();
+        self.input_smoothers.clear();
+        self.pending_triggers.clear();
         self.triggers.clear();
         self.ended = false;
         self.issues = issues.clone();
@@ -482,6 +738,25 @@ impl Voice {
                 .chain(RESERVED_INPUTS.iter().map(|(_, default)| *default))
                 .collect();
             self.triggers = vec![false; self.input_values.len()];
+            self.pending_triggers = vec![false; self.input_values.len()];
+            self.input_smoothers = self
+                .input_values
+                .iter()
+                .enumerate()
+                .map(|(index, &value)| {
+                    let time = plan
+                        .inputs
+                        .get(index)
+                        .map_or(DEFAULT_INPUT_SMOOTH_S, |input| {
+                            if input.kind == InputKind::Continuous {
+                                input.smooth
+                            } else {
+                                0.0
+                            }
+                        });
+                    Smoother::new(time, sr, value)
+                })
+                .collect();
         }
         self.ended = false;
         let count = plan.nodes.len();
@@ -556,6 +831,133 @@ mod tests {
     use super::*;
 
     const RATE: f64 = 48_000.0;
+
+    fn input_patch() -> String {
+        let mut json: serde_json::Value = serde_json::from_str(&patch(1.0, false, true)).unwrap();
+        json["inputs"] = serde_json::json!([
+            {"name":"speed", "kind":"continuous", "min":0, "max":100, "default":0, "smooth":0.05},
+            {"name":"gear", "kind":"enum", "values":["low", "high"]},
+            {"name":"hit", "kind":"trigger"}
+        ]);
+        json.to_string()
+    }
+
+    #[test]
+    fn continuous_inputs_glide_and_enum_inputs_jump() {
+        let mut voice = Voice::new(RATE, 0);
+        assert!(voice.load(&input_patch(), false).playable);
+        assert_eq!(voice.input_index("speed"), Some(0));
+        assert_eq!(voice.input_index("_dist"), Some(3));
+        assert_eq!(voice.input_index("_pan"), Some(4));
+        assert_eq!(voice.input_index("_doppler"), Some(5));
+        assert_eq!(voice.input_index("unknown"), None);
+        voice.set_input(0, 200.0);
+        voice.set_input(1, 20.0);
+        voice.set_input(5, 2.0);
+        voice.process(&mut [0.0; 48], &mut [0.0; 48]);
+        assert!(voice.input_values[0] > 0.0 && voice.input_values[0] < 100.0);
+        assert!((voice.input_values[0] - 100.0 * (1.0 - (-0.001_f64 / 0.05).exp())).abs() < 1e-9);
+        assert_eq!(voice.input_values[1], 1.0);
+        assert!(voice.input_values[5] > 1.0 && voice.input_values[5] < 2.0);
+        let info: serde_json::Value = serde_json::from_str(&voice.info_json()).unwrap();
+        assert_eq!(info["inputs"].as_array().unwrap().len(), 3);
+        assert_eq!(info["inputs"][0]["smooth"], 0.05);
+        assert_eq!(info["mode"], "timeline");
+        assert_eq!(info["nodes"], serde_json::json!(["osc", "amp", "out"]));
+        assert_eq!(info["duration"], 1.0);
+        assert_eq!(info["loop"], false);
+    }
+
+    #[test]
+    fn trigger_is_true_for_exactly_one_sample() {
+        let mut voice = Voice::new(RATE, 0);
+        assert!(voice.load(&input_patch(), false).playable);
+        voice.trigger(2);
+        assert!(!voice.triggers[2]);
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert!(voice.triggers[2]);
+        assert_eq!(voice.input_values[2], 1.0);
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert!(!voice.triggers[2]);
+        assert_eq!(voice.input_values[2], 0.0);
+    }
+
+    #[test]
+    fn live_patch_keeps_playing_for_twelve_seconds() {
+        let mut json: serde_json::Value = serde_json::from_str(&patch(1.0, false, true)).unwrap();
+        json["graph"]["mode"] = serde_json::json!("live");
+        let mut voice = Voice::new(RATE, 0);
+        assert!(voice.load(&json.to_string(), false).playable);
+        // This task explicitly requires twelve seconds to exercise the live clock.
+        for _ in 0..(12 * RATE as usize / BLOCK) {
+            assert!(voice.process(&mut [0.0; BLOCK], &mut [0.0; BLOCK]));
+            assert!(!voice.ended());
+        }
+        assert_eq!(voice.seconds(), 12.0);
+    }
+
+    #[test]
+    fn keep_state_preserves_instance_phase_clock_and_input_glide() {
+        let mut json: serde_json::Value = serde_json::from_str(&input_patch()).unwrap();
+        json["graph"]["nodes"][0]["params"]["wave"] = serde_json::json!("sine");
+        let mut voice = Voice::new(RATE, 0);
+        assert!(voice.load(&json.to_string(), false).playable);
+        voice.set_input(0, 100.0);
+        voice.process(&mut [0.0; 48], &mut [0.0; 48]);
+        let instance = &*voice.nodes[0] as *const dyn Node as *const ();
+        let input = voice.input_values[0];
+        json["graph"]["nodes"][0]["params"]["frequency"] = serde_json::json!(440);
+        assert!(voice.load(&json.to_string(), true).playable);
+        assert_eq!(&*voice.nodes[0] as *const dyn Node as *const (), instance);
+        assert_eq!(voice.seconds(), 0.001);
+        assert_eq!(voice.input_values[0], input);
+        assert_eq!(voice.param_smoothers[0][0].value(), 220.0);
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert!(voice.input_values[0] > input);
+        // The sine is still near its quarter-cycle peak, not its initial phase.
+        assert!(voice.signal_l[0] > 0.6);
+        assert!(voice.param_smoothers[0][0].value() > 220.0);
+        assert!(voice.param_smoothers[0][0].value() < 440.0);
+    }
+
+    #[test]
+    fn performance_switches_curve_edge_and_manual_base_and_rebases_once() {
+        let mut json: serde_json::Value = serde_json::from_str(&patch(1.0, true, true)).unwrap();
+        json["graph"]["nodes"].as_array_mut().unwrap().extend([
+            serde_json::json!({"id":"gesture","type":"curve","curve":[[0,0.75],[1,0.75]]}),
+            serde_json::json!({"id":"pedal-control","type":"curve","params":{"amount":0},"curve":[[0,1],[1,1]]}),
+        ]);
+        json["graph"]["connections"].as_array_mut().unwrap().push(
+            serde_json::json!({"id":"pedal-edge","from":"gesture","to":"pedal-control","target":"amount","amount":1}));
+        json["graph"]["performance"] = serde_json::json!({
+            "node":"pedal-control","parameter":"amount","curveNode":"gesture",
+            "edge":"pedal-edge","mode":"curve","manualValue":0.25
+        });
+        let mut voice = Voice::new(RATE, 0);
+        let outcome = voice.load(&json.to_string(), false);
+        assert!(outcome.playable, "{:?}", outcome.issues);
+        let target = voice
+            .node_ids
+            .iter()
+            .position(|id| id == "pedal-control")
+            .unwrap();
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert_eq!(voice.effective[target][0], 0.75);
+        json["graph"]["performance"]["mode"] = serde_json::json!("live");
+        assert!(voice.load(&json.to_string(), true).playable);
+        assert!(voice.perf_rebase);
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert!(!voice.perf_rebase);
+        assert_eq!(voice.effective[target][0], 0.25);
+        let pedal = voice.input_index("pedal").unwrap();
+        voice.set_input(pedal, 1.0);
+        voice.process(&mut [0.0; 48], &mut [0.0; 48]);
+        assert!(voice.effective[target][0] > 0.25 && voice.effective[target][0] < 1.0);
+        json["graph"]["performance"]["mode"] = serde_json::json!("curve");
+        assert!(voice.load(&json.to_string(), true).playable);
+        voice.process(&mut [0.0], &mut [0.0]);
+        assert_eq!(voice.effective[target][0], 0.75);
+    }
 
     fn patch(duration: f64, looping: bool, with_output: bool) -> String {
         let output = if with_output {
