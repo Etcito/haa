@@ -1,7 +1,9 @@
 //! Patch format (ARCHITECTURE §7–§8): the serde types of a HAA patch, its published inputs and its graph.
 //! Every type keeps unknown keys in `extra`, so a saved patch keeps the keys this engine does not read.
 
-use crate::consts::DEFAULT_INPUT_SMOOTH_S;
+use crate::consts::{DEFAULT_INPUT_SMOOTH_S, PATCH_FORMAT};
+use crate::issues::{Issue, Severity};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -161,6 +163,301 @@ fn default_smooth() -> f64 {
     DEFAULT_INPUT_SMOOTH_S
 }
 
+fn issue(severity: Severity, code: &str, path: &str, message: &str) -> Issue {
+    Issue {
+        severity,
+        code: code.into(),
+        path: path.into(),
+        node: None,
+        message: message.into(),
+    }
+}
+
+// Consume known fields individually; everything left is the object's flattened extra map.
+struct Fields<'a> {
+    extra: Map<String, Value>,
+    path: String,
+    issues: &'a mut Vec<Issue>,
+}
+
+impl<'a> Fields<'a> {
+    fn new(value: Value, path: String, issues: &'a mut Vec<Issue>) -> Self {
+        let extra = match value {
+            Value::Object(object) => object,
+            _ => {
+                issues.push(issue(
+                    Severity::Error,
+                    "bad-field",
+                    &path,
+                    "Expected an object",
+                ));
+                Map::new()
+            }
+        };
+        Self {
+            extra,
+            path,
+            issues,
+        }
+    }
+
+    fn path(&self, key: &str) -> String {
+        if self.path.is_empty() {
+            key.into()
+        } else {
+            format!("{}.{key}", self.path)
+        }
+    }
+
+    fn get<T: DeserializeOwned>(&mut self, key: &str, default: T) -> T {
+        match self.extra.remove(key) {
+            None => default,
+            Some(value) => match serde_json::from_value(value) {
+                Ok(value) => value,
+                Err(_) => {
+                    self.issues.push(issue(
+                        Severity::Error,
+                        "bad-field",
+                        &self.path(key),
+                        "Invalid field; using default",
+                    ));
+                    default
+                }
+            },
+        }
+    }
+
+    fn list<T>(&mut self, key: &str, parse: fn(Value, String, &mut Vec<Issue>) -> T) -> Vec<T> {
+        let values: Vec<Value> = self.get(key, Vec::new());
+        values
+            .into_iter()
+            .enumerate()
+            .map(|(i, value)| parse(value, format!("{}[{i}]", self.path(key)), self.issues))
+            .collect()
+    }
+}
+
+fn read_input(value: Value, path: String, issues: &mut Vec<Issue>) -> InputDef {
+    let mut f = Fields::new(value, path, issues);
+    InputDef {
+        name: f.get("name", String::new()),
+        kind: f.get("kind", InputKind::Continuous),
+        unit: f.get("unit", String::new()),
+        min: f.get("min", 0.0),
+        max: f.get("max", 1.0),
+        default: f.get("default", 0.0),
+        smooth: f.get("smooth", default_smooth()),
+        curve: f.get("curve", InputCurve::Lin),
+        values: f.list("values", |value, path, issues| {
+            serde_json::from_value(value).unwrap_or_else(|_| {
+                issues.push(issue(
+                    Severity::Error,
+                    "bad-field",
+                    &path,
+                    "Expected a string",
+                ));
+                String::new()
+            })
+        }),
+        extra: f.extra,
+    }
+}
+
+fn read_node(value: Value, path: String, issues: &mut Vec<Issue>) -> NodeSpec {
+    let mut f = Fields::new(value, path, issues);
+    NodeSpec {
+        id: f.get("id", String::new()),
+        kind: f.get("type", String::new()),
+        x: f.get("x", 0.0),
+        y: f.get("y", 0.0),
+        label: f.get("label", String::new()),
+        params: f.get("params", Map::new()),
+        curve: f.get("curve", None),
+        compact: f.get("compact", None),
+        muted: f.get("muted", None),
+        bypass: f.get("bypass", None),
+        extra: f.extra,
+    }
+}
+
+fn read_connection(value: Value, path: String, issues: &mut Vec<Issue>) -> Connection {
+    let mut f = Fields::new(value, path, issues);
+    Connection {
+        id: f.get("id", String::new()),
+        from: f.get("from", String::new()),
+        to: f.get("to", String::new()),
+        target: f.get("target", String::new()),
+        amount: f.get("amount", 1.0),
+        extra: f.extra,
+    }
+}
+
+fn read_performance(value: Value, path: String, issues: &mut Vec<Issue>) -> Performance {
+    let mut f = Fields::new(value, path, issues);
+    Performance {
+        node: f.get("node", String::new()),
+        parameter: f.get("parameter", String::new()),
+        curve_node: f.get("curveNode", None),
+        edge: f.get("edge", None),
+        mode: f.get("mode", PerfMode::Curve),
+        manual_value: f.get("manualValue", 0.0),
+        extra: f.extra,
+    }
+}
+
+fn read_graph(value: Value, path: String, issues: &mut Vec<Issue>) -> Graph {
+    let mut f = Fields::new(value, path, issues);
+    Graph {
+        duration: f.get("duration", 0.0),
+        r#loop: f.get("loop", false),
+        mode: f.get("mode", GraphMode::Timeline),
+        nodes: f.list("nodes", read_node),
+        connections: f.list("connections", read_connection),
+        performance: {
+            let value: Option<Map<String, Value>> = f.get("performance", None);
+            value.map(|object| {
+                read_performance(Value::Object(object), f.path("performance"), f.issues)
+            })
+        },
+        extra: f.extra,
+    }
+}
+
+fn slug(value: &str) -> String {
+    let mut result = String::new();
+    for part in value
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|s| !s.is_empty())
+    {
+        if !result.is_empty() {
+            result.push('-');
+        }
+        result.push_str(&part.to_ascii_lowercase());
+    }
+    if result.is_empty() {
+        "patch".into()
+    } else {
+        result
+    }
+}
+
+/// Load HAA patches, Sona v2 projects and bare graphs, retaining unknown fields.
+/// Only invalid JSON and non-object roots fail; field errors accompany a defaulted patch.
+pub fn load_patch(json: &str) -> Result<(Patch, Vec<Issue>), Issue> {
+    let value: Value = serde_json::from_str(json)
+        .map_err(|e| issue(Severity::Error, "not-json", "", &e.to_string()))?;
+    let Value::Object(mut object) = value else {
+        return Err(issue(
+            Severity::Error,
+            "not-object",
+            "",
+            "Expected a patch object",
+        ));
+    };
+    let mut issues = Vec::new();
+    if !object.contains_key("haa") {
+        if object.contains_key("nodes") && object.contains_key("duration") {
+            object = Map::from_iter([
+                ("graph".into(), Value::Object(object)),
+                ("id".into(), Value::from("patch")),
+                ("title".into(), Value::from("Untitled")),
+            ]);
+            issues.push(issue(
+                Severity::Info,
+                "wrapped-sona-graph",
+                "",
+                "Wrapped a Sona graph",
+            ));
+        } else {
+            let id = slug(
+                object
+                    .get("presetId")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .or_else(|| object.get("title").and_then(Value::as_str))
+                    .unwrap_or("patch"),
+            );
+            object.insert("id".into(), Value::from(id));
+            object
+                .entry("title")
+                .or_insert_with(|| Value::from("Untitled"));
+            let mut sona = match object.remove("sona") {
+                Some(Value::Object(sona)) => sona,
+                Some(value) => {
+                    object.insert("sona".into(), value);
+                    Map::new()
+                }
+                None => Map::new(),
+            };
+            for key in ["version", "recipeRevision", "presetId", "titleCustom"] {
+                if let Some(value) = object.remove(key) {
+                    sona.insert(key.into(), value);
+                }
+            }
+            if !sona.is_empty() {
+                object.insert("sona".into(), Value::Object(sona));
+            }
+            issues.push(issue(
+                Severity::Info,
+                "wrapped-sona-project",
+                "",
+                "Wrapped a Sona project",
+            ));
+        }
+    }
+    if object
+        .get("haa")
+        .and_then(Value::as_f64)
+        .is_some_and(|v| v > f64::from(PATCH_FORMAT))
+    {
+        issues.push(issue(
+            Severity::Error,
+            "format-too-new",
+            "haa",
+            "Patch format is newer than supported",
+        ));
+    }
+    let mut f = Fields::new(Value::Object(object), String::new(), &mut issues);
+    let mut patch = Patch {
+        haa: f.get("haa", PATCH_FORMAT),
+        id: f.get("id", "patch".into()),
+        title: f.get("title", "Untitled".into()),
+        inputs: f.list("inputs", read_input),
+        graph: read_graph(
+            f.extra.remove("graph").unwrap_or(Value::Object(Map::new())),
+            "graph".into(),
+            f.issues,
+        ),
+        master: f.get("master", unity()),
+        extra: f.extra,
+    };
+    if let Some(performance) = &patch.graph.performance {
+        if !patch.inputs.iter().any(|input| input.name == "pedal") {
+            patch.inputs.push(InputDef {
+                name: "pedal".into(),
+                kind: InputKind::Continuous,
+                unit: String::new(),
+                // Sona v11 dist/app.js: setPerformanceValue clamps manualValue to 0..1;
+                // the performanceValue input handler divides the UI's 0..100 by 100.
+                min: 0.0,
+                max: 1.0,
+                default: performance.manual_value,
+                smooth: default_smooth(),
+                curve: InputCurve::Lin,
+                values: Vec::new(),
+                extra: Map::new(),
+            });
+            issues.push(issue(
+                Severity::Info,
+                "performance-converted",
+                "graph.performance",
+                "Published the performance pedal input",
+            ));
+        }
+    }
+    Ok((patch, issues))
+}
+
 /// The patch as a file: 2-space pretty JSON with a trailing newline.
 pub fn to_json(p: &Patch) -> String {
     let mut out = serde_json::to_string_pretty(p).unwrap_or_default();
@@ -274,5 +571,108 @@ mod tests {
             assert!(value.get(key).is_none(), "{key} must not be written");
         }
         assert_eq!(value["type"], json!("output"));
+    }
+
+    #[test]
+    fn loader_wraps_projects_and_bare_graphs() {
+        let (patch, issues) = load_patch(
+            r#"{"version":2,"recipeRevision":8,
+            "presetId":"V12 One Pedal","title":"Engine","titleCustom":true,
+            "master":{"gain":0.8},"future":42,"graph":{"duration":4,"nodes":[]}}"#,
+        )
+        .unwrap();
+        assert_eq!(patch.id, "v12-one-pedal");
+        assert_eq!(patch.title, "Engine");
+        assert_eq!(patch.extra["sona"]["presetId"], "V12 One Pedal");
+        assert_eq!(patch.extra["sona"]["version"], 2);
+        assert_eq!(patch.extra["sona"]["recipeRevision"], 8);
+        assert_eq!(patch.extra["sona"]["titleCustom"], true);
+        assert_eq!(patch.extra["future"], 42);
+        assert_eq!(patch.master, json!({"gain":0.8}));
+        assert_eq!(issues[0].code, "wrapped-sona-project");
+        let (patch, issues) = load_patch(r#"{"nodes":[],"duration":2,"future":true}"#).unwrap();
+        assert_eq!(patch.id, "patch");
+        assert_eq!(patch.title, "Untitled");
+        assert_eq!(patch.graph.extra["future"], true);
+        assert_eq!(issues[0].code, "wrapped-sona-graph");
+    }
+
+    #[test]
+    fn loader_preserves_unknown_fields_and_converts_pedal_once() {
+        let original: Patch = serde_json::from_str(SIREN).unwrap();
+        let (mut expected, _) = load_patch(SIREN).unwrap();
+        let pedal = expected.inputs.pop().unwrap();
+        assert_eq!(expected, original);
+        assert_eq!(pedal.name, "pedal");
+        assert_eq!((pedal.min, pedal.max, pedal.default), (0.0, 1.0, 0.25));
+        assert_eq!(pedal.smooth, DEFAULT_INPUT_SMOOTH_S);
+        let (patch, issues) = load_patch(SIREN).unwrap();
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].code, "performance-converted");
+        assert_eq!(issues[0].severity, Severity::Info);
+        let (again, issues) = load_patch(&to_json(&patch)).unwrap();
+        assert_eq!(again, patch);
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn loader_defaults_bad_fields_with_precise_paths() {
+        let (patch, issues) = load_patch(
+            r#"{"haa":1,"id":false,"inputs":[
+            {"name":"gear","kind":"invalid","values":["first",2]}],
+            "graph":{"duration":"four","loop":2,"mode":"invalid",
+            "nodes":[{},null,{"x":"left","params":[],"muted":"yes"}],
+            "connections":[{"amount":false}],"performance":{"manualValue":"half"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(patch.id, "patch");
+        assert_eq!(patch.graph.duration, 0.0);
+        assert_eq!(patch.graph.nodes[2].x, 0.0);
+        assert_eq!(patch.graph.connections[0].amount, 1.0);
+        for path in [
+            "id",
+            "inputs[0].kind",
+            "inputs[0].values[1]",
+            "graph.duration",
+            "graph.loop",
+            "graph.mode",
+            "graph.nodes[1]",
+            "graph.nodes[2].x",
+            "graph.nodes[2].params",
+            "graph.nodes[2].muted",
+            "graph.connections[0].amount",
+            "graph.performance.manualValue",
+        ] {
+            assert!(
+                issues.iter().any(|i| i.code == "bad-field"
+                    && i.path == path
+                    && i.severity == Severity::Error),
+                "{path}"
+            );
+        }
+        for json in [
+            r#"{"haa":1,"graph":false}"#,
+            r#"{"haa":1,"inputs":false,"graph":{"nodes":false,"performance":false}}"#,
+        ] {
+            let (_, issues) = load_patch(json).unwrap();
+            assert!(issues.iter().all(|i| i.code == "bad-field"));
+            assert!(!issues.is_empty());
+        }
+    }
+
+    #[test]
+    fn loader_rejects_only_invalid_json_and_non_object_roots() {
+        assert_eq!(load_patch("{").unwrap_err().code, "not-json");
+        for json in ["null", "[]", "42", "true", "\"patch\""] {
+            assert_eq!(load_patch(json).unwrap_err().code, "not-object");
+        }
+        for version in ["2", "1.5", "4294967296"] {
+            let (_, issues) = load_patch(&format!(r#"{{"haa":{version},"graph":{{}}}}"#)).unwrap();
+            assert!(
+                issues
+                    .iter()
+                    .any(|i| i.code == "format-too-new" && i.severity == Severity::Error)
+            );
+        }
     }
 }
