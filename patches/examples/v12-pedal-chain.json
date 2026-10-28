@@ -216,7 +216,7 @@
         "from": "pedal-curve",
         "to": "engine-pedal",
         "target": "input",
-        "amount": 1
+        "amount": 0
       },
       {
         "id": "engine-drive",
@@ -336,7 +336,7 @@
       "parameter": "input",
       "curveNode": "pedal-curve",
       "edge": "pedal-automation",
-      "mode": "curve",
+      "mode": "live",
       "manualValue": 0
     }
   },
