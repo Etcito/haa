@@ -1,6 +1,7 @@
 //! Patch format (ARCHITECTURE §7–§8): the serde types of a HAA patch, its published inputs and its graph.
 //! Every type keeps unknown keys in `extra`, so a saved patch keeps the keys this engine does not read.
 
+use crate::catalog::{ParamDef, ParamKind};
 use crate::consts::{DEFAULT_INPUT_SMOOTH_S, PATCH_FORMAT};
 use crate::issues::{Issue, Severity};
 use serde::de::DeserializeOwned;
@@ -465,6 +466,30 @@ pub fn to_json(p: &Patch) -> String {
     out
 }
 
+/// Interpreter value of a param: numbers as-is, enum strings as their index, bools as 0/1,
+/// text as 0 plus the text. A missing or mistyped value takes the def's default.
+pub fn param_value_f64(def: &ParamDef, v: Option<&Value>) -> (f64, Option<String>) {
+    let v = v.filter(|v| !v.is_null());
+    match def.kind {
+        ParamKind::Number { default, .. } => (v.and_then(Value::as_f64).unwrap_or(default), None),
+        ParamKind::Enum { values, default } => {
+            let index = v
+                .and_then(Value::as_str)
+                .and_then(|s| values.iter().position(|value| *value == s))
+                .unwrap_or(default);
+            (index as f64, None)
+        }
+        ParamKind::Bool { default } => {
+            let on = v.and_then(Value::as_bool).unwrap_or(default);
+            (f64::from(u8::from(on)), None)
+        }
+        ParamKind::Text { default } => {
+            let text = v.and_then(Value::as_str).unwrap_or(default);
+            (0.0, Some(text.to_string()))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,6 +683,46 @@ mod tests {
             assert!(issues.iter().all(|i| i.code == "bad-field"));
             assert!(!issues.is_empty());
         }
+    }
+
+    fn param(kind: ParamKind) -> ParamDef {
+        ParamDef {
+            key: "p",
+            kind,
+            unit: "",
+            label_en: "",
+            label_fr: "",
+            modulatable: false,
+            smooth: false,
+        }
+    }
+
+    #[test]
+    fn param_values_map_each_kind_to_the_interpreter_value() {
+        use crate::catalog::Scale;
+        let number = param(ParamKind::Number {
+            min: 0.0,
+            max: 2.0,
+            default: 1.0,
+            step: 0.1,
+            scale: Scale::Lin,
+        });
+        assert_eq!(param_value_f64(&number, Some(&json!(1.5))), (1.5, None));
+        assert_eq!(param_value_f64(&number, None), (1.0, None));
+        let shape = param(ParamKind::Enum {
+            values: &["lp", "hp"],
+            default: 0,
+        });
+        assert_eq!(param_value_f64(&shape, Some(&json!("hp"))), (1.0, None));
+        assert_eq!(param_value_f64(&shape, None), (0.0, None));
+        let on = param(ParamKind::Bool { default: false });
+        assert_eq!(param_value_f64(&on, Some(&json!(true))), (1.0, None));
+        let text = param(ParamKind::Text { default: "hi" });
+        assert_eq!(
+            param_value_f64(&text, Some(&json!("yo"))),
+            (0.0, Some("yo".into()))
+        );
+        assert_eq!(param_value_f64(&text, None), (0.0, Some("hi".into())));
     }
 
     #[test]

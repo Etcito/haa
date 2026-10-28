@@ -7,10 +7,12 @@ pub mod issues;
 pub mod node;
 pub mod patch;
 pub mod rng;
+pub mod validate;
 
 pub use catalog::catalog_json;
 pub use issues::Issue;
-pub use patch::Patch;
+pub use patch::{Patch, load_patch};
+pub use validate::validate;
 
 pub mod nodes {
     include!(concat!(env!("OUT_DIR"), "/nodes_gen.rs"));
