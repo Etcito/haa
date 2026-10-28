@@ -1,0 +1,88 @@
+{
+  "haa": 1,
+  "id": "pulse-train",
+  "title": "Pulse train",
+  "inputs": [],
+  "graph": {
+    "duration": 4,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "rate",
+        "type": "curve",
+        "x": 60,
+        "y": 260,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.5, 1],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "pulse",
+        "type": "pulse",
+        "x": 60,
+        "y": 80,
+        "label": "Impulsions",
+        "params": {
+          "frequency": 4,
+          "width": 0.08,
+          "phase": 0,
+          "jitter": 0.02,
+          "shimmer": 0.05,
+          "level": 0.6,
+          "shape": "rounded"
+        }
+      },
+      {
+        "id": "gain",
+        "type": "gain",
+        "x": 320,
+        "y": 80,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 580,
+        "y": 80,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-rate-pulse",
+        "from": "rate",
+        "to": "pulse",
+        "target": "frequency",
+        "amount": 196
+      },
+      {
+        "id": "edge-pulse-gain",
+        "from": "pulse",
+        "to": "gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-out",
+        "from": "gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}
