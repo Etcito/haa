@@ -7,6 +7,7 @@ pub mod graph;
 pub mod issues;
 pub mod node;
 pub mod patch;
+pub mod render;
 pub mod rng;
 pub mod validate;
 
