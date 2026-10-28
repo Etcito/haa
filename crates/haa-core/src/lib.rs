@@ -3,6 +3,7 @@
 
 pub mod catalog;
 pub mod consts;
+pub mod graph;
 pub mod issues;
 pub mod node;
 pub mod patch;
@@ -10,6 +11,7 @@ pub mod rng;
 pub mod validate;
 
 pub use catalog::catalog_json;
+pub use graph::Voice;
 pub use issues::Issue;
 pub use patch::{Patch, load_patch};
 pub use validate::validate;
