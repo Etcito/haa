@@ -1,0 +1,85 @@
+{
+  "haa": 1,
+  "id": "osc-curve",
+  "title": "Oscillator with curve",
+  "inputs": [],
+  "graph": {
+    "duration": 3,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "osc",
+        "type": "oscillator",
+        "x": 60,
+        "y": 80,
+        "label": "Oscillateur",
+        "params": {
+          "frequency": 220,
+          "wave": "sine",
+          "level": 0.35
+        }
+      },
+      {
+        "id": "curve",
+        "type": "curve",
+        "x": 60,
+        "y": 260,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.25, 1],
+          [0.75, 1],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain",
+        "type": "gain",
+        "x": 320,
+        "y": 80,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0.6
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 560,
+        "y": 80,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-osc-gain",
+        "from": "osc",
+        "to": "gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-out",
+        "from": "gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-gain",
+        "from": "curve",
+        "to": "gain",
+        "target": "gain",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}
