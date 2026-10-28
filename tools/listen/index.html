@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAA listen</title>
+  <link rel="stylesheet" href="/tools/listen/style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>HAA listen</h1>
+    <span id="status" class="value"></span>
+  </header>
+
+  <main class="grid">
+    <section class="panel">
+      <h2>Patch</h2>
+      <label class="field">
+        <span class="field-label">Preset</span>
+        <select id="patch-select"></select>
+      </label>
+      <label class="field">
+        <span class="field-label">File</span>
+        <input id="file-input" type="file" accept=".json">
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Playback</h2>
+      <div class="row">
+        <button id="play" type="button">Play</button>
+        <button id="stop" type="button">Stop</button>
+      </div>
+      <div class="row">
+        <button id="ab-toggle" type="button" title="Toggle A/B (key a)">A/B</button>
+        <span id="ab-label" class="value">A: Sona JS</span>
+      </div>
+      <p class="hint">Press the <kbd>a</kbd> key to toggle A/B.</p>
+      <div class="row">
+        <button id="match" type="button">Match levels</button>
+        <span class="value">B trim <span id="trim">0.0 dB</span></span>
+      </div>
+      <p class="value">Sona: <span id="sona-status">not loaded</span></p>
+    </section>
+
+    <section class="panel">
+      <h2>Issues</h2>
+      <ul id="issues" class="issues"></ul>
+    </section>
+
+    <section class="panel wide">
+      <h2>Inputs</h2>
+      <div id="inputs" class="inputs"></div>
+    </section>
+
+    <section class="panel wide">
+      <h2>Traces</h2>
+      <div id="traces" class="traces"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/out/listen/main.js"></script>
+</body>
+</html>
