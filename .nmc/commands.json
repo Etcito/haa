@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "haa-tests",
+      "title": "haa tests: Rust workspace and Node host tests",
+      "command": "npm test && npm run test:host",
+      "timeout_s": 1800
+    }
+  ]
+}
