@@ -189,7 +189,8 @@ impl Node for ResponseNode {
         if ctx.perf_rebase {
             self.last_time = time_seconds - 1.0 / sr;
         }
-        // sona: SampleCtx has no performance mode; a timeline graph with performance.mode live resets at the loop wrap here
+        // sona: graph.rs passes the continuous control clock while performance.mode is live
+        // (dsp.js:164-212), so this reset only fires on a real backward clock jump.
         if self.last_time >= 0.0
             && (time_seconds < self.last_time || time_seconds - self.last_time > 2.0 / sr)
         {

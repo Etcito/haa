@@ -337,13 +337,24 @@ impl Voice {
                 self.frame as f64 / sr,
             ),
         };
+        let perf_live = plan
+            .performance
+            .as_ref()
+            .is_some_and(|perf| perf.mode == PerfMode::Live);
+        // sona: response and grain receive `controlTime`, which is continuous while
+        // performance.mode is live even when the graph clock is a timeline (dsp.js:164-212).
+        let control_mode = if mode == GraphMode::Live || perf_live {
+            GraphMode::Live
+        } else {
+            GraphMode::Timeline
+        };
         let ctx = SampleCtx {
             sample_rate: sr,
             dt: 1.0 / sr,
             t,
             seconds,
             duration: plan.duration,
-            mode,
+            mode: control_mode,
             live_frames: self.live_frames,
             looped: self.looped,
             perf_rebase: self.perf_rebase,
@@ -429,10 +440,6 @@ impl Voice {
             self.limiter + (target - self.limiter) * self.limiter_release
         };
         let start = self.start_frames as f64 / (sr * START_FADE_S);
-        let perf_live = plan
-            .performance
-            .as_ref()
-            .is_some_and(|perf| perf.mode == PerfMode::Live);
         let fade = if mode == GraphMode::Live || (perf_live && plan.r#loop) {
             clamp(start, 0.0, 1.0)
         } else {
@@ -486,13 +493,15 @@ impl Voice {
             return;
         };
         let live = perf.mode == PerfMode::Live;
+        // sona: performanceCommand adds the curve to the node's own base; Sona's
+        // setPerformanceMode('live') writes the manual value into that base.
         let base = if live {
             perf.pedal
                 .map_or(plan.nodes[perf.node].params[perf.param], |i| {
                     clamp(self.input_values[i], 0.0, 1.0)
                 })
         } else {
-            0.0
+            plan.nodes[perf.node].params[perf.param]
         };
         let smoother = &mut self.param_smoothers[perf.node][perf.param];
         if self.perf_rebase {
@@ -957,6 +966,57 @@ mod tests {
         assert!(voice.load(&json.to_string(), true).playable);
         voice.process(&mut [0.0], &mut [0.0]);
         assert_eq!(voice.effective[target][0], 0.75);
+    }
+
+    #[test]
+    fn performance_live_keeps_the_control_clock_continuous_at_the_loop() {
+        let patch_for = |mode: &str| {
+            serde_json::json!({
+                "haa": 1, "id": "perf-clock", "title": "Perf clock",
+                "graph": {
+                    "duration": 0.01, "loop": true,
+                    "nodes": [
+                        {"id":"hold","type":"curve","x":0,"y":0,"label":"Hold",
+                         "params":{"amount":1},"curve":[[0,1],[1,1]]},
+                        {"id":"resp","type":"response","x":0,"y":0,"label":"Resp",
+                         "params":{"input":0,"mode":"follow","attack":0.001,"release":0.01}},
+                        {"id":"macro","type":"curve","x":0,"y":0,"label":"Macro",
+                         "params":{"amount":0},"curve":[[0,0],[1,0]]},
+                        {"id":"osc","type":"oscillator","x":0,"y":0,"label":"Osc",
+                         "params":{"frequency":220,"wave":"sine","level":1}},
+                        {"id":"amp","type":"gain","x":0,"y":0,"label":"Amp","params":{"gain":0}},
+                        {"id":"out","type":"output","x":0,"y":0,"label":"Out","params":{"gain":1}}
+                    ],
+                    "connections": [
+                        {"id":"c-hold","from":"hold","to":"resp","target":"input","amount":1},
+                        {"id":"c-resp","from":"resp","to":"amp","target":"gain","amount":1},
+                        {"id":"c-audio","from":"osc","to":"amp","target":"audio","amount":1},
+                        {"id":"c-out","from":"amp","to":"out","target":"audio","amount":1}
+                    ],
+                    "performance": {"node":"macro","parameter":"amount","mode":mode,"manualValue":0}
+                }
+            })
+            .to_string()
+        };
+        let trace_after_loop = |mode: &str| {
+            let mut voice = Voice::new(RATE, 0);
+            assert!(voice.load(&patch_for(mode), false).playable);
+            let index = voice.node_ids().iter().position(|id| id == "resp").unwrap();
+            for _ in 0..481 {
+                voice.process(&mut [0.0], &mut [0.0]);
+            }
+            f64::from(voice.trace()[index])
+        };
+        // sona: dsp.js gives response the continuous totalFrames/sr clock while the
+        // performance mode is live, so the loop wrap must not reset its envelope.
+        assert!(
+            trace_after_loop("live") > 0.9,
+            "the live control clock reset at the loop"
+        );
+        assert!(
+            trace_after_loop("curve") < 0.5,
+            "the timeline control clock should reset at the loop"
+        );
     }
 
     fn patch(duration: f64, looping: bool, with_output: bool) -> String {

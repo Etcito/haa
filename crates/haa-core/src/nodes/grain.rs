@@ -7,7 +7,8 @@
 //! - The `wave` enum arrives as a rounded index (1 = noise, 2 = filtered-noise), not a string.
 //! - The 64 voices are fixed arrays in a boxed struct, so nothing allocates in `process_sample`.
 //! - `resonance ?? .7` is not ported: every param is present in the slice.
-//! - Live time is `live_frames`, because SampleCtx carries the graph mode, not performance.mode.
+//! - Live time is `live_frames`; graph.rs passes the live control clock whenever the graph is
+//!   live or performance.mode is live (dsp.js:164-212).
 
 use std::f64::consts::{PI, TAU};
 
