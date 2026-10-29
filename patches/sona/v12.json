@@ -1,0 +1,1547 @@
+{
+  "haa": 1,
+  "id": "v12",
+  "title": "Italian V12",
+  "inputs": [
+    {
+      "name": "pedal",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "smooth": 0.05,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 11,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "pedal-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 50,
+        "label": "Pedal gesture",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0
+          ],
+          [
+            0.16,
+            0.82
+          ],
+          [
+            0.27,
+            0.9
+          ],
+          [
+            0.31,
+            0.08
+          ],
+          [
+            0.36,
+            0.94
+          ],
+          [
+            0.48,
+            1
+          ],
+          [
+            0.53,
+            0.1
+          ],
+          [
+            0.58,
+            0.96
+          ],
+          [
+            0.7,
+            1
+          ],
+          [
+            0.76,
+            0.12
+          ],
+          [
+            0.82,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "engine-pedal",
+        "type": "response",
+        "x": 40,
+        "y": 370,
+        "label": "Pedal",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.018,
+          "release": 0.03,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "engine-motion",
+        "type": "motion",
+        "x": 40,
+        "y": 690,
+        "label": "Inferred rotational movement",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "acceleration": 0.36,
+          "resistance": 0.07,
+          "return": 1.7,
+          "ceiling": 0.98,
+          "reset": 0.64,
+          "stages": 0,
+          "progression": 0.76,
+          "hold": 0.14,
+          "inertia": 0.065,
+          "rest": 0.025
+        }
+      },
+      {
+        "id": "engine-acceleration",
+        "type": "response",
+        "x": 40,
+        "y": 1010,
+        "label": "Acceleration effort",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "rise",
+          "attack": 0.035,
+          "release": 0.1,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 1
+        }
+      },
+      {
+        "id": "engine-load",
+        "type": "response",
+        "x": 340,
+        "y": 1010,
+        "label": "Pressure from inferred effort",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.05,
+          "release": 0.08,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "engine-effort",
+        "type": "math",
+        "x": 340,
+        "y": 1330,
+        "label": "Pedal × moving resistance",
+        "compact": true,
+        "params": {
+          "a": 0,
+          "b": 0.52,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-release-response",
+        "type": "response",
+        "x": 40,
+        "y": 1330,
+        "label": "Release from pedal motion",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "fall",
+          "attack": 0.001,
+          "release": 0.18,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1.1,
+          "sensitivity": 0.12
+        }
+      },
+      {
+        "id": "engine-bank-rate",
+        "type": "math",
+        "x": 340,
+        "y": 50,
+        "label": "RPM / 120 · cylinder cycle",
+        "compact": true,
+        "params": {
+          "a": 850,
+          "b": 0.008333333333333333,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-shaft-rate",
+        "type": "math",
+        "x": 340,
+        "y": 370,
+        "label": "Cycle × 2 · crankshaft",
+        "compact": true,
+        "params": {
+          "a": 0,
+          "b": 2,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-release-width",
+        "type": "math",
+        "x": 340,
+        "y": 690,
+        "label": "Pressure duration · softer idle, sharper load",
+        "compact": true,
+        "params": {
+          "a": 0,
+          "b": 0.0021,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-header-a",
+        "type": "comb",
+        "x": 1880,
+        "y": 50,
+        "label": "Bank A · short reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00102,
+          "feedback": -0.28,
+          "damping": 0.35,
+          "mix": 0.78
+        }
+      },
+      {
+        "id": "engine-header-b",
+        "type": "comb",
+        "x": 1880,
+        "y": 690,
+        "label": "Bank B · short reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00108,
+          "feedback": -0.3,
+          "damping": 0.38,
+          "mix": 0.78
+        }
+      },
+      {
+        "id": "engine-pipe-a",
+        "type": "comb",
+        "x": 2180,
+        "y": 50,
+        "label": "Bank A · open-end reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00275,
+          "feedback": -0.47,
+          "damping": 0.51,
+          "mix": 0.84
+        }
+      },
+      {
+        "id": "engine-pipe-b",
+        "type": "comb",
+        "x": 2180,
+        "y": 690,
+        "label": "Bank B · open-end reflection",
+        "compact": true,
+        "params": {
+          "time": 0.0029,
+          "feedback": -0.5,
+          "damping": 0.55,
+          "mix": 0.84
+        }
+      },
+      {
+        "id": "engine-shaft-pulse",
+        "type": "pulse",
+        "x": 680,
+        "y": 1010,
+        "label": "Mechanical order · crankshaft",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.065,
+          "phase": 0.23,
+          "jitter": 0.012,
+          "shimmer": 0.22,
+          "level": 0.29,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-mechanics",
+        "type": "filter",
+        "x": 980,
+        "y": 1010,
+        "label": "Engine block weight",
+        "compact": true,
+        "params": {
+          "cutoff": 260,
+          "resonance": 0.7,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "engine-clatter",
+        "type": "grain",
+        "x": 1280,
+        "y": 1010,
+        "label": "Mechanical ticks · short grains",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 2400,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0011,
+          "spread": 0,
+          "jitter": 0.32,
+          "variation": 0.72,
+          "glide": 0,
+          "delay": 0,
+          "width": 0.18,
+          "level": 0.18
+        }
+      },
+      {
+        "id": "engine-clatter-filter",
+        "type": "filter",
+        "x": 1580,
+        "y": 1010,
+        "label": "Metal contact band",
+        "compact": true,
+        "params": {
+          "cutoff": 2200,
+          "resonance": 0.8,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "engine-air",
+        "type": "noise",
+        "x": 1880,
+        "y": 1010,
+        "label": "Turbulent gas flow",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0.004,
+          "width": 0
+        }
+      },
+      {
+        "id": "engine-air-filter",
+        "type": "filter",
+        "x": 2180,
+        "y": 1010,
+        "label": "Intake and exhaust air",
+        "compact": true,
+        "params": {
+          "cutoff": 1200,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "engine-overrun",
+        "type": "grain",
+        "x": 680,
+        "y": 1330,
+        "label": "Lift-off micro-impacts",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 500,
+          "resonance": 0.7,
+          "rate": 8,
+          "attack": 0.0001,
+          "decay": 0.005,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.85,
+          "glide": 0,
+          "delay": 0,
+          "width": 0.3,
+          "level": 0
+        }
+      },
+      {
+        "id": "engine-overrun-filter",
+        "type": "filter",
+        "x": 980,
+        "y": 1330,
+        "label": "Damped release crackles",
+        "compact": true,
+        "params": {
+          "cutoff": 1100,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "engine-intake",
+        "type": "filter",
+        "x": 2180,
+        "y": 1330,
+        "label": "Induction pressure · throttle opening",
+        "compact": true,
+        "params": {
+          "cutoff": 1500,
+          "resonance": 0.65,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "engine-eq",
+        "type": "equalizer",
+        "x": 2480,
+        "y": 50,
+        "label": "Body and mechanical detail",
+        "compact": true,
+        "params": {
+          "low": 1.5,
+          "mid": 0,
+          "high": 1.5,
+          "frequency": 780
+        }
+      },
+      {
+        "id": "engine-rolloff",
+        "type": "filter",
+        "x": 2480,
+        "y": 370,
+        "label": "High-frequency absorption",
+        "compact": true,
+        "params": {
+          "cutoff": 7600,
+          "resonance": 0.6,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "engine-compressor",
+        "type": "compressor",
+        "x": 2480,
+        "y": 690,
+        "label": "Pressure and transient balance",
+        "compact": true,
+        "params": {
+          "threshold": -18,
+          "ratio": 1.8,
+          "attack": 0.012,
+          "release": 0.065,
+          "makeup": 4.5
+        }
+      },
+      {
+        "id": "engine-space",
+        "type": "space",
+        "x": 2780,
+        "y": 690,
+        "label": "Close reflections",
+        "compact": true,
+        "params": {
+          "size": 0.14,
+          "damping": 0.68,
+          "mix": 0.06,
+          "width": 0.58,
+          "distance": 0.04
+        }
+      },
+      {
+        "id": "engine-output",
+        "type": "output",
+        "x": 2780,
+        "y": 1010,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.82
+        }
+      },
+      {
+        "id": "engine-cylinder-1",
+        "type": "pulse",
+        "x": 680,
+        "y": 50,
+        "label": "Bank A · pressure 1",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.07,
+          "jitter": 0.0035,
+          "shimmer": 0.09,
+          "level": 0.1261,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-2",
+        "type": "pulse",
+        "x": 1280,
+        "y": 50,
+        "label": "Bank B · pressure 1",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.15333333333333332,
+          "jitter": 0.0035,
+          "shimmer": 0.09,
+          "level": 0.1365,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-3",
+        "type": "pulse",
+        "x": 680,
+        "y": 370,
+        "label": "Bank A · pressure 2",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.23666666666666666,
+          "jitter": 0.0043,
+          "shimmer": 0.11499999999999999,
+          "level": 0.1183,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-4",
+        "type": "pulse",
+        "x": 1280,
+        "y": 370,
+        "label": "Bank B · pressure 2",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.32,
+          "jitter": 0.0043,
+          "shimmer": 0.11499999999999999,
+          "level": 0.1326,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-5",
+        "type": "pulse",
+        "x": 680,
+        "y": 690,
+        "label": "Bank A · pressure 3",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.4033333333333333,
+          "jitter": 0.0051,
+          "shimmer": 0.09,
+          "level": 0.1235,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-6",
+        "type": "pulse",
+        "x": 1280,
+        "y": 690,
+        "label": "Bank B · pressure 3",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.4866666666666667,
+          "jitter": 0.0051,
+          "shimmer": 0.09,
+          "level": 0.14300000000000002,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-7",
+        "type": "pulse",
+        "x": 980,
+        "y": 50,
+        "label": "Bank A · pressure 4",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.5700000000000001,
+          "jitter": 0.0035,
+          "shimmer": 0.11499999999999999,
+          "level": 0.1222,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-8",
+        "type": "pulse",
+        "x": 1580,
+        "y": 50,
+        "label": "Bank B · pressure 4",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.6533333333333333,
+          "jitter": 0.0035,
+          "shimmer": 0.11499999999999999,
+          "level": 0.13390000000000002,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-9",
+        "type": "pulse",
+        "x": 980,
+        "y": 370,
+        "label": "Bank A · pressure 5",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.7366666666666666,
+          "jitter": 0.0043,
+          "shimmer": 0.09,
+          "level": 0.1144,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-10",
+        "type": "pulse",
+        "x": 1580,
+        "y": 370,
+        "label": "Bank B · pressure 5",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.8200000000000001,
+          "jitter": 0.0043,
+          "shimmer": 0.09,
+          "level": 0.1287,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-11",
+        "type": "pulse",
+        "x": 980,
+        "y": 690,
+        "label": "Bank A · pressure 6",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.9033333333333333,
+          "jitter": 0.0051,
+          "shimmer": 0.11499999999999999,
+          "level": 0.14040000000000002,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "engine-cylinder-12",
+        "type": "pulse",
+        "x": 1580,
+        "y": 690,
+        "label": "Bank B · pressure 6",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.9866666666666666,
+          "jitter": 0.0051,
+          "shimmer": 0.11499999999999999,
+          "level": 0.1248,
+          "shape": "exponential"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "pedal-automation",
+        "from": "pedal-curve",
+        "to": "engine-pedal",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-drive",
+        "from": "engine-pedal",
+        "to": "engine-motion",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-sense-acceleration",
+        "from": "engine-motion",
+        "to": "engine-acceleration",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-demand",
+        "from": "engine-pedal",
+        "to": "engine-effort",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-moving-resistance",
+        "from": "engine-motion",
+        "to": "engine-effort",
+        "target": "b",
+        "amount": 0.44
+      },
+      {
+        "id": "engine-pressure-demand",
+        "from": "engine-effort",
+        "to": "engine-load",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-pressure-inertia",
+        "from": "engine-acceleration",
+        "to": "engine-load",
+        "target": "input",
+        "amount": 0.55
+      },
+      {
+        "id": "engine-release-detect",
+        "from": "engine-pedal",
+        "to": "engine-release-response",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-rpm",
+        "from": "engine-motion",
+        "to": "engine-bank-rate",
+        "target": "a",
+        "amount": 7900
+      },
+      {
+        "id": "engine-shaft-conversion",
+        "from": "engine-bank-rate",
+        "to": "engine-shaft-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-release-duration",
+        "from": "engine-bank-rate",
+        "to": "engine-release-width",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-release-shortening",
+        "from": "engine-motion",
+        "to": "engine-release-width",
+        "target": "b",
+        "amount": -0.00045
+      },
+      {
+        "id": "engine-pressure-edge",
+        "from": "engine-load",
+        "to": "engine-release-width",
+        "target": "b",
+        "amount": -0.0016
+      },
+      {
+        "id": "engine-header-tail-a",
+        "from": "engine-header-a",
+        "to": "engine-pipe-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-header-tail-b",
+        "from": "engine-header-b",
+        "to": "engine-pipe-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-mix-a",
+        "from": "engine-pipe-a",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 1.2
+      },
+      {
+        "id": "engine-mix-b",
+        "from": "engine-pipe-b",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 0.72
+      },
+      {
+        "id": "engine-hot-header-a",
+        "from": "engine-load",
+        "to": "engine-header-a",
+        "target": "time",
+        "amount": -0.00008
+      },
+      {
+        "id": "engine-hot-header-b",
+        "from": "engine-load",
+        "to": "engine-header-b",
+        "target": "time",
+        "amount": -0.00009
+      },
+      {
+        "id": "engine-hot-pipe-a",
+        "from": "engine-load",
+        "to": "engine-pipe-a",
+        "target": "time",
+        "amount": -0.0002
+      },
+      {
+        "id": "engine-hot-pipe-b",
+        "from": "engine-load",
+        "to": "engine-pipe-b",
+        "target": "time",
+        "amount": -0.00023
+      },
+      {
+        "id": "engine-shaft-frequency",
+        "from": "engine-shaft-rate",
+        "to": "engine-shaft-pulse",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-load-mechanics",
+        "from": "engine-load",
+        "to": "engine-shaft-pulse",
+        "target": "level",
+        "amount": 0.36
+      },
+      {
+        "id": "engine-metal",
+        "from": "engine-shaft-pulse",
+        "to": "engine-mechanics",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-mix-mechanics",
+        "from": "engine-mechanics",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 1.15
+      },
+      {
+        "id": "engine-clatter-rate",
+        "from": "engine-shaft-rate",
+        "to": "engine-clatter",
+        "target": "rate",
+        "amount": 3
+      },
+      {
+        "id": "engine-clatter-load",
+        "from": "engine-load",
+        "to": "engine-clatter",
+        "target": "level",
+        "amount": 0.12
+      },
+      {
+        "id": "engine-clatter-colour",
+        "from": "engine-clatter",
+        "to": "engine-clatter-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-clatter-mix",
+        "from": "engine-clatter-filter",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 0.85
+      },
+      {
+        "id": "engine-loaded-metal",
+        "from": "engine-load",
+        "to": "engine-clatter-filter",
+        "target": "cutoff",
+        "amount": 1400
+      },
+      {
+        "id": "engine-load-air",
+        "from": "engine-load",
+        "to": "engine-air",
+        "target": "level",
+        "amount": 0.025
+      },
+      {
+        "id": "engine-speed-air",
+        "from": "engine-motion",
+        "to": "engine-air",
+        "target": "level",
+        "amount": 0.025
+      },
+      {
+        "id": "engine-flow",
+        "from": "engine-air",
+        "to": "engine-air-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-mix-air",
+        "from": "engine-air-filter",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 0.8
+      },
+      {
+        "id": "engine-release-strength",
+        "from": "engine-release-response",
+        "to": "engine-overrun",
+        "target": "level",
+        "amount": 0.34
+      },
+      {
+        "id": "engine-overrun-density",
+        "from": "engine-motion",
+        "to": "engine-overrun",
+        "target": "rate",
+        "amount": 180
+      },
+      {
+        "id": "engine-release-colour",
+        "from": "engine-overrun",
+        "to": "engine-overrun-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-release-mix",
+        "from": "engine-overrun-filter",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 0.8
+      },
+      {
+        "id": "engine-intake-mix",
+        "from": "engine-intake",
+        "to": "engine-eq",
+        "target": "audio",
+        "amount": 1.15
+      },
+      {
+        "id": "engine-intake-open",
+        "from": "engine-load",
+        "to": "engine-intake",
+        "target": "cutoff",
+        "amount": 1100
+      },
+      {
+        "id": "engine-intake-speed",
+        "from": "engine-motion",
+        "to": "engine-intake",
+        "target": "cutoff",
+        "amount": 250
+      },
+      {
+        "id": "engine-top-end",
+        "from": "engine-eq",
+        "to": "engine-rolloff",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-load-colour",
+        "from": "engine-load",
+        "to": "engine-rolloff",
+        "target": "cutoff",
+        "amount": 1600
+      },
+      {
+        "id": "engine-density",
+        "from": "engine-rolloff",
+        "to": "engine-compressor",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-room",
+        "from": "engine-compressor",
+        "to": "engine-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-listen",
+        "from": "engine-space",
+        "to": "engine-output",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-1-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-1",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-1-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-1",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-1-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-1",
+        "target": "phase",
+        "amount": -0.0003846153846153846
+      },
+      {
+        "id": "engine-cylinder-1-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-1",
+        "target": "level",
+        "amount": 0.46559999999999996
+      },
+      {
+        "id": "engine-cylinder-1-pressure",
+        "from": "engine-cylinder-1",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-1-induction",
+        "from": "engine-cylinder-1",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-2-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-2",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-2-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-2",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-2-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-2",
+        "target": "phase",
+        "amount": -0.0003846153846153846
+      },
+      {
+        "id": "engine-cylinder-2-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-2",
+        "target": "level",
+        "amount": 0.504
+      },
+      {
+        "id": "engine-cylinder-2-pressure",
+        "from": "engine-cylinder-2",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-2-induction",
+        "from": "engine-cylinder-2",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "engine-cylinder-3-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-3",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-3-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-3",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-3-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-3",
+        "target": "phase",
+        "amount": -0.00046153846153846153
+      },
+      {
+        "id": "engine-cylinder-3-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-3",
+        "target": "level",
+        "amount": 0.4368
+      },
+      {
+        "id": "engine-cylinder-3-pressure",
+        "from": "engine-cylinder-3",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-3-induction",
+        "from": "engine-cylinder-3",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-4-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-4",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-4-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-4",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-4-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-4",
+        "target": "phase",
+        "amount": -0.00046153846153846153
+      },
+      {
+        "id": "engine-cylinder-4-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-4",
+        "target": "level",
+        "amount": 0.4896
+      },
+      {
+        "id": "engine-cylinder-4-pressure",
+        "from": "engine-cylinder-4",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-4-induction",
+        "from": "engine-cylinder-4",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "engine-cylinder-5-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-5",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-5-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-5",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-5-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-5",
+        "target": "phase",
+        "amount": -0.0005384615384615385
+      },
+      {
+        "id": "engine-cylinder-5-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-5",
+        "target": "level",
+        "amount": 0.45599999999999996
+      },
+      {
+        "id": "engine-cylinder-5-pressure",
+        "from": "engine-cylinder-5",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-5-induction",
+        "from": "engine-cylinder-5",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-6-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-6",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-6-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-6",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-6-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-6",
+        "target": "phase",
+        "amount": -0.0005384615384615385
+      },
+      {
+        "id": "engine-cylinder-6-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-6",
+        "target": "level",
+        "amount": 0.528
+      },
+      {
+        "id": "engine-cylinder-6-pressure",
+        "from": "engine-cylinder-6",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-6-induction",
+        "from": "engine-cylinder-6",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "engine-cylinder-7-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-7",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-7-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-7",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-7-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-7",
+        "target": "phase",
+        "amount": -0.0006153846153846154
+      },
+      {
+        "id": "engine-cylinder-7-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-7",
+        "target": "level",
+        "amount": 0.45119999999999993
+      },
+      {
+        "id": "engine-cylinder-7-pressure",
+        "from": "engine-cylinder-7",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-7-induction",
+        "from": "engine-cylinder-7",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-8-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-8",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-8-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-8",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-8-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-8",
+        "target": "phase",
+        "amount": -0.0006153846153846154
+      },
+      {
+        "id": "engine-cylinder-8-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-8",
+        "target": "level",
+        "amount": 0.4944
+      },
+      {
+        "id": "engine-cylinder-8-pressure",
+        "from": "engine-cylinder-8",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-8-induction",
+        "from": "engine-cylinder-8",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "engine-cylinder-9-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-9",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-9-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-9",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-9-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-9",
+        "target": "phase",
+        "amount": -0.0007115384615384615
+      },
+      {
+        "id": "engine-cylinder-9-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-9",
+        "target": "level",
+        "amount": 0.4224
+      },
+      {
+        "id": "engine-cylinder-9-pressure",
+        "from": "engine-cylinder-9",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-9-induction",
+        "from": "engine-cylinder-9",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-10-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-10",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-10-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-10",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-10-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-10",
+        "target": "phase",
+        "amount": -0.0007115384615384615
+      },
+      {
+        "id": "engine-cylinder-10-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-10",
+        "target": "level",
+        "amount": 0.47519999999999996
+      },
+      {
+        "id": "engine-cylinder-10-pressure",
+        "from": "engine-cylinder-10",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-10-induction",
+        "from": "engine-cylinder-10",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "engine-cylinder-11-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-11",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-11-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-11",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-11-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-11",
+        "target": "phase",
+        "amount": -0.0007884615384615384
+      },
+      {
+        "id": "engine-cylinder-11-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-11",
+        "target": "level",
+        "amount": 0.5184
+      },
+      {
+        "id": "engine-cylinder-11-pressure",
+        "from": "engine-cylinder-11",
+        "to": "engine-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-11-induction",
+        "from": "engine-cylinder-11",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-12-clock",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-12",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-12-width",
+        "from": "engine-release-width",
+        "to": "engine-cylinder-12",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-12-runner",
+        "from": "engine-bank-rate",
+        "to": "engine-cylinder-12",
+        "target": "phase",
+        "amount": -0.0007884615384615384
+      },
+      {
+        "id": "engine-cylinder-12-load",
+        "from": "engine-load",
+        "to": "engine-cylinder-12",
+        "target": "level",
+        "amount": 0.4608
+      },
+      {
+        "id": "engine-cylinder-12-pressure",
+        "from": "engine-cylinder-12",
+        "to": "engine-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "engine-cylinder-12-induction",
+        "from": "engine-cylinder-12",
+        "to": "engine-intake",
+        "target": "audio",
+        "amount": 0.65
+      }
+    ],
+    "performance": {
+      "node": "engine-pedal",
+      "parameter": "input",
+      "curveNode": "pedal-curve",
+      "edge": "pedal-automation",
+      "mode": "curve",
+      "manualValue": 0
+    }
+  },
+  "master": 0.65
+}

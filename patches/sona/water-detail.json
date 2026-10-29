@@ -1,0 +1,859 @@
+{
+  "haa": 1,
+  "id": "water-detail",
+  "title": "Water micro-splashes",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "water-detail-activity",
+        "type": "curve",
+        "x": 40,
+        "y": 50,
+        "label": "Measured activity contour",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0.6731439123683217
+          ],
+          [
+            0.015625,
+            0.6731439123683217
+          ],
+          [
+            0.046875,
+            0.7777311453393209
+          ],
+          [
+            0.078125,
+            0.5599949636966466
+          ],
+          [
+            0.109375,
+            0.5574348428253662
+          ],
+          [
+            0.140625,
+            0.6603013388173081
+          ],
+          [
+            0.171875,
+            0.5867293406639527
+          ],
+          [
+            0.203125,
+            0.8427414277920006
+          ],
+          [
+            0.234375,
+            0.6658832417005917
+          ],
+          [
+            0.265625,
+            0.5659126201368195
+          ],
+          [
+            0.296875,
+            0.5795945775800562
+          ],
+          [
+            0.328125,
+            0.7484366475007344
+          ],
+          [
+            0.359375,
+            0.6376799429218953
+          ],
+          [
+            0.390625,
+            0.5948293952239057
+          ],
+          [
+            0.421875,
+            0.5428715322952953
+          ],
+          [
+            0.453125,
+            0.5874847861669534
+          ],
+          [
+            0.484375,
+            0.5458093759180761
+          ],
+          [
+            0.515625,
+            0.43593402442607126
+          ],
+          [
+            0.546875,
+            0.649221471439963
+          ],
+          [
+            0.578125,
+            0.6830486422965543
+          ],
+          [
+            0.609375,
+            0.45586939186637004
+          ],
+          [
+            0.640625,
+            0.5098417761363159
+          ],
+          [
+            0.671875,
+            1
+          ],
+          [
+            0.703125,
+            0.5283082217652243
+          ],
+          [
+            0.734375,
+            0.37230872539555965
+          ],
+          [
+            0.765625,
+            0.47047467159105216
+          ],
+          [
+            0.796875,
+            0.6941285096738994
+          ],
+          [
+            0.828125,
+            0.8814789944180971
+          ],
+          [
+            0.859375,
+            0.6767952322994921
+          ],
+          [
+            0.890625,
+            0.6530826373441894
+          ],
+          [
+            0.921875,
+            0.4741679607168338
+          ],
+          [
+            0.953125,
+            0.5571830276576992
+          ],
+          [
+            0.984375,
+            0.6796911067276619
+          ],
+          [
+            1,
+            0.6796911067276619
+          ]
+        ]
+      },
+      {
+        "id": "water-detail-density-drift",
+        "type": "random",
+        "x": 40,
+        "y": 320,
+        "label": "Irregular impact density",
+        "compact": true,
+        "params": {
+          "rate": 19,
+          "depth": 1,
+          "smooth": 0.8
+        }
+      },
+      {
+        "id": "water-detail-bed-low",
+        "type": "noise",
+        "x": 340,
+        "y": 50,
+        "label": "Low continuous wash",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.05,
+          "width": 0
+        }
+      },
+      {
+        "id": "water-detail-bed-low-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 50,
+        "label": "Remove subsonic wash",
+        "compact": true,
+        "params": {
+          "cutoff": 160,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "water-detail-bed-low-lp",
+        "type": "filter",
+        "x": 930,
+        "y": 50,
+        "label": "Low wash bandwidth",
+        "compact": true,
+        "params": {
+          "cutoff": 510,
+          "resonance": 0.8,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "water-detail-bed-mid",
+        "type": "noise",
+        "x": 340,
+        "y": 320,
+        "label": "Diffuse middle layer",
+        "compact": true,
+        "params": {
+          "color": "pink",
+          "level": 0.1,
+          "width": 0
+        }
+      },
+      {
+        "id": "water-detail-bed-mid-filter",
+        "type": "filter",
+        "x": 640,
+        "y": 320,
+        "label": "Middle texture colour",
+        "compact": true,
+        "params": {
+          "cutoff": 1500,
+          "resonance": 0.65,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "water-detail-body-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 590,
+        "label": "Overlapping noise impacts",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1400,
+          "resonance": 0.7,
+          "rate": 145,
+          "attack": 0.00015,
+          "decay": 0.0014,
+          "spread": 0,
+          "jitter": 0.96,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.003,
+          "width": 0.95,
+          "level": 0.37
+        }
+      },
+      {
+        "id": "water-detail-body-filter",
+        "type": "filter",
+        "x": 640,
+        "y": 590,
+        "label": "Impact body band",
+        "compact": true,
+        "params": {
+          "cutoff": 1500,
+          "resonance": 0.55,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "water-detail-fine-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 860,
+        "label": "Fine irregular splashes",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 6000,
+          "resonance": 0.7,
+          "rate": 190,
+          "attack": 0.0001,
+          "decay": 0.0011,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": 0,
+          "delay": 0.008,
+          "width": 1,
+          "level": 0.2
+        }
+      },
+      {
+        "id": "water-detail-fine-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 860,
+        "label": "Fine splash high-pass",
+        "compact": true,
+        "params": {
+          "cutoff": 2500,
+          "resonance": 0.6,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "water-detail-fine-lp",
+        "type": "filter",
+        "x": 930,
+        "y": 860,
+        "label": "Air and recording bandwidth",
+        "compact": true,
+        "params": {
+          "cutoff": 8000,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "water-detail-ring-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 1130,
+        "label": "Tiny pitched resonances",
+        "compact": true,
+        "params": {
+          "wave": "sine",
+          "frequency": 1750,
+          "resonance": 0.7,
+          "rate": 31,
+          "attack": 0.0004,
+          "decay": 0.0032,
+          "spread": 17,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": 0.35,
+          "delay": 0.019,
+          "width": 0.85,
+          "level": 0.04
+        }
+      },
+      {
+        "id": "water-detail-accent-grains",
+        "type": "grain",
+        "x": 640,
+        "y": 1130,
+        "label": "Larger scattered impacts",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 2700,
+          "resonance": 0.7,
+          "rate": 7.8,
+          "attack": 0.0001,
+          "decay": 0.0015,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.12,
+          "width": 0.85,
+          "level": 0.5
+        }
+      },
+      {
+        "id": "water-detail-accent-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 1130,
+        "label": "Foreground impact colour",
+        "compact": true,
+        "params": {
+          "cutoff": 900,
+          "resonance": 0.6,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "water-detail-mix",
+        "type": "gain",
+        "x": 1220,
+        "y": 320,
+        "label": "Layer balance and activity",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "water-detail-space",
+        "type": "space",
+        "x": 1510,
+        "y": 320,
+        "label": "Small diffuse reflections",
+        "compact": true,
+        "params": {
+          "size": 0.035,
+          "damping": 0.45,
+          "mix": 0.04,
+          "width": 0.9,
+          "distance": 0
+        }
+      },
+      {
+        "id": "water-detail-output",
+        "type": "output",
+        "x": 1800,
+        "y": 320,
+        "label": "Water texture output",
+        "compact": true,
+        "params": {
+          "gain": 0.92
+        }
+      },
+      {
+        "id": "water-detail-near-score",
+        "type": "curve",
+        "x": 40,
+        "y": 1400,
+        "label": "Nearest impact accents",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.032084999999999995,
+            0
+          ],
+          [
+            0.032135,
+            0.5585
+          ],
+          [
+            0.03219125,
+            0.13404
+          ],
+          [
+            0.0324475,
+            0
+          ],
+          [
+            0.055627499999999996,
+            0
+          ],
+          [
+            0.0556775,
+            0.4083
+          ],
+          [
+            0.05573375,
+            0.097992
+          ],
+          [
+            0.05599,
+            0
+          ],
+          [
+            0.14597625,
+            0
+          ],
+          [
+            0.14602625,
+            0.5242
+          ],
+          [
+            0.1460825,
+            0.125808
+          ],
+          [
+            0.14633875,
+            0
+          ],
+          [
+            0.3100025,
+            0
+          ],
+          [
+            0.3100525,
+            0.4134
+          ],
+          [
+            0.31010875,
+            0.099216
+          ],
+          [
+            0.310365,
+            0
+          ],
+          [
+            0.3347775,
+            0
+          ],
+          [
+            0.3348275,
+            0.3675
+          ],
+          [
+            0.33488375,
+            0.0882
+          ],
+          [
+            0.33514,
+            0
+          ],
+          [
+            0.5512987500000001,
+            0
+          ],
+          [
+            0.55134875,
+            0.4104
+          ],
+          [
+            0.551405,
+            0.09849599999999999
+          ],
+          [
+            0.5516612500000001,
+            0
+          ],
+          [
+            0.645575,
+            0
+          ],
+          [
+            0.645625,
+            0.3621
+          ],
+          [
+            0.64568125,
+            0.086904
+          ],
+          [
+            0.6459375,
+            0
+          ],
+          [
+            0.65672625,
+            0
+          ],
+          [
+            0.65677625,
+            1
+          ],
+          [
+            0.6568324999999999,
+            0.24
+          ],
+          [
+            0.65708875,
+            0
+          ],
+          [
+            0.67361125,
+            0
+          ],
+          [
+            0.67366125,
+            0.3521
+          ],
+          [
+            0.6737175,
+            0.084504
+          ],
+          [
+            0.67397375,
+            0
+          ],
+          [
+            0.79084625,
+            0
+          ],
+          [
+            0.79089625,
+            0.4169
+          ],
+          [
+            0.7909525,
+            0.10005599999999999
+          ],
+          [
+            0.79120875,
+            0
+          ],
+          [
+            0.7946225,
+            0
+          ],
+          [
+            0.7946725,
+            0.4339
+          ],
+          [
+            0.79472875,
+            0.10413599999999999
+          ],
+          [
+            0.794985,
+            0
+          ],
+          [
+            0.82892875,
+            0
+          ],
+          [
+            0.82897875,
+            0.7298
+          ],
+          [
+            0.829035,
+            0.175152
+          ],
+          [
+            0.82929125,
+            0
+          ],
+          [
+            0.894185,
+            0
+          ],
+          [
+            0.894235,
+            0.3685
+          ],
+          [
+            0.89429125,
+            0.08843999999999999
+          ],
+          [
+            0.8945475,
+            0
+          ],
+          [
+            0.97560625,
+            0
+          ],
+          [
+            0.97565625,
+            0.5149
+          ],
+          [
+            0.9757125,
+            0.123576
+          ],
+          [
+            0.97596875,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "water-detail-near-noise",
+        "type": "noise",
+        "x": 340,
+        "y": 1400,
+        "label": "Very short foreground clicks",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0,
+          "width": 0
+        }
+      },
+      {
+        "id": "water-detail-near-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 1400,
+        "label": "Foreground click high-pass",
+        "compact": true,
+        "params": {
+          "cutoff": 1200,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "water-detail-near-weight",
+        "type": "gain",
+        "x": 930,
+        "y": 1400,
+        "label": "Close impact weight",
+        "compact": true,
+        "params": {
+          "gain": 1.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "water-detail-bed-low-bed-low-hp-audio",
+        "from": "water-detail-bed-low",
+        "to": "water-detail-bed-low-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-bed-low-hp-bed-low-lp-audio",
+        "from": "water-detail-bed-low-hp",
+        "to": "water-detail-bed-low-lp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-bed-low-lp-mix-audio",
+        "from": "water-detail-bed-low-lp",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-bed-mid-bed-mid-filter-audio",
+        "from": "water-detail-bed-mid",
+        "to": "water-detail-bed-mid-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-bed-mid-filter-mix-audio",
+        "from": "water-detail-bed-mid-filter",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-body-grains-body-filter-audio",
+        "from": "water-detail-body-grains",
+        "to": "water-detail-body-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-body-filter-mix-audio",
+        "from": "water-detail-body-filter",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-fine-grains-fine-hp-audio",
+        "from": "water-detail-fine-grains",
+        "to": "water-detail-fine-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-fine-hp-fine-lp-audio",
+        "from": "water-detail-fine-hp",
+        "to": "water-detail-fine-lp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-fine-lp-mix-audio",
+        "from": "water-detail-fine-lp",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-ring-grains-mix-audio",
+        "from": "water-detail-ring-grains",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-accent-grains-accent-filter-audio",
+        "from": "water-detail-accent-grains",
+        "to": "water-detail-accent-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-accent-filter-mix-audio",
+        "from": "water-detail-accent-filter",
+        "to": "water-detail-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-density-drift-body-grains-rate",
+        "from": "water-detail-density-drift",
+        "to": "water-detail-body-grains",
+        "target": "rate",
+        "amount": 65
+      },
+      {
+        "id": "water-detail-density-drift-fine-grains-rate",
+        "from": "water-detail-density-drift",
+        "to": "water-detail-fine-grains",
+        "target": "rate",
+        "amount": 90
+      },
+      {
+        "id": "water-detail-activity-mix-gain",
+        "from": "water-detail-activity",
+        "to": "water-detail-mix",
+        "target": "gain",
+        "amount": 1.18
+      },
+      {
+        "id": "water-detail-mix-space-audio",
+        "from": "water-detail-mix",
+        "to": "water-detail-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-space-output-audio",
+        "from": "water-detail-space",
+        "to": "water-detail-output",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-near-score-near-noise-level",
+        "from": "water-detail-near-score",
+        "to": "water-detail-near-noise",
+        "target": "level",
+        "amount": 0.92
+      },
+      {
+        "id": "water-detail-near-noise-near-hp-audio",
+        "from": "water-detail-near-noise",
+        "to": "water-detail-near-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-near-hp-near-weight-audio",
+        "from": "water-detail-near-hp",
+        "to": "water-detail-near-weight",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "water-detail-near-weight-fine-lp-audio",
+        "from": "water-detail-near-weight",
+        "to": "water-detail-fine-lp",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 0.65
+}

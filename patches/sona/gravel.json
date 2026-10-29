@@ -1,0 +1,557 @@
+{
+  "haa": 1,
+  "id": "gravel",
+  "title": "Dirt & gravel",
+  "inputs": [],
+  "graph": {
+    "duration": 6,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "gravel-gesture",
+        "type": "curve",
+        "x": 30,
+        "y": 370,
+        "label": "Footstep gesture",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.058,
+            0.075876
+          ],
+          [
+            0.064,
+            0.591592
+          ],
+          [
+            0.066,
+            0.169752
+          ],
+          [
+            0.07,
+            0.353243
+          ],
+          [
+            0.074,
+            0.096837
+          ],
+          [
+            0.162,
+            0.019174
+          ],
+          [
+            0.167,
+            0.783094
+          ],
+          [
+            0.168,
+            0.777996
+          ],
+          [
+            0.169,
+            0.38328
+          ],
+          [
+            0.171,
+            0.658971
+          ],
+          [
+            0.176,
+            0.460233
+          ],
+          [
+            0.178,
+            0.776475
+          ],
+          [
+            0.179,
+            0.384087
+          ],
+          [
+            0.183,
+            0.120109
+          ],
+          [
+            0.19,
+            0.271787
+          ],
+          [
+            0.22,
+            0.017763
+          ],
+          [
+            0.341,
+            0.211976
+          ],
+          [
+            0.457,
+            0.019375
+          ],
+          [
+            0.463,
+            0.381767
+          ],
+          [
+            0.465,
+            0.18234
+          ],
+          [
+            0.467,
+            0.669512
+          ],
+          [
+            0.471,
+            0.102789
+          ],
+          [
+            0.493,
+            0.017746
+          ],
+          [
+            0.594,
+            0.014704
+          ],
+          [
+            0.608,
+            0.262761
+          ],
+          [
+            0.616,
+            0.036865
+          ],
+          [
+            0.679,
+            0.00802
+          ],
+          [
+            0.685,
+            0.050236
+          ],
+          [
+            0.688,
+            0.898564
+          ],
+          [
+            0.691,
+            0.125654
+          ],
+          [
+            0.698,
+            0.019428
+          ],
+          [
+            0.719,
+            0.019234
+          ],
+          [
+            0.732,
+            0.370436
+          ],
+          [
+            0.738,
+            0.074578
+          ],
+          [
+            0.739,
+            0.32518
+          ],
+          [
+            0.742,
+            0.338812
+          ],
+          [
+            0.743,
+            0.129953
+          ],
+          [
+            0.756,
+            0.021319
+          ],
+          [
+            0.793,
+            0.030221
+          ],
+          [
+            0.797,
+            0.299028
+          ],
+          [
+            0.805,
+            0.012405
+          ],
+          [
+            0.842,
+            0.012908
+          ],
+          [
+            0.85,
+            0.096025
+          ],
+          [
+            0.853,
+            0.554445
+          ],
+          [
+            0.861,
+            0.077482
+          ],
+          [
+            0.876,
+            0.235032
+          ],
+          [
+            0.878,
+            0.033238
+          ],
+          [
+            0.933,
+            0.011714
+          ],
+          [
+            0.944,
+            0.334836
+          ],
+          [
+            0.95,
+            0.087661
+          ],
+          [
+            0.96,
+            0.156144
+          ],
+          [
+            0.961,
+            0.264576
+          ],
+          [
+            0.963,
+            1
+          ],
+          [
+            0.965,
+            0.565938
+          ],
+          [
+            0.971,
+            0.055839
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "gravel-body-envelope",
+        "type": "response",
+        "x": 330,
+        "y": 50,
+        "label": "Contact pressure",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0,
+          "release": 0,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "gravel-detail-envelope",
+        "type": "response",
+        "x": 330,
+        "y": 370,
+        "label": "Surface release",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0,
+          "release": 0.0014,
+          "delay": 0,
+          "shape": 0.882,
+          "gain": 0.748,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "gravel-clusters",
+        "type": "grain",
+        "x": 630,
+        "y": 50,
+        "label": "Irregular contact grains",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 760,
+          "attack": 0.0002,
+          "decay": 0.0026,
+          "spread": 5,
+          "jitter": 1,
+          "variation": 0.85,
+          "glide": 0.05,
+          "delay": 0,
+          "width": 0.08,
+          "level": 0.6
+        }
+      },
+      {
+        "id": "gravel-impact",
+        "type": "grain",
+        "x": 630,
+        "y": 370,
+        "label": "Initial contact",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0018,
+          "spread": 5,
+          "jitter": 0,
+          "variation": 0,
+          "glide": 0.05,
+          "delay": 0.37,
+          "width": 0,
+          "level": 0.85
+        }
+      },
+      {
+        "id": "gravel-body-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 50,
+        "label": "Surface body",
+        "compact": true,
+        "params": {
+          "cutoff": 1180,
+          "resonance": 1.05,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "gravel-body-gain",
+        "type": "gain",
+        "x": 1230,
+        "y": 50,
+        "label": "Pressure envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "gravel-detail",
+        "type": "grain",
+        "x": 630,
+        "y": 680,
+        "label": "Fine crackle",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 410,
+          "attack": 0.0001,
+          "decay": 0.0012,
+          "spread": 5,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0.05,
+          "delay": 0,
+          "width": 0.2,
+          "level": 0.23
+        }
+      },
+      {
+        "id": "gravel-detail-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 370,
+        "label": "Friction band",
+        "compact": true,
+        "params": {
+          "cutoff": 3600,
+          "resonance": 0.8,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "gravel-detail-gain",
+        "type": "gain",
+        "x": 1230,
+        "y": 370,
+        "label": "Release envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "gravel-mix",
+        "type": "gain",
+        "x": 1530,
+        "y": 50,
+        "label": "Surface mix",
+        "compact": true,
+        "params": {
+          "gain": 1.7
+        }
+      },
+      {
+        "id": "gravel-rolloff",
+        "type": "filter",
+        "x": 1530,
+        "y": 370,
+        "label": "Air absorption",
+        "compact": true,
+        "params": {
+          "cutoff": 6200,
+          "resonance": 0.65,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "gravel-space",
+        "type": "space",
+        "x": 1830,
+        "y": 50,
+        "label": "Close perspective",
+        "compact": true,
+        "params": {
+          "size": 0.08,
+          "damping": 0.8,
+          "mix": 0.025,
+          "width": 0.22,
+          "distance": 0.015
+        }
+      },
+      {
+        "id": "gravel-output",
+        "type": "output",
+        "x": 1830,
+        "y": 370,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.86
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "gravel-gesture-pressure",
+        "from": "gravel-gesture",
+        "to": "gravel-body-envelope",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "gravel-gesture-release",
+        "from": "gravel-gesture",
+        "to": "gravel-detail-envelope",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "gravel-body-shape",
+        "from": "gravel-body-envelope",
+        "to": "gravel-body-gain",
+        "target": "gain",
+        "amount": 1.7
+      },
+      {
+        "id": "gravel-detail-shape",
+        "from": "gravel-detail-envelope",
+        "to": "gravel-detail-gain",
+        "target": "gain",
+        "amount": 1.5
+      },
+      {
+        "id": "gravel-cluster-body",
+        "from": "gravel-clusters",
+        "to": "gravel-body-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-impact-body",
+        "from": "gravel-impact",
+        "to": "gravel-body-filter",
+        "target": "audio",
+        "amount": 0.25
+      },
+      {
+        "id": "gravel-body-control",
+        "from": "gravel-body-filter",
+        "to": "gravel-body-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-crackle-colour",
+        "from": "gravel-detail",
+        "to": "gravel-detail-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-detail-control",
+        "from": "gravel-detail-filter",
+        "to": "gravel-detail-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-body-mix",
+        "from": "gravel-body-gain",
+        "to": "gravel-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-detail-mix",
+        "from": "gravel-detail-gain",
+        "to": "gravel-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-air",
+        "from": "gravel-mix",
+        "to": "gravel-rolloff",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-perspective",
+        "from": "gravel-rolloff",
+        "to": "gravel-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "gravel-listen",
+        "from": "gravel-space",
+        "to": "gravel-output",
+        "target": "audio",
+        "amount": 1.5
+      }
+    ]
+  },
+  "master": 0.65
+}

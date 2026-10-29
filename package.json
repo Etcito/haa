@@ -18,7 +18,8 @@
     "release:pack": "node scripts/release-pack.mjs",
     "render:node": "node packages/haa/dist/cli.js render",
     "test:host": "node --test packages/haa/test/",
-    "listen": "node tools/listen/serve.mjs"
+    "listen": "node tools/listen/serve.mjs",
+    "export:sona": "node tools/export-sona-presets.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

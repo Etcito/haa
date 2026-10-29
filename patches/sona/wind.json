@@ -1,0 +1,669 @@
+{
+  "haa": 1,
+  "id": "wind",
+  "title": "Soft wind",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "wind-pressure",
+        "type": "curve",
+        "x": 30,
+        "y": 50,
+        "label": "Gust pressure",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.015,
+            0.041938
+          ],
+          [
+            0.0375,
+            0.029362
+          ],
+          [
+            0.0525,
+            0.228443
+          ],
+          [
+            0.0675,
+            0.247896
+          ],
+          [
+            0.075,
+            0.330075
+          ],
+          [
+            0.0825,
+            0.298285
+          ],
+          [
+            0.09,
+            0.163384
+          ],
+          [
+            0.0975,
+            0.325513
+          ],
+          [
+            0.105,
+            0.388975
+          ],
+          [
+            0.135,
+            1
+          ],
+          [
+            0.15,
+            0.782924
+          ],
+          [
+            0.1575,
+            0.906728
+          ],
+          [
+            0.1725,
+            0.725266
+          ],
+          [
+            0.1875,
+            0.752697
+          ],
+          [
+            0.195,
+            0.950861
+          ],
+          [
+            0.2025,
+            0.892163
+          ],
+          [
+            0.21,
+            0.652084
+          ],
+          [
+            0.225,
+            0.408321
+          ],
+          [
+            0.24,
+            0.241446
+          ],
+          [
+            0.2475,
+            0.430748
+          ],
+          [
+            0.255,
+            0.447897
+          ],
+          [
+            0.2625,
+            0.275619
+          ],
+          [
+            0.285,
+            0.181051
+          ],
+          [
+            0.2925,
+            0.307945
+          ],
+          [
+            0.3,
+            0.362112
+          ],
+          [
+            0.33,
+            0.128397
+          ],
+          [
+            0.3825,
+            0.028815
+          ],
+          [
+            0.42,
+            0.093104
+          ],
+          [
+            0.4425,
+            0.25612
+          ],
+          [
+            0.4575,
+            0.199419
+          ],
+          [
+            0.465,
+            0.234622
+          ],
+          [
+            0.4725,
+            0.197416
+          ],
+          [
+            0.4875,
+            0.218894
+          ],
+          [
+            0.5025,
+            0.129022
+          ],
+          [
+            0.5175,
+            0.145965
+          ],
+          [
+            0.525,
+            0.091175
+          ],
+          [
+            0.57,
+            0.145597
+          ],
+          [
+            0.6,
+            0.031223
+          ],
+          [
+            0.6375,
+            0.113232
+          ],
+          [
+            0.675,
+            0.028155
+          ],
+          [
+            0.7125,
+            0.035641
+          ],
+          [
+            0.735,
+            0.114452
+          ],
+          [
+            0.7725,
+            0.084847
+          ],
+          [
+            0.7875,
+            0.026238
+          ],
+          [
+            0.8025,
+            0.076211
+          ],
+          [
+            0.825,
+            0.07245
+          ],
+          [
+            0.87,
+            0.257729
+          ],
+          [
+            0.8775,
+            0.361311
+          ],
+          [
+            0.885,
+            0.38731
+          ],
+          [
+            0.8925,
+            0.296184
+          ],
+          [
+            0.9,
+            0.318871
+          ],
+          [
+            0.9075,
+            0.398157
+          ],
+          [
+            0.915,
+            0.327386
+          ],
+          [
+            0.9225,
+            0.176178
+          ],
+          [
+            0.945,
+            0.036501
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "wind-air-envelope",
+        "type": "curve",
+        "x": 30,
+        "y": 370,
+        "label": "Air movement",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.0075,
+            0.062974
+          ],
+          [
+            0.015,
+            0.074047
+          ],
+          [
+            0.045,
+            0.014458
+          ],
+          [
+            0.075,
+            0.154141
+          ],
+          [
+            0.09,
+            0.333916
+          ],
+          [
+            0.1125,
+            0.492135
+          ],
+          [
+            0.1275,
+            0.875323
+          ],
+          [
+            0.135,
+            1
+          ],
+          [
+            0.1425,
+            0.869321
+          ],
+          [
+            0.15,
+            0.532874
+          ],
+          [
+            0.1575,
+            0.485595
+          ],
+          [
+            0.165,
+            0.492677
+          ],
+          [
+            0.18,
+            0.394586
+          ],
+          [
+            0.1875,
+            0.386197
+          ],
+          [
+            0.2025,
+            0.441129
+          ],
+          [
+            0.21,
+            0.563789
+          ],
+          [
+            0.2175,
+            0.564665
+          ],
+          [
+            0.225,
+            0.459716
+          ],
+          [
+            0.27,
+            0.165075
+          ],
+          [
+            0.315,
+            0.04509
+          ],
+          [
+            0.3675,
+            0.02909
+          ],
+          [
+            0.405,
+            0.131339
+          ],
+          [
+            0.4125,
+            0.254319
+          ],
+          [
+            0.42,
+            0.530304
+          ],
+          [
+            0.4275,
+            0.652425
+          ],
+          [
+            0.435,
+            0.597756
+          ],
+          [
+            0.4425,
+            0.723166
+          ],
+          [
+            0.45,
+            0.669631
+          ],
+          [
+            0.4575,
+            0.432521
+          ],
+          [
+            0.465,
+            0.431127
+          ],
+          [
+            0.48,
+            0.308384
+          ],
+          [
+            0.495,
+            0.261748
+          ],
+          [
+            0.51,
+            0.168132
+          ],
+          [
+            0.5175,
+            0.177587
+          ],
+          [
+            0.5325,
+            0.297336
+          ],
+          [
+            0.5625,
+            0.08687
+          ],
+          [
+            0.5775,
+            0.049695
+          ],
+          [
+            0.6675,
+            0.003591
+          ],
+          [
+            0.6975,
+            0.053403
+          ],
+          [
+            0.72,
+            0.039999
+          ],
+          [
+            0.7425,
+            0.069952
+          ],
+          [
+            0.8175,
+            0.010251
+          ],
+          [
+            0.8475,
+            0.086158
+          ],
+          [
+            0.855,
+            0.173571
+          ],
+          [
+            0.8625,
+            0.189105
+          ],
+          [
+            0.885,
+            0.080908
+          ],
+          [
+            0.9,
+            0.111743
+          ],
+          [
+            0.93,
+            0.050264
+          ],
+          [
+            0.99,
+            0.072795
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "wind-random",
+        "type": "random",
+        "x": 30,
+        "y": 680,
+        "label": "Turbulent drift",
+        "compact": true,
+        "params": {
+          "rate": 1.7,
+          "depth": 1,
+          "smooth": 0.95
+        }
+      },
+      {
+        "id": "wind-low",
+        "type": "noise",
+        "x": 330,
+        "y": 50,
+        "label": "Pressure noise",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.78,
+          "width": 0
+        }
+      },
+      {
+        "id": "wind-low-filter",
+        "type": "filter",
+        "x": 630,
+        "y": 50,
+        "label": "Low pressure band",
+        "compact": true,
+        "params": {
+          "cutoff": 34,
+          "resonance": 0.65,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "wind-low-gain",
+        "type": "gain",
+        "x": 930,
+        "y": 50,
+        "label": "Gust strength",
+        "compact": true,
+        "params": {
+          "gain": 0.035
+        }
+      },
+      {
+        "id": "wind-air",
+        "type": "grain",
+        "x": 330,
+        "y": 370,
+        "label": "Diffuse airflow",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 340,
+          "attack": 0.008,
+          "decay": 0.085,
+          "spread": 5,
+          "jitter": 1,
+          "variation": 0.6,
+          "glide": 0.05,
+          "delay": 0,
+          "width": 0.9,
+          "level": 0.68
+        }
+      },
+      {
+        "id": "wind-air-filter",
+        "type": "filter",
+        "x": 630,
+        "y": 370,
+        "label": "Airflow band",
+        "compact": true,
+        "params": {
+          "cutoff": 960,
+          "resonance": 4.1,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "wind-air-gain",
+        "type": "gain",
+        "x": 930,
+        "y": 370,
+        "label": "Air strength",
+        "compact": true,
+        "params": {
+          "gain": 0.015
+        }
+      },
+      {
+        "id": "wind-mix",
+        "type": "gain",
+        "x": 1230,
+        "y": 50,
+        "label": "Wind layers",
+        "compact": true,
+        "params": {
+          "gain": 1.1
+        }
+      },
+      {
+        "id": "wind-output",
+        "type": "output",
+        "x": 1230,
+        "y": 370,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.8
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "wind-pressure-level",
+        "from": "wind-pressure",
+        "to": "wind-low-gain",
+        "target": "gain",
+        "amount": 1.65
+      },
+      {
+        "id": "wind-air-level",
+        "from": "wind-air-envelope",
+        "to": "wind-air-gain",
+        "target": "gain",
+        "amount": 0.42
+      },
+      {
+        "id": "wind-moving-band",
+        "from": "wind-random",
+        "to": "wind-air-filter",
+        "target": "cutoff",
+        "amount": 65
+      },
+      {
+        "id": "wind-low-motion",
+        "from": "wind-random",
+        "to": "wind-low-filter",
+        "target": "cutoff",
+        "amount": 6
+      },
+      {
+        "id": "wind-low-colour",
+        "from": "wind-low",
+        "to": "wind-low-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-low-envelope",
+        "from": "wind-low-filter",
+        "to": "wind-low-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-low-mix",
+        "from": "wind-low-gain",
+        "to": "wind-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-air-colour",
+        "from": "wind-air",
+        "to": "wind-air-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-air-shape",
+        "from": "wind-air-filter",
+        "to": "wind-air-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-air-mix",
+        "from": "wind-air-gain",
+        "to": "wind-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "wind-listen",
+        "from": "wind-mix",
+        "to": "wind-output",
+        "target": "audio",
+        "amount": 2
+      }
+    ]
+  },
+  "master": 0.65
+}
