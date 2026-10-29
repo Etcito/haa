@@ -431,3 +431,135 @@ impl Node for Grain {
         *self = Grain::new(self.seed, self.sample_rate);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_RATE: f64 = 48000.0;
+    // wave, frequency, resonance, rate, attack, decay, spread, jitter, variation,
+    // glide, delay, width, level (DEF order).
+    const DEFAULTS: [f64; 13] = [
+        0.0, 1800.0, 0.7, 12.0, 0.001, 0.035, 5.0, 0.8, 0.5, 0.05, 0.02, 0.25, 0.3,
+    ];
+
+    fn make_node(seed: u32, params: &[f64]) -> Box<dyn Node> {
+        (DEF.create)(&NodeInit {
+            id: "grain1",
+            seed,
+            sample_rate: SAMPLE_RATE,
+            params,
+            texts: &[],
+            curve: None,
+            inputs: &[],
+            duration: 1.0,
+        })
+    }
+
+    fn ctx(frame: u64, rate: f64) -> SampleCtx<'static> {
+        SampleCtx {
+            sample_rate: rate,
+            dt: 1.0 / rate,
+            t: frame as f64 / rate,
+            seconds: frame as f64 / rate,
+            duration: 1.0,
+            mode: GraphMode::Timeline,
+            live_frames: frame,
+            looped: false,
+            perf_rebase: false,
+            inputs: &[],
+            triggers: &[],
+        }
+    }
+
+    #[test]
+    fn rate_zero_emits_one_grain_then_silence() {
+        let mut params = DEFAULTS;
+        params[RATE] = 0.0;
+        params[DELAY] = 0.01;
+        params[DECAY] = 0.05;
+        params[VARIATION] = 0.0;
+        let mut node = make_node(123, &params);
+        let onset = (params[DELAY] * SAMPLE_RATE) as u64;
+        // With duration variation disabled, exp(-age / (sr * decay)) reaches
+        // .0001 here. One extra frame allows for rounding of the decay factor.
+        let silent_from =
+            onset + ((-0.0001_f64.ln() * SAMPLE_RATE * params[DECAY]).ceil() as u64) + 1;
+        assert!(silent_from < (SAMPLE_RATE * 0.5) as u64);
+        let mut heard_grain = false;
+        for frame in 0..SAMPLE_RATE as u64 {
+            let out = node.process_sample(&ctx(frame, SAMPLE_RATE), (0.0, 0.0), &params);
+            let stereo = (out.l, out.r);
+            if frame <= onset || frame >= silent_from {
+                assert_eq!(stereo, (0.0, 0.0), "unexpected onset at frame {frame}");
+            }
+            // The birth sample is zero because both phase and attack start at zero.
+            if frame == onset + 1 {
+                assert_ne!(stereo, (0.0, 0.0));
+            }
+            heard_grain |= stereo != (0.0, 0.0);
+        }
+        assert!(heard_grain);
+    }
+
+    #[test]
+    fn outputs_stay_finite_at_param_extremes() {
+        // 48 cases of .04 s each total 1.92 s of audio.
+        for wave in [0.0, 1.0, 2.0] {
+            for rate in [0.0, 2000.0] {
+                for decay in [0.001, 2.0] {
+                    for glide in [-0.9, 3.0] {
+                        for resonance in [0.25, 4.0] {
+                            let params = [
+                                wave, 12000.0, resonance, rate, 0.0001, decay, 36.0, 1.0, 1.0,
+                                glide, 0.0, 1.0, 1.0,
+                            ];
+                            let mut node = make_node(123, &params);
+                            let mut heard_grain = false;
+                            for frame in 0..1920 {
+                                let out = node.process_sample(
+                                    &ctx(frame, SAMPLE_RATE),
+                                    (0.0, 0.0),
+                                    &params,
+                                );
+                                for value in [out.l, out.r] {
+                                    assert!(
+                                        value.is_finite() && value.abs() <= 8.0,
+                                        "unsafe output {value} at frame {frame}, params {params:?}"
+                                    );
+                                }
+                                assert_eq!(out.value, 0.0);
+                                heard_grain |= out.l != 0.0 || out.r != 0.0;
+                            }
+                            assert!(heard_grain, "silent case: {params:?}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn same_seed_gives_the_same_cloud() {
+        let mut params = DEFAULTS;
+        params[WAVE] = 2.0;
+        params[RATE] = 200.0;
+        params[DELAY] = 0.0;
+        let render = |node: &mut dyn Node| -> Vec<(f64, f64)> {
+            (0..24000)
+                .map(|frame| {
+                    let out = node.process_sample(&ctx(frame, SAMPLE_RATE), (0.0, 0.0), &params);
+                    (out.l, out.r)
+                })
+                .collect()
+        };
+        // Four half-second runs, including replay, total two seconds.
+        let mut first_node = make_node(123, &params);
+        let first = render(first_node.as_mut());
+        assert!(first.iter().any(|&sample| sample != (0.0, 0.0)));
+        assert_eq!(first, render(make_node(123, &params).as_mut()));
+        assert_ne!(first, render(make_node(456, &params).as_mut()));
+        first_node.reset();
+        assert_eq!(first, render(first_node.as_mut()));
+    }
+}
