@@ -1,0 +1,1660 @@
+{
+  "haa": 1,
+  "id": "engine-start",
+  "title": "Engine start",
+  "inputs": [],
+  "graph": {
+    "duration": 4.2,
+    "loop": false,
+    "nodes": [
+      {
+        "id": "start-key",
+        "type": "curve",
+        "x": 40,
+        "y": 40,
+        "label": "Starter key",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.09047619047619047,
+            0
+          ],
+          [
+            0.09333333333333334,
+            1
+          ],
+          [
+            0.10238095238095238,
+            0.82
+          ],
+          [
+            0.13809523809523808,
+            0.76
+          ],
+          [
+            0.18095238095238095,
+            0.88
+          ],
+          [
+            0.21428571428571427,
+            0.96
+          ],
+          [
+            0.22976190476190475,
+            0.87
+          ],
+          [
+            0.24166666666666664,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "start-pressure",
+        "type": "curve",
+        "x": 40,
+        "y": 370,
+        "label": "First firing and pressure",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.20357142857142857,
+            0
+          ],
+          [
+            0.20904761904761904,
+            0.14
+          ],
+          [
+            0.21476190476190476,
+            0.06
+          ],
+          [
+            0.22095238095238096,
+            0.29
+          ],
+          [
+            0.2252380952380952,
+            0.17
+          ],
+          [
+            0.23238095238095235,
+            0.56
+          ],
+          [
+            0.24047619047619045,
+            0.43
+          ],
+          [
+            0.25952380952380955,
+            0.82
+          ],
+          [
+            0.29047619047619044,
+            0.96
+          ],
+          [
+            0.35238095238095235,
+            1
+          ],
+          [
+            0.4095238095238095,
+            0.84
+          ],
+          [
+            0.4666666666666666,
+            0.48
+          ],
+          [
+            0.5476190476190476,
+            0.28
+          ],
+          [
+            0.6547619047619048,
+            0.19
+          ],
+          [
+            0.7619047619047619,
+            0.19
+          ],
+          [
+            0.8452380952380951,
+            0.182
+          ],
+          [
+            1,
+            0.182
+          ]
+        ]
+      },
+      {
+        "id": "start-speed",
+        "type": "curve",
+        "x": 40,
+        "y": 700,
+        "label": "Shaft run-up and settling",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.09047619047619047,
+            0
+          ],
+          [
+            0.09642857142857143,
+            0.1
+          ],
+          [
+            0.11904761904761904,
+            0.1167
+          ],
+          [
+            0.15714285714285714,
+            0.125
+          ],
+          [
+            0.1880952380952381,
+            0.1361
+          ],
+          [
+            0.20476190476190476,
+            0.15
+          ],
+          [
+            0.21785714285714286,
+            0.2389
+          ],
+          [
+            0.2333333333333333,
+            0.3833
+          ],
+          [
+            0.25952380952380955,
+            0.5833
+          ],
+          [
+            0.30476190476190473,
+            0.8
+          ],
+          [
+            0.35714285714285715,
+            0.8389
+          ],
+          [
+            0.39999999999999997,
+            0.8056
+          ],
+          [
+            0.4619047619047619,
+            0.6778
+          ],
+          [
+            0.5357142857142857,
+            0.5667
+          ],
+          [
+            0.6190476190476191,
+            0.5139
+          ],
+          [
+            0.7261904761904762,
+            0.4806
+          ],
+          [
+            0.8452380952380951,
+            0.4722
+          ],
+          [
+            1,
+            0.4722
+          ]
+        ]
+      },
+      {
+        "id": "start-engage",
+        "type": "response",
+        "x": 340,
+        "y": 40,
+        "label": "Starter engagement",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "rise",
+          "attack": 0.00025,
+          "release": 0.01,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.045
+        }
+      },
+      {
+        "id": "start-disengage",
+        "type": "response",
+        "x": 340,
+        "y": 370,
+        "label": "Starter disengagement",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "fall",
+          "attack": 0.0003,
+          "release": 0.018,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "start-bank-rate",
+        "type": "math",
+        "x": 340,
+        "y": 700,
+        "label": "Shaft speed / 120",
+        "compact": true,
+        "params": {
+          "a": 0,
+          "b": 15,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "start-release-width",
+        "type": "math",
+        "x": 340,
+        "y": 1030,
+        "label": "Pressure duration · milliseconds",
+        "compact": true,
+        "params": {
+          "a": 0,
+          "b": 0.00175,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "start-compression-motion",
+        "type": "lfo",
+        "x": 640,
+        "y": 40,
+        "label": "Compression drag on starter",
+        "compact": true,
+        "params": {
+          "rate": 0.05,
+          "depth": 1,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "start-gear-mesh",
+        "type": "pulse",
+        "x": 640,
+        "y": 700,
+        "label": "Starter gear mesh",
+        "compact": true,
+        "params": {
+          "frequency": 480,
+          "width": 0.13,
+          "phase": 0.1,
+          "jitter": 0.0015,
+          "shimmer": 0.055,
+          "level": 0.18,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-friction",
+        "type": "noise",
+        "x": 640,
+        "y": 1030,
+        "label": "Continuous starter friction",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0.4,
+          "width": 0
+        }
+      },
+      {
+        "id": "start-compression",
+        "type": "pulse",
+        "x": 640,
+        "y": 1360,
+        "label": "Compression strokes",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.16,
+          "phase": 0.21,
+          "jitter": 0.025,
+          "shimmer": 0.24,
+          "level": 0.27,
+          "shape": "rounded"
+        }
+      },
+      {
+        "id": "start-contact",
+        "type": "noise",
+        "x": 640,
+        "y": 370,
+        "label": "Engagement and release contact",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0,
+          "width": 0
+        }
+      },
+      {
+        "id": "start-mechanism-band",
+        "type": "filter",
+        "x": 940,
+        "y": 40,
+        "label": "Starter mechanism colour",
+        "compact": true,
+        "params": {
+          "cutoff": 1350,
+          "resonance": 0.75,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "start-mechanism-gate",
+        "type": "gain",
+        "x": 940,
+        "y": 370,
+        "label": "Starter key envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "start-header-a",
+        "type": "comb",
+        "x": 2440,
+        "y": 700,
+        "label": "Bank A · short reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00102,
+          "feedback": -0.28,
+          "damping": 0.35,
+          "mix": 0.78
+        }
+      },
+      {
+        "id": "start-header-b",
+        "type": "comb",
+        "x": 2440,
+        "y": 1360,
+        "label": "Bank B · short reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00108,
+          "feedback": -0.3,
+          "damping": 0.38,
+          "mix": 0.78
+        }
+      },
+      {
+        "id": "start-pipe-a",
+        "type": "comb",
+        "x": 2740,
+        "y": 700,
+        "label": "Bank A · open-end reflection",
+        "compact": true,
+        "params": {
+          "time": 0.00275,
+          "feedback": -0.47,
+          "damping": 0.51,
+          "mix": 0.84
+        }
+      },
+      {
+        "id": "start-pipe-b",
+        "type": "comb",
+        "x": 2740,
+        "y": 1360,
+        "label": "Bank B · open-end reflection",
+        "compact": true,
+        "params": {
+          "time": 0.0029,
+          "feedback": -0.5,
+          "damping": 0.55,
+          "mix": 0.84
+        }
+      },
+      {
+        "id": "start-clatter",
+        "type": "grain",
+        "x": 940,
+        "y": 700,
+        "label": "Valve and mechanism contact",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 2400,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0018,
+          "spread": 0,
+          "jitter": 0.24,
+          "variation": 0.72,
+          "glide": 0,
+          "delay": 0.86,
+          "width": 0.12,
+          "level": 0
+        }
+      },
+      {
+        "id": "start-air",
+        "type": "noise",
+        "x": 940,
+        "y": 1030,
+        "label": "Gas-flow texture",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0,
+          "width": 0
+        }
+      },
+      {
+        "id": "start-air-band",
+        "type": "filter",
+        "x": 1240,
+        "y": 370,
+        "label": "Running airflow",
+        "compact": true,
+        "params": {
+          "cutoff": 1150,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "start-body",
+        "type": "filter",
+        "x": 2740,
+        "y": 1030,
+        "label": "Low pressure body",
+        "compact": true,
+        "params": {
+          "cutoff": 380,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "start-eq",
+        "type": "equalizer",
+        "x": 3040,
+        "y": 40,
+        "label": "Start body and mechanical detail",
+        "compact": true,
+        "params": {
+          "low": 3,
+          "mid": 0,
+          "high": 1.5,
+          "frequency": 780
+        }
+      },
+      {
+        "id": "start-pressure-gain",
+        "type": "gain",
+        "x": 3040,
+        "y": 370,
+        "label": "Firing pressure build-up",
+        "compact": true,
+        "params": {
+          "gain": 0.9
+        }
+      },
+      {
+        "id": "start-dynamics",
+        "type": "compressor",
+        "x": 3040,
+        "y": 700,
+        "label": "Catch transient balance",
+        "compact": true,
+        "params": {
+          "threshold": -7,
+          "ratio": 3,
+          "attack": 0.0015,
+          "release": 0.065,
+          "makeup": 1.5
+        }
+      },
+      {
+        "id": "start-rolloff",
+        "type": "filter",
+        "x": 3040,
+        "y": 1030,
+        "label": "Close absorption",
+        "compact": true,
+        "params": {
+          "cutoff": 5800,
+          "resonance": 0.65,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "start-space",
+        "type": "space",
+        "x": 3340,
+        "y": 1030,
+        "label": "Close reflections",
+        "compact": true,
+        "params": {
+          "size": 0.14,
+          "damping": 0.68,
+          "mix": 0.04,
+          "width": 0.42,
+          "distance": 0.04
+        }
+      },
+      {
+        "id": "start-output",
+        "type": "output",
+        "x": 3340,
+        "y": 1360,
+        "label": "Engine start output",
+        "compact": true,
+        "params": {
+          "gain": 0.68
+        }
+      },
+      {
+        "id": "start-cylinder-1",
+        "type": "pulse",
+        "x": 1240,
+        "y": 700,
+        "label": "Bank A · pressure 1",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.07,
+          "jitter": 0.0038,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-2",
+        "type": "pulse",
+        "x": 1840,
+        "y": 700,
+        "label": "Bank B · pressure 1",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.15333333333333332,
+          "jitter": 0.0038,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-3",
+        "type": "pulse",
+        "x": 1240,
+        "y": 1030,
+        "label": "Bank A · pressure 2",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.23666666666666666,
+          "jitter": 0.0045,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-4",
+        "type": "pulse",
+        "x": 1840,
+        "y": 1030,
+        "label": "Bank B · pressure 2",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.32,
+          "jitter": 0.0045,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-5",
+        "type": "pulse",
+        "x": 1240,
+        "y": 1360,
+        "label": "Bank A · pressure 3",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.4033333333333333,
+          "jitter": 0.0052,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-6",
+        "type": "pulse",
+        "x": 1840,
+        "y": 1360,
+        "label": "Bank B · pressure 3",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.4866666666666667,
+          "jitter": 0.0052,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-7",
+        "type": "pulse",
+        "x": 1540,
+        "y": 700,
+        "label": "Bank A · pressure 4",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.5700000000000001,
+          "jitter": 0.0038,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-8",
+        "type": "pulse",
+        "x": 2140,
+        "y": 700,
+        "label": "Bank B · pressure 4",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.6533333333333333,
+          "jitter": 0.0038,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-9",
+        "type": "pulse",
+        "x": 1540,
+        "y": 1030,
+        "label": "Bank A · pressure 5",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.7366666666666666,
+          "jitter": 0.0045,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-10",
+        "type": "pulse",
+        "x": 2140,
+        "y": 1030,
+        "label": "Bank B · pressure 5",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.8200000000000001,
+          "jitter": 0.0045,
+          "shimmer": 0.12,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-11",
+        "type": "pulse",
+        "x": 1540,
+        "y": 1360,
+        "label": "Bank A · pressure 6",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.9033333333333333,
+          "jitter": 0.0052,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "start-cylinder-12",
+        "type": "pulse",
+        "x": 2140,
+        "y": 1360,
+        "label": "Bank B · pressure 6",
+        "compact": true,
+        "params": {
+          "frequency": 0,
+          "width": 0.002,
+          "phase": 0.9866666666666666,
+          "jitter": 0.0052,
+          "shimmer": 0.145,
+          "level": 0,
+          "shape": "exponential"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "start-key-engage",
+        "from": "start-key",
+        "to": "start-engage",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "start-key-release",
+        "from": "start-key",
+        "to": "start-disengage",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "start-rpm-clock",
+        "from": "start-speed",
+        "to": "start-bank-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "start-pressure-width",
+        "from": "start-bank-rate",
+        "to": "start-release-width",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "start-compression-clock",
+        "from": "start-bank-rate",
+        "to": "start-compression-motion",
+        "target": "rate",
+        "amount": 6
+      },
+      {
+        "id": "start-gear-speed",
+        "from": "start-bank-rate",
+        "to": "start-gear-mesh",
+        "target": "frequency",
+        "amount": 105
+      },
+      {
+        "id": "start-gear-droop",
+        "from": "start-compression-motion",
+        "to": "start-gear-mesh",
+        "target": "frequency",
+        "amount": -90
+      },
+      {
+        "id": "start-friction-load",
+        "from": "start-compression-motion",
+        "to": "start-friction",
+        "target": "level",
+        "amount": 0.23
+      },
+      {
+        "id": "start-compression-strokes",
+        "from": "start-bank-rate",
+        "to": "start-compression",
+        "target": "frequency",
+        "amount": 6
+      },
+      {
+        "id": "start-contact-engage",
+        "from": "start-engage",
+        "to": "start-contact",
+        "target": "level",
+        "amount": 0.82
+      },
+      {
+        "id": "start-contact-release",
+        "from": "start-disengage",
+        "to": "start-contact",
+        "target": "level",
+        "amount": 0.24
+      },
+      {
+        "id": "start-gear-colour",
+        "from": "start-gear-mesh",
+        "to": "start-mechanism-band",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-friction-colour",
+        "from": "start-friction",
+        "to": "start-mechanism-band",
+        "target": "audio",
+        "amount": 0.82
+      },
+      {
+        "id": "start-mechanism-envelope",
+        "from": "start-mechanism-band",
+        "to": "start-mechanism-gate",
+        "target": "audio",
+        "amount": 1.5
+      },
+      {
+        "id": "start-compression-envelope",
+        "from": "start-compression",
+        "to": "start-mechanism-gate",
+        "target": "audio",
+        "amount": 0.55
+      },
+      {
+        "id": "start-key-gate",
+        "from": "start-key",
+        "to": "start-mechanism-gate",
+        "target": "gain",
+        "amount": 1.65
+      },
+      {
+        "id": "start-cranking-mix",
+        "from": "start-mechanism-gate",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-contact-detail",
+        "from": "start-contact",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 0.72
+      },
+      {
+        "id": "start-header-tail-a",
+        "from": "start-header-a",
+        "to": "start-pipe-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-header-tail-b",
+        "from": "start-header-b",
+        "to": "start-pipe-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-pressure-mix-a",
+        "from": "start-pipe-a",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "start-pressure-mix-b",
+        "from": "start-pipe-b",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 0.62
+      },
+      {
+        "id": "start-pressure-body-a",
+        "from": "start-pipe-a",
+        "to": "start-body",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-pressure-body-b",
+        "from": "start-pipe-b",
+        "to": "start-body",
+        "target": "audio",
+        "amount": 0.96
+      },
+      {
+        "id": "start-contact-weight",
+        "from": "start-contact",
+        "to": "start-body",
+        "target": "audio",
+        "amount": 2.8
+      },
+      {
+        "id": "start-pressure-body-mix",
+        "from": "start-body",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 2.05
+      },
+      {
+        "id": "start-running-contact-clock",
+        "from": "start-bank-rate",
+        "to": "start-clatter",
+        "target": "rate",
+        "amount": 4
+      },
+      {
+        "id": "start-running-contact-pressure",
+        "from": "start-pressure",
+        "to": "start-clatter",
+        "target": "level",
+        "amount": 0.52
+      },
+      {
+        "id": "start-running-contact-mix",
+        "from": "start-clatter",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 0.65
+      },
+      {
+        "id": "start-air-pressure",
+        "from": "start-pressure",
+        "to": "start-air",
+        "target": "level",
+        "amount": 0.028
+      },
+      {
+        "id": "start-air-colour",
+        "from": "start-air",
+        "to": "start-air-band",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-air-mix",
+        "from": "start-air-band",
+        "to": "start-eq",
+        "target": "audio",
+        "amount": 0.8
+      },
+      {
+        "id": "start-pressure-build-up",
+        "from": "start-pressure",
+        "to": "start-pressure-gain",
+        "target": "gain",
+        "amount": 1.1
+      },
+      {
+        "id": "start-pressure-level",
+        "from": "start-eq",
+        "to": "start-pressure-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-catch-dynamics",
+        "from": "start-pressure-gain",
+        "to": "start-dynamics",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-colour-absorption",
+        "from": "start-dynamics",
+        "to": "start-rolloff",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-acoustic-space",
+        "from": "start-rolloff",
+        "to": "start-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-listen",
+        "from": "start-space",
+        "to": "start-output",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-1-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-1",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-1-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-1",
+        "target": "width",
+        "amount": 0.92
+      },
+      {
+        "id": "start-cylinder-1-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-1",
+        "target": "phase",
+        "amount": -0.0002
+      },
+      {
+        "id": "start-cylinder-1-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-1",
+        "target": "level",
+        "amount": 0.714
+      },
+      {
+        "id": "start-cylinder-1-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-1",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-1-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-1",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-1-audio",
+        "from": "start-cylinder-1",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-2-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-2",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-2-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-2",
+        "target": "width",
+        "amount": 0.92
+      },
+      {
+        "id": "start-cylinder-2-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-2",
+        "target": "phase",
+        "amount": -0.0002
+      },
+      {
+        "id": "start-cylinder-2-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-2",
+        "target": "level",
+        "amount": 0.935
+      },
+      {
+        "id": "start-cylinder-2-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-2",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-2-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-2",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-2-audio",
+        "from": "start-cylinder-2",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-3-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-3",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-3-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-3",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-3-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-3",
+        "target": "phase",
+        "amount": -0.00027
+      },
+      {
+        "id": "start-cylinder-3-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-3",
+        "target": "level",
+        "amount": 0.5780000000000001
+      },
+      {
+        "id": "start-cylinder-3-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-3",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-3-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-3",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-3-audio",
+        "from": "start-cylinder-3",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-4-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-4",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-4-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-4",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-4-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-4",
+        "target": "phase",
+        "amount": -0.00027
+      },
+      {
+        "id": "start-cylinder-4-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-4",
+        "target": "level",
+        "amount": 1.037
+      },
+      {
+        "id": "start-cylinder-4-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-4",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-4-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-4",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-4-audio",
+        "from": "start-cylinder-4",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-5-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-5",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-5-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-5",
+        "target": "width",
+        "amount": 1.08
+      },
+      {
+        "id": "start-cylinder-5-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-5",
+        "target": "phase",
+        "amount": -0.00038
+      },
+      {
+        "id": "start-cylinder-5-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-5",
+        "target": "level",
+        "amount": 0.8075
+      },
+      {
+        "id": "start-cylinder-5-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-5",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-5-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-5",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-5-audio",
+        "from": "start-cylinder-5",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-6-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-6",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-6-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-6",
+        "target": "width",
+        "amount": 1.08
+      },
+      {
+        "id": "start-cylinder-6-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-6",
+        "target": "phase",
+        "amount": -0.00038
+      },
+      {
+        "id": "start-cylinder-6-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-6",
+        "target": "level",
+        "amount": 0.884
+      },
+      {
+        "id": "start-cylinder-6-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-6",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-6-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-6",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-6-audio",
+        "from": "start-cylinder-6",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-7-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-7",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-7-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-7",
+        "target": "width",
+        "amount": 0.92
+      },
+      {
+        "id": "start-cylinder-7-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-7",
+        "target": "phase",
+        "amount": -0.00024
+      },
+      {
+        "id": "start-cylinder-7-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-7",
+        "target": "level",
+        "amount": 0.9859999999999999
+      },
+      {
+        "id": "start-cylinder-7-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-7",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-7-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-7",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-7-audio",
+        "from": "start-cylinder-7",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-8-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-8",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-8-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-8",
+        "target": "width",
+        "amount": 0.92
+      },
+      {
+        "id": "start-cylinder-8-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-8",
+        "target": "phase",
+        "amount": -0.00024
+      },
+      {
+        "id": "start-cylinder-8-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-8",
+        "target": "level",
+        "amount": 0.6204999999999999
+      },
+      {
+        "id": "start-cylinder-8-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-8",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-8-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-8",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-8-audio",
+        "from": "start-cylinder-8",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-9-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-9",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-9-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-9",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-9-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-9",
+        "target": "phase",
+        "amount": -0.00044
+      },
+      {
+        "id": "start-cylinder-9-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-9",
+        "target": "level",
+        "amount": 0.918
+      },
+      {
+        "id": "start-cylinder-9-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-9",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-9-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-9",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-9-audio",
+        "from": "start-cylinder-9",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-10-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-10",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-10-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-10",
+        "target": "width",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-10-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-10",
+        "target": "phase",
+        "amount": -0.00044
+      },
+      {
+        "id": "start-cylinder-10-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-10",
+        "target": "level",
+        "amount": 0.731
+      },
+      {
+        "id": "start-cylinder-10-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-10",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-10-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-10",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-10-audio",
+        "from": "start-cylinder-10",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-11-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-11",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-11-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-11",
+        "target": "width",
+        "amount": 1.08
+      },
+      {
+        "id": "start-cylinder-11-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-11",
+        "target": "phase",
+        "amount": -0.00032
+      },
+      {
+        "id": "start-cylinder-11-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-11",
+        "target": "level",
+        "amount": 1.0114999999999998
+      },
+      {
+        "id": "start-cylinder-11-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-11",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-11-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-11",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-11-audio",
+        "from": "start-cylinder-11",
+        "to": "start-header-a",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-12-clock",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-12",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "start-cylinder-12-duration",
+        "from": "start-release-width",
+        "to": "start-cylinder-12",
+        "target": "width",
+        "amount": 1.08
+      },
+      {
+        "id": "start-cylinder-12-runner",
+        "from": "start-bank-rate",
+        "to": "start-cylinder-12",
+        "target": "phase",
+        "amount": -0.00032
+      },
+      {
+        "id": "start-cylinder-12-pressure",
+        "from": "start-pressure",
+        "to": "start-cylinder-12",
+        "target": "level",
+        "amount": 0.6715
+      },
+      {
+        "id": "start-cylinder-12-catch-scatter",
+        "from": "start-key",
+        "to": "start-cylinder-12",
+        "target": "jitter",
+        "amount": 0.018
+      },
+      {
+        "id": "start-cylinder-12-catch-variation",
+        "from": "start-key",
+        "to": "start-cylinder-12",
+        "target": "shimmer",
+        "amount": 0.22
+      },
+      {
+        "id": "start-cylinder-12-audio",
+        "from": "start-cylinder-12",
+        "to": "start-header-b",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 0.65
+}

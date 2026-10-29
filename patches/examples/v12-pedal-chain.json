@@ -1,0 +1,344 @@
+{
+  "haa": 1,
+  "id": "v12-pedal-chain",
+  "title": "V12 pedal control chain",
+  "inputs": [],
+  "graph": {
+    "duration": 11,
+    "loop": true,
+    "mode": "live",
+    "nodes": [
+      {
+        "id": "pedal-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 50,
+        "label": "Pedal gesture",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.1, 0],
+          [0.16, 0.82],
+          [0.27, 0.9],
+          [0.31, 0.08],
+          [0.36, 0.94],
+          [0.48, 1],
+          [0.53, 0.1],
+          [0.58, 0.96],
+          [0.7, 1],
+          [0.76, 0.12],
+          [0.82, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "engine-pedal",
+        "type": "response",
+        "x": 40,
+        "y": 370,
+        "label": "Pedal",
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.018,
+          "release": 0.03,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "engine-motion",
+        "type": "motion",
+        "x": 40,
+        "y": 690,
+        "label": "Inferred rotational movement",
+        "params": {
+          "input": 0,
+          "acceleration": 0.36,
+          "resistance": 0.07,
+          "return": 1.7,
+          "ceiling": 0.98,
+          "reset": 0.64,
+          "stages": 0,
+          "progression": 0.76,
+          "hold": 0.14,
+          "inertia": 0.065,
+          "rest": 0.025
+        }
+      },
+      {
+        "id": "engine-acceleration",
+        "type": "response",
+        "x": 40,
+        "y": 1010,
+        "label": "Acceleration effort",
+        "params": {
+          "input": 0,
+          "mode": "rise",
+          "attack": 0.035,
+          "release": 0.1,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 1
+        }
+      },
+      {
+        "id": "engine-load",
+        "type": "response",
+        "x": 340,
+        "y": 1010,
+        "label": "Pressure from inferred effort",
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.05,
+          "release": 0.08,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "engine-effort",
+        "type": "math",
+        "x": 340,
+        "y": 1330,
+        "label": "Pedal × moving resistance",
+        "params": {
+          "a": 0,
+          "b": 0.52,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-release-response",
+        "type": "response",
+        "x": 40,
+        "y": 1330,
+        "label": "Release from pedal motion",
+        "params": {
+          "input": 0,
+          "mode": "fall",
+          "attack": 0.001,
+          "release": 0.18,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1.1,
+          "sensitivity": 0.12
+        }
+      },
+      {
+        "id": "engine-bank-rate",
+        "type": "math",
+        "x": 340,
+        "y": 50,
+        "label": "RPM / 120 · cylinder cycle",
+        "params": {
+          "a": 850,
+          "b": 0.008333333333333333,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-shaft-rate",
+        "type": "math",
+        "x": 340,
+        "y": 370,
+        "label": "Cycle × 2 · crankshaft",
+        "params": {
+          "a": 0,
+          "b": 2,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "engine-release-width",
+        "type": "math",
+        "x": 340,
+        "y": 690,
+        "label": "Pressure duration · softer idle, sharper load",
+        "params": {
+          "a": 0,
+          "b": 0.0021,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "osc",
+        "type": "oscillator",
+        "x": 640,
+        "y": 370,
+        "label": "Oscillateur",
+        "params": {
+          "frequency": 20,
+          "wave": "sine",
+          "level": 0.35
+        }
+      },
+      {
+        "id": "gain",
+        "type": "gain",
+        "x": 940,
+        "y": 370,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0.2
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1240,
+        "y": 370,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.82
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "pedal-automation",
+        "from": "pedal-curve",
+        "to": "engine-pedal",
+        "target": "input",
+        "amount": 0
+      },
+      {
+        "id": "engine-drive",
+        "from": "engine-pedal",
+        "to": "engine-motion",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-sense-acceleration",
+        "from": "engine-motion",
+        "to": "engine-acceleration",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-demand",
+        "from": "engine-pedal",
+        "to": "engine-effort",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-moving-resistance",
+        "from": "engine-motion",
+        "to": "engine-effort",
+        "target": "b",
+        "amount": 0.44
+      },
+      {
+        "id": "engine-pressure-demand",
+        "from": "engine-effort",
+        "to": "engine-load",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-pressure-inertia",
+        "from": "engine-acceleration",
+        "to": "engine-load",
+        "target": "input",
+        "amount": 0.55
+      },
+      {
+        "id": "engine-release-detect",
+        "from": "engine-pedal",
+        "to": "engine-release-response",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "engine-rpm",
+        "from": "engine-motion",
+        "to": "engine-bank-rate",
+        "target": "a",
+        "amount": 7900
+      },
+      {
+        "id": "engine-shaft-conversion",
+        "from": "engine-bank-rate",
+        "to": "engine-shaft-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-release-duration",
+        "from": "engine-bank-rate",
+        "to": "engine-release-width",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "engine-release-shortening",
+        "from": "engine-motion",
+        "to": "engine-release-width",
+        "target": "b",
+        "amount": -0.00045
+      },
+      {
+        "id": "engine-pressure-edge",
+        "from": "engine-load",
+        "to": "engine-release-width",
+        "target": "b",
+        "amount": -0.0016
+      },
+      {
+        "id": "chain-osc-frequency",
+        "from": "engine-shaft-rate",
+        "to": "osc",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "chain-effort-gain",
+        "from": "engine-effort",
+        "to": "gain",
+        "target": "gain",
+        "amount": 0.3
+      },
+      {
+        "id": "chain-osc-gain",
+        "from": "osc",
+        "to": "gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "chain-gain-out",
+        "from": "gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ],
+    "performance": {
+      "node": "engine-pedal",
+      "parameter": "input",
+      "curveNode": "pedal-curve",
+      "edge": "pedal-automation",
+      "mode": "live",
+      "manualValue": 0
+    }
+  },
+  "master": 1
+}

@@ -1,0 +1,191 @@
+{
+  "haa": 1,
+  "id": "fx-filters",
+  "title": "FX filters",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "noise-white",
+        "type": "noise",
+        "x": 60,
+        "y": 60,
+        "label": "Bruit blanc",
+        "params": {
+          "color": "white",
+          "level": 0.3,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "filter-sweep",
+        "type": "filter",
+        "x": 320,
+        "y": 60,
+        "label": "Filtre",
+        "params": {
+          "cutoff": 200,
+          "resonance": 4,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "eq-motion",
+        "type": "equalizer",
+        "x": 580,
+        "y": 60,
+        "label": "Égaliseur 3 bandes",
+        "params": {
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "frequency": 1200
+        }
+      },
+      {
+        "id": "drive-grit",
+        "type": "drive",
+        "x": 840,
+        "y": 60,
+        "label": "Saturation",
+        "params": {
+          "amount": 0.2,
+          "mix": 0.6
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1100,
+        "y": 60,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.6
+        }
+      },
+      {
+        "id": "curve-cutoff",
+        "type": "curve",
+        "x": 320,
+        "y": 220,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "lfo-mid",
+        "type": "lfo",
+        "x": 580,
+        "y": 220,
+        "label": "LFO",
+        "params": {
+          "rate": 0.5,
+          "depth": 0.5,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "curve-drive",
+        "type": "curve",
+        "x": 840,
+        "y": 220,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.25,
+            1
+          ],
+          [
+            0.5,
+            0
+          ],
+          [
+            0.75,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-noise-white-filter-sweep",
+        "from": "noise-white",
+        "to": "filter-sweep",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-filter-sweep-eq-motion",
+        "from": "filter-sweep",
+        "to": "eq-motion",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-eq-motion-drive-grit",
+        "from": "eq-motion",
+        "to": "drive-grit",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-drive-grit-out",
+        "from": "drive-grit",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-cutoff-filter-sweep-cutoff",
+        "from": "curve-cutoff",
+        "to": "filter-sweep",
+        "target": "cutoff",
+        "amount": 7800
+      },
+      {
+        "id": "edge-lfo-mid-eq-motion-mid",
+        "from": "lfo-mid",
+        "to": "eq-motion",
+        "target": "mid",
+        "amount": 12
+      },
+      {
+        "id": "edge-curve-drive-drive-grit-amount",
+        "from": "curve-drive",
+        "to": "drive-grit",
+        "target": "amount",
+        "amount": 0.6
+      }
+    ]
+  },
+  "master": 1
+}

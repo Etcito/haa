@@ -1,0 +1,329 @@
+{
+  "haa": 1,
+  "id": "noise-colours",
+  "title": "Noise colours",
+  "inputs": [],
+  "graph": {
+    "duration": 10,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "noise-white",
+        "type": "noise",
+        "x": 60,
+        "y": 40,
+        "label": "Bruit blanc",
+        "params": {
+          "color": "white",
+          "level": 0.5,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "curve-white",
+        "type": "curve",
+        "x": 60,
+        "y": 100,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.01, 1],
+          [0.19, 1],
+          [0.2, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain-white",
+        "type": "gain",
+        "x": 320,
+        "y": 40,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "noise-pink",
+        "type": "noise",
+        "x": 60,
+        "y": 180,
+        "label": "Bruit rose",
+        "params": {
+          "color": "pink",
+          "level": 0.5,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "curve-pink",
+        "type": "curve",
+        "x": 60,
+        "y": 240,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.2, 0],
+          [0.21, 1],
+          [0.39, 1],
+          [0.4, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain-pink",
+        "type": "gain",
+        "x": 320,
+        "y": 180,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "noise-brown",
+        "type": "noise",
+        "x": 60,
+        "y": 320,
+        "label": "Bruit brun",
+        "params": {
+          "color": "brown",
+          "level": 0.5,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "curve-brown",
+        "type": "curve",
+        "x": 60,
+        "y": 380,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.4, 0],
+          [0.41, 1],
+          [0.59, 1],
+          [0.6, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain-brown",
+        "type": "gain",
+        "x": 320,
+        "y": 320,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "noise-blue",
+        "type": "noise",
+        "x": 60,
+        "y": 460,
+        "label": "Bruit bleu",
+        "params": {
+          "color": "blue",
+          "level": 0.5,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "curve-blue",
+        "type": "curve",
+        "x": 60,
+        "y": 520,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.6, 0],
+          [0.61, 1],
+          [0.79, 1],
+          [0.8, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain-blue",
+        "type": "gain",
+        "x": 320,
+        "y": 460,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "noise-violet",
+        "type": "noise",
+        "x": 60,
+        "y": 600,
+        "label": "Bruit violet",
+        "params": {
+          "color": "violet",
+          "level": 0.5,
+          "width": 0.5
+        }
+      },
+      {
+        "id": "curve-violet",
+        "type": "curve",
+        "x": 60,
+        "y": 660,
+        "label": "Courbe temporelle",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.8, 0],
+          [0.81, 1],
+          [0.99, 1],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gain-violet",
+        "type": "gain",
+        "x": 320,
+        "y": 600,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 580,
+        "y": 300,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-noise-white-gain-white",
+        "from": "noise-white",
+        "to": "gain-white",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-white-gain-white",
+        "from": "curve-white",
+        "to": "gain-white",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-white-out",
+        "from": "gain-white",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-noise-pink-gain-pink",
+        "from": "noise-pink",
+        "to": "gain-pink",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-pink-gain-pink",
+        "from": "curve-pink",
+        "to": "gain-pink",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-pink-out",
+        "from": "gain-pink",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-noise-brown-gain-brown",
+        "from": "noise-brown",
+        "to": "gain-brown",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-brown-gain-brown",
+        "from": "curve-brown",
+        "to": "gain-brown",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-brown-out",
+        "from": "gain-brown",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-noise-blue-gain-blue",
+        "from": "noise-blue",
+        "to": "gain-blue",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-blue-gain-blue",
+        "from": "curve-blue",
+        "to": "gain-blue",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-blue-out",
+        "from": "gain-blue",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-noise-violet-gain-violet",
+        "from": "noise-violet",
+        "to": "gain-violet",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-violet-gain-violet",
+        "from": "curve-violet",
+        "to": "gain-violet",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-violet-out",
+        "from": "gain-violet",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

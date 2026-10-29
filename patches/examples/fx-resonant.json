@@ -1,0 +1,419 @@
+{
+  "haa": 1,
+  "id": "fx-resonant",
+  "title": "Resonant effects · comb, resonator and formant",
+  "inputs": [],
+  "graph": {
+    "duration": 9,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "pulses",
+        "type": "pulse",
+        "x": 60,
+        "y": 40,
+        "label": "Impulsions · 4 Hz",
+        "params": {
+          "frequency": 4,
+          "width": 0.03,
+          "phase": 0,
+          "jitter": 0,
+          "shimmer": 0,
+          "level": 0.85,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "noise",
+        "type": "noise",
+        "x": 60,
+        "y": 600,
+        "label": "Bruit blanc",
+        "params": {
+          "color": "white",
+          "level": 0.5,
+          "width": 0.3
+        }
+      },
+      {
+        "id": "comb-motion",
+        "type": "lfo",
+        "x": 60,
+        "y": 140,
+        "label": "Modulation lente du retard",
+        "params": {
+          "rate": 0.25,
+          "depth": 1,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "comb",
+        "type": "comb",
+        "x": 340,
+        "y": 40,
+        "label": "Peigne · 0–3 s",
+        "params": {
+          "time": 0.004,
+          "feedback": 0.85,
+          "damping": 0.25,
+          "mix": 1
+        }
+      },
+      {
+        "id": "comb-window",
+        "type": "curve",
+        "x": 340,
+        "y": 180,
+        "label": "Fenêtre du peigne",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.015,
+            1
+          ],
+          [
+            0.31,
+            1
+          ],
+          [
+            0.33,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "comb-gain",
+        "type": "gain",
+        "x": 620,
+        "y": 40,
+        "label": "Niveau du peigne",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "resonator-color",
+        "type": "curve",
+        "x": 60,
+        "y": 400,
+        "label": "Matière · harmonique vers métallique",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.34,
+            0
+          ],
+          [
+            0.64,
+            1
+          ],
+          [
+            0.67,
+            1
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "resonator",
+        "type": "resonator",
+        "x": 340,
+        "y": 320,
+        "label": "Résonateur · 3–6 s",
+        "params": {
+          "frequency": 180,
+          "decay": 0.2,
+          "color": 0,
+          "mix": 1
+        }
+      },
+      {
+        "id": "resonator-window",
+        "type": "curve",
+        "x": 340,
+        "y": 460,
+        "label": "Fenêtre du résonateur",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.34,
+            0
+          ],
+          [
+            0.355,
+            1
+          ],
+          [
+            0.64,
+            1
+          ],
+          [
+            0.66,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "resonator-gain",
+        "type": "gain",
+        "x": 620,
+        "y": 320,
+        "label": "Niveau du résonateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "vowel-motion",
+        "type": "curve",
+        "x": 60,
+        "y": 740,
+        "label": "Mouvement des voyelles",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.67,
+            0
+          ],
+          [
+            0.76,
+            1
+          ],
+          [
+            0.85,
+            0.2
+          ],
+          [
+            0.96,
+            0.7
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "formant",
+        "type": "formant",
+        "x": 340,
+        "y": 600,
+        "label": "Formants · 6–9 s",
+        "params": {
+          "frequency": 300,
+          "spread": 0.7,
+          "resonance": 1.2,
+          "mix": 1
+        }
+      },
+      {
+        "id": "formant-window",
+        "type": "curve",
+        "x": 340,
+        "y": 740,
+        "label": "Fenêtre des formants",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.67,
+            0
+          ],
+          [
+            0.685,
+            1
+          ],
+          [
+            0.97,
+            1
+          ],
+          [
+            0.99,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "formant-gain",
+        "type": "gain",
+        "x": 620,
+        "y": 600,
+        "label": "Niveau des formants",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 900,
+        "y": 320,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.6
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-pulses-comb-audio",
+        "from": "pulses",
+        "to": "comb",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-comb-motion-comb-time",
+        "from": "comb-motion",
+        "to": "comb",
+        "target": "time",
+        "amount": 0.0015
+      },
+      {
+        "id": "edge-comb-comb-gain-audio",
+        "from": "comb",
+        "to": "comb-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-comb-window-comb-gain-gain",
+        "from": "comb-window",
+        "to": "comb-gain",
+        "target": "gain",
+        "amount": 2
+      },
+      {
+        "id": "edge-comb-gain-out-audio",
+        "from": "comb-gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-pulses-resonator-audio",
+        "from": "pulses",
+        "to": "resonator",
+        "target": "audio",
+        "amount": 8
+      },
+      {
+        "id": "edge-resonator-color-resonator-color",
+        "from": "resonator-color",
+        "to": "resonator",
+        "target": "color",
+        "amount": 1
+      },
+      {
+        "id": "edge-resonator-resonator-gain-audio",
+        "from": "resonator",
+        "to": "resonator-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-resonator-window-resonator-gain-gain",
+        "from": "resonator-window",
+        "to": "resonator-gain",
+        "target": "gain",
+        "amount": 2
+      },
+      {
+        "id": "edge-resonator-gain-out-audio",
+        "from": "resonator-gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-noise-formant-audio",
+        "from": "noise",
+        "to": "formant",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-vowel-motion-formant-frequency",
+        "from": "vowel-motion",
+        "to": "formant",
+        "target": "frequency",
+        "amount": 500
+      },
+      {
+        "id": "edge-vowel-motion-formant-spread",
+        "from": "vowel-motion",
+        "to": "formant",
+        "target": "spread",
+        "amount": 0.8
+      },
+      {
+        "id": "edge-formant-formant-gain-audio",
+        "from": "formant",
+        "to": "formant-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-formant-window-formant-gain-gain",
+        "from": "formant-window",
+        "to": "formant-gain",
+        "target": "gain",
+        "amount": 2
+      },
+      {
+        "id": "edge-formant-gain-out-audio",
+        "from": "formant-gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

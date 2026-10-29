@@ -1,0 +1,869 @@
+{
+  "haa": 1,
+  "id": "rain-city-1",
+  "title": "City rain · lively",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "rain-city-1-activity",
+        "type": "curve",
+        "x": 40,
+        "y": 50,
+        "label": "Measured activity contour",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0.3727356093747651
+          ],
+          [
+            0.015625,
+            0.3727356093747651
+          ],
+          [
+            0.046875,
+            0.32261459131977327
+          ],
+          [
+            0.078125,
+            0.29632135179422414
+          ],
+          [
+            0.109375,
+            0.4331995369743982
+          ],
+          [
+            0.140625,
+            0.3568905124851546
+          ],
+          [
+            0.171875,
+            0.48425261955230836
+          ],
+          [
+            0.203125,
+            0.37126234609660397
+          ],
+          [
+            0.234375,
+            1
+          ],
+          [
+            0.265625,
+            0.4194440686119755
+          ],
+          [
+            0.296875,
+            0.4430613809588238
+          ],
+          [
+            0.328125,
+            0.38775387483275453
+          ],
+          [
+            0.359375,
+            0.312857980426645
+          ],
+          [
+            0.390625,
+            0.31848043416166805
+          ],
+          [
+            0.421875,
+            0.3537786196425081
+          ],
+          [
+            0.453125,
+            0.46694929268329344
+          ],
+          [
+            0.484375,
+            0.3628587320915828
+          ],
+          [
+            0.515625,
+            0.5353057021302183
+          ],
+          [
+            0.546875,
+            0.5460244441437784
+          ],
+          [
+            0.578125,
+            0.3551015499331018
+          ],
+          [
+            0.609375,
+            0.30786692523940523
+          ],
+          [
+            0.640625,
+            0.2878125046979058
+          ],
+          [
+            0.671875,
+            0.3495392293931057
+          ],
+          [
+            0.703125,
+            0.3269742479592297
+          ],
+          [
+            0.734375,
+            0.38554397991551287
+          ],
+          [
+            0.765625,
+            0.3267938483741487
+          ],
+          [
+            0.796875,
+            0.39316586238518314
+          ],
+          [
+            0.828125,
+            0.32984560802176816
+          ],
+          [
+            0.859375,
+            0.3812143898735699
+          ],
+          [
+            0.890625,
+            0.37662923375276236
+          ],
+          [
+            0.921875,
+            0.32402772140290736
+          ],
+          [
+            0.953125,
+            0.2600460018941956
+          ],
+          [
+            0.984375,
+            0.3161803394518859
+          ],
+          [
+            1,
+            0.3161803394518859
+          ]
+        ]
+      },
+      {
+        "id": "rain-city-1-density-drift",
+        "type": "random",
+        "x": 40,
+        "y": 320,
+        "label": "Irregular impact density",
+        "compact": true,
+        "params": {
+          "rate": 7,
+          "depth": 1,
+          "smooth": 0.8
+        }
+      },
+      {
+        "id": "rain-city-1-bed-low",
+        "type": "grain",
+        "x": 340,
+        "y": 50,
+        "label": "Low continuous wash",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 180,
+          "resonance": 0.7,
+          "rate": 700,
+          "attack": 0.0003,
+          "decay": 0.045,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.7,
+          "glide": 0,
+          "delay": 0,
+          "width": 1,
+          "level": 0.8
+        }
+      },
+      {
+        "id": "rain-city-1-bed-low-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 50,
+        "label": "Remove subsonic wash",
+        "compact": true,
+        "params": {
+          "cutoff": 55,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "rain-city-1-bed-low-lp",
+        "type": "filter",
+        "x": 930,
+        "y": 50,
+        "label": "Low wash bandwidth",
+        "compact": true,
+        "params": {
+          "cutoff": 230,
+          "resonance": 0.8,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "rain-city-1-bed-mid",
+        "type": "noise",
+        "x": 340,
+        "y": 320,
+        "label": "Diffuse middle layer",
+        "compact": true,
+        "params": {
+          "color": "pink",
+          "level": 0.3,
+          "width": 0
+        }
+      },
+      {
+        "id": "rain-city-1-bed-mid-filter",
+        "type": "filter",
+        "x": 640,
+        "y": 320,
+        "label": "Middle texture colour",
+        "compact": true,
+        "params": {
+          "cutoff": 700,
+          "resonance": 1,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "rain-city-1-body-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 590,
+        "label": "Overlapping noise impacts",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1400,
+          "resonance": 0.7,
+          "rate": 280,
+          "attack": 0.00015,
+          "decay": 0.006,
+          "spread": 0,
+          "jitter": 0.96,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.003,
+          "width": 0.95,
+          "level": 0.33
+        }
+      },
+      {
+        "id": "rain-city-1-body-filter",
+        "type": "filter",
+        "x": 640,
+        "y": 590,
+        "label": "Impact body band",
+        "compact": true,
+        "params": {
+          "cutoff": 1350,
+          "resonance": 1,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "rain-city-1-fine-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 860,
+        "label": "Fine irregular splashes",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 6000,
+          "resonance": 0.7,
+          "rate": 470,
+          "attack": 0.0001,
+          "decay": 0.0022,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": 0,
+          "delay": 0.008,
+          "width": 1,
+          "level": 0.09
+        }
+      },
+      {
+        "id": "rain-city-1-fine-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 860,
+        "label": "Fine splash high-pass",
+        "compact": true,
+        "params": {
+          "cutoff": 2100,
+          "resonance": 0.6,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "rain-city-1-fine-lp",
+        "type": "filter",
+        "x": 930,
+        "y": 860,
+        "label": "Air and recording bandwidth",
+        "compact": true,
+        "params": {
+          "cutoff": 14800,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "rain-city-1-ring-grains",
+        "type": "grain",
+        "x": 340,
+        "y": 1130,
+        "label": "Tiny pitched resonances",
+        "compact": true,
+        "params": {
+          "wave": "sine",
+          "frequency": 1400,
+          "resonance": 0.7,
+          "rate": 16,
+          "attack": 0.0004,
+          "decay": 0.0024,
+          "spread": 23,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": 0.35,
+          "delay": 0.019,
+          "width": 0.85,
+          "level": 0.017
+        }
+      },
+      {
+        "id": "rain-city-1-accent-grains",
+        "type": "grain",
+        "x": 640,
+        "y": 1130,
+        "label": "Larger scattered impacts",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 2700,
+          "resonance": 0.7,
+          "rate": 2.7,
+          "attack": 0.0001,
+          "decay": 0.0016,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.12,
+          "width": 0.85,
+          "level": 0.28
+        }
+      },
+      {
+        "id": "rain-city-1-accent-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 1130,
+        "label": "Foreground impact colour",
+        "compact": true,
+        "params": {
+          "cutoff": 6500,
+          "resonance": 0.6,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "rain-city-1-mix",
+        "type": "gain",
+        "x": 1220,
+        "y": 320,
+        "label": "Layer balance and activity",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "rain-city-1-space",
+        "type": "space",
+        "x": 1510,
+        "y": 320,
+        "label": "Small diffuse reflections",
+        "compact": true,
+        "params": {
+          "size": 0.035,
+          "damping": 0.45,
+          "mix": 0.1,
+          "width": 0.9,
+          "distance": 0
+        }
+      },
+      {
+        "id": "rain-city-1-output",
+        "type": "output",
+        "x": 1800,
+        "y": 320,
+        "label": "Water texture output",
+        "compact": true,
+        "params": {
+          "gain": 0.88
+        }
+      },
+      {
+        "id": "rain-city-1-near-score",
+        "type": "curve",
+        "x": 40,
+        "y": 1400,
+        "label": "Nearest impact accents",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.00085625,
+            0
+          ],
+          [
+            0.00090625,
+            0.4067
+          ],
+          [
+            0.0009625,
+            0.097608
+          ],
+          [
+            0.00121875,
+            0
+          ],
+          [
+            0.11854375,
+            0
+          ],
+          [
+            0.11859375,
+            0.5182
+          ],
+          [
+            0.11864999999999999,
+            0.12436799999999999
+          ],
+          [
+            0.11890624999999999,
+            0
+          ],
+          [
+            0.12228875,
+            0
+          ],
+          [
+            0.12233875,
+            0.5874
+          ],
+          [
+            0.12239499999999999,
+            0.140976
+          ],
+          [
+            0.12265124999999999,
+            0
+          ],
+          [
+            0.16669,
+            0
+          ],
+          [
+            0.16674,
+            0.4217
+          ],
+          [
+            0.16679625,
+            0.101208
+          ],
+          [
+            0.1670525,
+            0
+          ],
+          [
+            0.22278875,
+            0
+          ],
+          [
+            0.22283875,
+            0.5538
+          ],
+          [
+            0.222895,
+            0.13291199999999997
+          ],
+          [
+            0.22315125,
+            0
+          ],
+          [
+            0.22704375000000002,
+            0
+          ],
+          [
+            0.22709375,
+            1
+          ],
+          [
+            0.22715000000000002,
+            0.24
+          ],
+          [
+            0.22740625,
+            0
+          ],
+          [
+            0.232325,
+            0
+          ],
+          [
+            0.232375,
+            0.5676
+          ],
+          [
+            0.23243125,
+            0.13622399999999998
+          ],
+          [
+            0.2326875,
+            0
+          ],
+          [
+            0.24279875,
+            0
+          ],
+          [
+            0.24284875,
+            0.6877
+          ],
+          [
+            0.242905,
+            0.165048
+          ],
+          [
+            0.24316125,
+            0
+          ],
+          [
+            0.2465175,
+            0
+          ],
+          [
+            0.2465675,
+            0.6746
+          ],
+          [
+            0.24662375,
+            0.161904
+          ],
+          [
+            0.24688,
+            0
+          ],
+          [
+            0.29834125,
+            0
+          ],
+          [
+            0.29839125,
+            0.4662
+          ],
+          [
+            0.2984475,
+            0.111888
+          ],
+          [
+            0.29870375,
+            0
+          ],
+          [
+            0.446585,
+            0
+          ],
+          [
+            0.446635,
+            0.4405
+          ],
+          [
+            0.44669125,
+            0.10572
+          ],
+          [
+            0.4469475,
+            0
+          ],
+          [
+            0.50890875,
+            0
+          ],
+          [
+            0.50895875,
+            0.54
+          ],
+          [
+            0.509015,
+            0.1296
+          ],
+          [
+            0.5092712500000001,
+            0
+          ],
+          [
+            0.53557,
+            0
+          ],
+          [
+            0.53562,
+            0.6554
+          ],
+          [
+            0.53567625,
+            0.157296
+          ],
+          [
+            0.5359325,
+            0
+          ],
+          [
+            0.86110125,
+            0
+          ],
+          [
+            0.86115125,
+            0.4113
+          ],
+          [
+            0.8612075,
+            0.098712
+          ],
+          [
+            0.8614637500000001,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "rain-city-1-near-noise",
+        "type": "noise",
+        "x": 340,
+        "y": 1400,
+        "label": "Very short foreground clicks",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0,
+          "width": 0
+        }
+      },
+      {
+        "id": "rain-city-1-near-hp",
+        "type": "filter",
+        "x": 640,
+        "y": 1400,
+        "label": "Foreground click high-pass",
+        "compact": true,
+        "params": {
+          "cutoff": 550,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "rain-city-1-near-weight",
+        "type": "gain",
+        "x": 930,
+        "y": 1400,
+        "label": "Close impact weight",
+        "compact": true,
+        "params": {
+          "gain": 1.2
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "rain-city-1-bed-low-bed-low-hp-audio",
+        "from": "rain-city-1-bed-low",
+        "to": "rain-city-1-bed-low-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-bed-low-hp-bed-low-lp-audio",
+        "from": "rain-city-1-bed-low-hp",
+        "to": "rain-city-1-bed-low-lp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-bed-low-lp-mix-audio",
+        "from": "rain-city-1-bed-low-lp",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-bed-mid-bed-mid-filter-audio",
+        "from": "rain-city-1-bed-mid",
+        "to": "rain-city-1-bed-mid-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-bed-mid-filter-mix-audio",
+        "from": "rain-city-1-bed-mid-filter",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-body-grains-body-filter-audio",
+        "from": "rain-city-1-body-grains",
+        "to": "rain-city-1-body-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-body-filter-mix-audio",
+        "from": "rain-city-1-body-filter",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-fine-grains-fine-hp-audio",
+        "from": "rain-city-1-fine-grains",
+        "to": "rain-city-1-fine-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-fine-hp-fine-lp-audio",
+        "from": "rain-city-1-fine-hp",
+        "to": "rain-city-1-fine-lp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-fine-lp-mix-audio",
+        "from": "rain-city-1-fine-lp",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-ring-grains-mix-audio",
+        "from": "rain-city-1-ring-grains",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-accent-grains-accent-filter-audio",
+        "from": "rain-city-1-accent-grains",
+        "to": "rain-city-1-accent-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-accent-filter-mix-audio",
+        "from": "rain-city-1-accent-filter",
+        "to": "rain-city-1-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-density-drift-body-grains-rate",
+        "from": "rain-city-1-density-drift",
+        "to": "rain-city-1-body-grains",
+        "target": "rate",
+        "amount": 95
+      },
+      {
+        "id": "rain-city-1-density-drift-fine-grains-rate",
+        "from": "rain-city-1-density-drift",
+        "to": "rain-city-1-fine-grains",
+        "target": "rate",
+        "amount": 180
+      },
+      {
+        "id": "rain-city-1-activity-mix-gain",
+        "from": "rain-city-1-activity",
+        "to": "rain-city-1-mix",
+        "target": "gain",
+        "amount": 1.6
+      },
+      {
+        "id": "rain-city-1-mix-space-audio",
+        "from": "rain-city-1-mix",
+        "to": "rain-city-1-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-space-output-audio",
+        "from": "rain-city-1-space",
+        "to": "rain-city-1-output",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-near-score-near-noise-level",
+        "from": "rain-city-1-near-score",
+        "to": "rain-city-1-near-noise",
+        "target": "level",
+        "amount": 0.68
+      },
+      {
+        "id": "rain-city-1-near-noise-near-hp-audio",
+        "from": "rain-city-1-near-noise",
+        "to": "rain-city-1-near-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-near-hp-near-weight-audio",
+        "from": "rain-city-1-near-hp",
+        "to": "rain-city-1-near-weight",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "rain-city-1-near-weight-fine-lp-audio",
+        "from": "rain-city-1-near-weight",
+        "to": "rain-city-1-fine-lp",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 0.65
+}

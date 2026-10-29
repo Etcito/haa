@@ -1,0 +1,649 @@
+{
+  "haa": 1,
+  "id": "footsteps-st2",
+  "title": "Footstep · ST2",
+  "inputs": [],
+  "graph": {
+    "duration": 0.9,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "footsteps-st2-gesture",
+        "type": "curve",
+        "x": 30,
+        "y": 370,
+        "label": "Footstep gesture",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.060556,
+            0.011708
+          ],
+          [
+            0.063333,
+            0.239622
+          ],
+          [
+            0.066111,
+            0.719013
+          ],
+          [
+            0.068889,
+            1
+          ],
+          [
+            0.071667,
+            0.621873
+          ],
+          [
+            0.074444,
+            0.454151
+          ],
+          [
+            0.077222,
+            0.209202
+          ],
+          [
+            0.08,
+            0.067737
+          ],
+          [
+            0.082778,
+            0.077066
+          ],
+          [
+            0.088333,
+            0.034729
+          ],
+          [
+            0.093889,
+            0.071207
+          ],
+          [
+            0.113333,
+            0.010158
+          ],
+          [
+            0.127222,
+            0.033835
+          ],
+          [
+            0.135556,
+            0.084722
+          ],
+          [
+            0.138333,
+            0.13736
+          ],
+          [
+            0.141111,
+            0.114572
+          ],
+          [
+            0.143889,
+            0.259818
+          ],
+          [
+            0.146667,
+            0.277044
+          ],
+          [
+            0.149444,
+            0.154096
+          ],
+          [
+            0.155,
+            0.079742
+          ],
+          [
+            0.157778,
+            0.06898
+          ],
+          [
+            0.160556,
+            0.111245
+          ],
+          [
+            0.163333,
+            0.10896
+          ],
+          [
+            0.168889,
+            0.055516
+          ],
+          [
+            0.188333,
+            0.011396
+          ],
+          [
+            0.207778,
+            0.012228
+          ],
+          [
+            0.221667,
+            0.044112
+          ],
+          [
+            0.227222,
+            0.020677
+          ],
+          [
+            0.293889,
+            0.007017
+          ],
+          [
+            0.341111,
+            0.007436
+          ],
+          [
+            0.349444,
+            0.029653
+          ],
+          [
+            0.360556,
+            0.004176
+          ],
+          [
+            0.435393,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "footsteps-st2-body-envelope",
+        "type": "response",
+        "x": 330,
+        "y": 50,
+        "label": "Contact pressure",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0,
+          "release": 0,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "footsteps-st2-detail-envelope",
+        "type": "response",
+        "x": 330,
+        "y": 370,
+        "label": "Surface release",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.0035,
+          "release": 0,
+          "delay": 0.0667,
+          "shape": 0.615,
+          "gain": 1.118,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "footsteps-st2-clusters",
+        "type": "grain",
+        "x": 630,
+        "y": 50,
+        "label": "Irregular contact grains",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 620,
+          "attack": 0.0002,
+          "decay": 0.004,
+          "spread": 5,
+          "jitter": 1,
+          "variation": 0.85,
+          "glide": 0.05,
+          "delay": 0,
+          "width": 0.08,
+          "level": 0.82
+        }
+      },
+      {
+        "id": "footsteps-st2-impact",
+        "type": "grain",
+        "x": 630,
+        "y": 370,
+        "label": "Initial contact",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0018,
+          "spread": 5,
+          "jitter": 0,
+          "variation": 0,
+          "glide": 0.05,
+          "delay": 0.042,
+          "width": 0,
+          "level": 0.85
+        }
+      },
+      {
+        "id": "footsteps-st2-body-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 50,
+        "label": "Surface body",
+        "compact": true,
+        "params": {
+          "cutoff": 320,
+          "resonance": 1.5,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "footsteps-st2-body-gain",
+        "type": "gain",
+        "x": 1230,
+        "y": 50,
+        "label": "Pressure envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "footsteps-st2-detail",
+        "type": "grain",
+        "x": 630,
+        "y": 680,
+        "label": "Fine crackle",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1800,
+          "resonance": 0.7,
+          "rate": 210,
+          "attack": 0.0001,
+          "decay": 0.0012,
+          "spread": 5,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0.05,
+          "delay": 0,
+          "width": 0.2,
+          "level": 0.24
+        }
+      },
+      {
+        "id": "footsteps-st2-detail-filter",
+        "type": "filter",
+        "x": 930,
+        "y": 370,
+        "label": "Friction band",
+        "compact": true,
+        "params": {
+          "cutoff": 3800,
+          "resonance": 0.8,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "footsteps-st2-detail-gain",
+        "type": "gain",
+        "x": 1230,
+        "y": 370,
+        "label": "Release envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "footsteps-st2-mix",
+        "type": "gain",
+        "x": 1530,
+        "y": 50,
+        "label": "Surface mix",
+        "compact": true,
+        "params": {
+          "gain": 1.4
+        }
+      },
+      {
+        "id": "footsteps-st2-rolloff",
+        "type": "filter",
+        "x": 1530,
+        "y": 370,
+        "label": "Air absorption",
+        "compact": true,
+        "params": {
+          "cutoff": 9500,
+          "resonance": 0.65,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "footsteps-st2-space",
+        "type": "space",
+        "x": 1830,
+        "y": 50,
+        "label": "Close perspective",
+        "compact": true,
+        "params": {
+          "size": 0.08,
+          "damping": 0.8,
+          "mix": 0.025,
+          "width": 0.22,
+          "distance": 0.015
+        }
+      },
+      {
+        "id": "footsteps-st2-output",
+        "type": "output",
+        "x": 1830,
+        "y": 370,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.86
+        }
+      },
+      {
+        "id": "footsteps-st2-bass-envelope",
+        "type": "response",
+        "x": 330,
+        "y": 680,
+        "label": "Weight transfer",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.0023,
+          "release": 0,
+          "delay": 0.0002,
+          "shape": 0.782,
+          "gain": 1.422,
+          "sensitivity": 0.04
+        }
+      },
+      {
+        "id": "footsteps-st2-bass",
+        "type": "noise",
+        "x": 930,
+        "y": 680,
+        "label": "Low contact texture",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.19,
+          "width": 0
+        }
+      },
+      {
+        "id": "footsteps-st2-bass-filter",
+        "type": "filter",
+        "x": 1230,
+        "y": 680,
+        "label": "Weight band",
+        "compact": true,
+        "params": {
+          "cutoff": 130,
+          "resonance": 0.9,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "footsteps-st2-bass-gain",
+        "type": "gain",
+        "x": 1530,
+        "y": 680,
+        "label": "Weight envelope",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "footsteps-st2-mode-0",
+        "type": "grain",
+        "x": 930,
+        "y": 990,
+        "label": "Damped mode 1",
+        "compact": true,
+        "params": {
+          "wave": "sine",
+          "frequency": 258,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.001,
+          "decay": 0.015,
+          "spread": 0.15,
+          "jitter": 0,
+          "variation": 0.08,
+          "glide": -0.035,
+          "delay": 0.042,
+          "width": 0,
+          "level": 0.055
+        }
+      },
+      {
+        "id": "footsteps-st2-mode-1",
+        "type": "grain",
+        "x": 1230,
+        "y": 990,
+        "label": "Damped mode 2",
+        "compact": true,
+        "params": {
+          "wave": "sine",
+          "frequency": 350,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.001,
+          "decay": 0.009,
+          "spread": 0.15,
+          "jitter": 0,
+          "variation": 0.08,
+          "glide": -0.035,
+          "delay": 0.042,
+          "width": 0,
+          "level": 0.028
+        }
+      },
+      {
+        "id": "footsteps-st2-mode-2",
+        "type": "grain",
+        "x": 1530,
+        "y": 990,
+        "label": "Damped mode 3",
+        "compact": true,
+        "params": {
+          "wave": "sine",
+          "frequency": 445,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.001,
+          "decay": 0.006,
+          "spread": 0.15,
+          "jitter": 0,
+          "variation": 0.08,
+          "glide": -0.035,
+          "delay": 0.042,
+          "width": 0,
+          "level": 0.016
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "footsteps-st2-gesture-pressure",
+        "from": "footsteps-st2-gesture",
+        "to": "footsteps-st2-body-envelope",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-gesture-release",
+        "from": "footsteps-st2-gesture",
+        "to": "footsteps-st2-detail-envelope",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-body-shape",
+        "from": "footsteps-st2-body-envelope",
+        "to": "footsteps-st2-body-gain",
+        "target": "gain",
+        "amount": 1.7
+      },
+      {
+        "id": "footsteps-st2-detail-shape",
+        "from": "footsteps-st2-detail-envelope",
+        "to": "footsteps-st2-detail-gain",
+        "target": "gain",
+        "amount": 1.5
+      },
+      {
+        "id": "footsteps-st2-cluster-body",
+        "from": "footsteps-st2-clusters",
+        "to": "footsteps-st2-body-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-impact-body",
+        "from": "footsteps-st2-impact",
+        "to": "footsteps-st2-body-filter",
+        "target": "audio",
+        "amount": 1.1
+      },
+      {
+        "id": "footsteps-st2-body-control",
+        "from": "footsteps-st2-body-filter",
+        "to": "footsteps-st2-body-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-crackle-colour",
+        "from": "footsteps-st2-detail",
+        "to": "footsteps-st2-detail-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-detail-control",
+        "from": "footsteps-st2-detail-filter",
+        "to": "footsteps-st2-detail-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-body-mix",
+        "from": "footsteps-st2-body-gain",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-detail-mix",
+        "from": "footsteps-st2-detail-gain",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-air",
+        "from": "footsteps-st2-mix",
+        "to": "footsteps-st2-rolloff",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-perspective",
+        "from": "footsteps-st2-rolloff",
+        "to": "footsteps-st2-space",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-listen",
+        "from": "footsteps-st2-space",
+        "to": "footsteps-st2-output",
+        "target": "audio",
+        "amount": 4
+      },
+      {
+        "id": "footsteps-st2-gesture-weight",
+        "from": "footsteps-st2-gesture",
+        "to": "footsteps-st2-bass-envelope",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-bass-shape",
+        "from": "footsteps-st2-bass-envelope",
+        "to": "footsteps-st2-bass-gain",
+        "target": "gain",
+        "amount": 0.9
+      },
+      {
+        "id": "footsteps-st2-bass-colour",
+        "from": "footsteps-st2-bass",
+        "to": "footsteps-st2-bass-filter",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-bass-control",
+        "from": "footsteps-st2-bass-filter",
+        "to": "footsteps-st2-bass-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-bass-mix",
+        "from": "footsteps-st2-bass-gain",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-mode-0-mix",
+        "from": "footsteps-st2-mode-0",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-mode-1-mix",
+        "from": "footsteps-st2-mode-1",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "footsteps-st2-mode-2-mix",
+        "from": "footsteps-st2-mode-2",
+        "to": "footsteps-st2-mix",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 0.65
+}

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Packs the publishable package into ./release/ as the npm tarball attached to a GitHub Release,
-// and writes release/SHA256SUMS (sha256sum -c format). Used locally (npm run release:pack) and by
-// .github/workflows/release.yml, so both produce the same files.
+// Packs @etcito/haa (packages/haa) into ./release/etcito-haa-<version>.tgz for a GitHub Release.
+// Local only: there is no GitHub workflow. It builds the wasm and the JS (npm run build), packs the
+// workspace package, checks the required tar entries, then prints the `gh release create` command
+// for the owner to run. It never runs that command itself.
 // Usage: node scripts/release-pack.mjs [--tag v<version>]
-// With --tag, the package version must equal the tag without its leading "v".
+// With --tag, the package version must equal the tag without its leading "v" (checked before any build).
 import { execSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
@@ -18,21 +18,25 @@ const OUT = join(ROOT, 'release');
 const PACKAGE = {
   npmName: '@etcito/haa',
   asset: 'etcito-haa',
+  manifest: join(ROOT, 'packages', 'haa', 'package.json'),
   required: [
     'package/package.json',
     'package/dist/index.js',
     'package/dist/index.d.ts',
+    'package/dist/offline.js',
+    'package/dist/offline.d.ts',
     'package/dist/node.js',
     'package/dist/node.d.ts',
-    'package/worklet/haa-processors.js',
+    'package/dist/worklet.js',
+    'package/dist/cli.js',
+    'package/pkg/haa.wasm',
     'package/README.md',
-    'package/PROVENANCE.md',
     'package/LICENSE',
   ],
 };
 
 function fail(message) {
-  console.error(`release-pack: ${message}`);
+  console.error(`[release-pack] ${message}`);
   process.exit(1);
 }
 
@@ -55,17 +59,26 @@ function tarEntries(path) {
   return names;
 }
 
-function sha256(path) {
-  return createHash('sha256').update(readFileSync(path)).digest('hex');
+function run(command) {
+  try {
+    execSync(command, { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'] });
+  } catch {
+    fail(`${command} failed`);
+  }
 }
 
 const tagIndex = process.argv.indexOf('--tag');
 const tag = tagIndex === -1 ? null : process.argv[tagIndex + 1];
-if (tagIndex !== -1 && !tag) fail('--tag needs a value, e.g. --tag v0.1.0');
+if (tagIndex !== -1 && !tag) fail('--tag needs a value, e.g. --tag v0.2.0');
 
-// Read and check the manifest before packing anything.
-const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-if (manifest.name !== PACKAGE.npmName) fail(`package.json name is ${manifest.name}, expected ${PACKAGE.npmName}`);
+// Read and check the manifest before building anything.
+let manifest;
+try {
+  manifest = JSON.parse(readFileSync(PACKAGE.manifest, 'utf8'));
+} catch (error) {
+  fail(`cannot read packages/haa/package.json: ${error.message}`);
+}
+if (manifest.name !== PACKAGE.npmName) fail(`packages/haa/package.json name is ${manifest.name}, expected ${PACKAGE.npmName}`);
 if (tag !== null && tag !== `v${manifest.version}`) {
   fail(`tag ${tag} does not match ${manifest.name} ${manifest.version} (the tag must be v${manifest.version})`);
 }
@@ -74,17 +87,13 @@ const file = `${PACKAGE.asset}-${manifest.version}.tgz`;
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
 
-// npm pack runs the prepack script, which builds dist/ first.
-execSync(`npm pack --pack-destination "${OUT}"`, { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'] });
+run('npm run build');
+run(`npm pack -w ${PACKAGE.npmName} --pack-destination "${OUT}"`);
 const tarball = join(OUT, file);
 if (!existsSync(tarball)) fail(`npm pack did not produce ${file}`);
 const entries = new Set(tarEntries(tarball));
 for (const entry of PACKAGE.required) {
   if (!entries.has(entry)) fail(`${file} is missing ${entry}`);
 }
-console.log(`release-pack: ${file} ok (${PACKAGE.required.length} required entries present)`);
-
-const sums = `${sha256(tarball)}  ${file}\n`;
-writeFileSync(join(OUT, 'SHA256SUMS'), sums);
-console.log('release-pack: wrote release/SHA256SUMS');
-console.log(sums);
+console.log(`release-pack: ${file} ok`);
+console.log(`gh release create v${manifest.version} release/${file}`);

@@ -1,0 +1,102 @@
+{
+  "haa": 1,
+  "id": "lfo-vibrato",
+  "title": "LFO vibrato",
+  "inputs": [],
+  "graph": {
+    "duration": 4,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "lfo",
+        "type": "lfo",
+        "x": 60,
+        "y": 80,
+        "label": "LFO",
+        "params": {
+          "rate": 5.5,
+          "depth": 1,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "env",
+        "type": "envelope",
+        "x": 60,
+        "y": 80,
+        "label": "Enveloppe",
+        "params": {
+          "attack": 0.3,
+          "decay": 0.4,
+          "sustain": 0.6,
+          "hold": 2,
+          "release": 0.8
+        }
+      },
+      {
+        "id": "osc",
+        "type": "oscillator",
+        "x": 320,
+        "y": 80,
+        "label": "Oscillateur",
+        "params": {
+          "frequency": 330,
+          "wave": "sine",
+          "level": 0.35
+        }
+      },
+      {
+        "id": "gain",
+        "type": "gain",
+        "x": 580,
+        "y": 80,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 840,
+        "y": 80,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-lfo-osc",
+        "from": "lfo",
+        "to": "osc",
+        "target": "frequency",
+        "amount": 8
+      },
+      {
+        "id": "edge-env-gain",
+        "from": "env",
+        "to": "gain",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "edge-osc-gain",
+        "from": "osc",
+        "to": "gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-out",
+        "from": "gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

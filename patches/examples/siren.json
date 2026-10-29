@@ -1,0 +1,112 @@
+{
+  "haa": 1,
+  "id": "siren",
+  "title": "Siren",
+  "inputs": [
+    {
+      "name": "pitch",
+      "kind": "continuous",
+      "unit": "Hz",
+      "min": 200,
+      "max": 1200,
+      "default": 440,
+      "smooth": 0.05,
+      "curve": "log"
+    }
+  ],
+  "graph": {
+    "duration": 4,
+    "loop": true,
+    "mode": "live",
+    "nodes": [
+      {
+        "id": "pitch-in",
+        "type": "input",
+        "x": 60,
+        "y": 80,
+        "label": "Pitch",
+        "params": {
+          "name": "pitch"
+        }
+      },
+      {
+        "id": "pitch-map",
+        "type": "map",
+        "x": 320,
+        "y": 80,
+        "label": "Pitch map",
+        "params": {
+          "in": 0,
+          "inMin": 200,
+          "inMax": 1200,
+          "scale": "log",
+          "outMin": 180,
+          "outMax": 1180
+        }
+      },
+      {
+        "id": "osc",
+        "type": "oscillator",
+        "x": 580,
+        "y": 80,
+        "label": "Oscillateur",
+        "params": {
+          "frequency": 20,
+          "wave": "sine",
+          "level": 0.35
+        }
+      },
+      {
+        "id": "gain",
+        "type": "gain",
+        "x": 840,
+        "y": 80,
+        "label": "Amplificateur",
+        "params": {
+          "gain": 0.6
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1100,
+        "y": 80,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-pitch-map",
+        "from": "pitch-in",
+        "to": "pitch-map",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "edge-map-osc",
+        "from": "pitch-map",
+        "to": "osc",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "edge-osc-gain",
+        "from": "osc",
+        "to": "gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-gain-out",
+        "from": "gain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

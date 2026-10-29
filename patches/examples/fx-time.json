@@ -1,0 +1,227 @@
+{
+  "haa": 1,
+  "id": "fx-time",
+  "title": "Time effects · delay, compressor, space and reverb",
+  "inputs": [],
+  "graph": {
+    "duration": 10,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "pulses",
+        "type": "pulse",
+        "x": 60,
+        "y": 40,
+        "label": "Impulsions · 120 Hz",
+        "params": {
+          "frequency": 120,
+          "width": 0.1,
+          "phase": 0,
+          "jitter": 0,
+          "shimmer": 0,
+          "level": 0.9,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "hits",
+        "type": "curve",
+        "x": 60,
+        "y": 160,
+        "label": "Coups épars",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.02, 0],
+          [0.021, 1],
+          [0.032, 1],
+          [0.034, 0],
+          [0.22, 0],
+          [0.221, 1],
+          [0.232, 1],
+          [0.234, 0],
+          [0.44, 0],
+          [0.441, 1],
+          [0.452, 1],
+          [0.454, 0],
+          [0.65, 0],
+          [0.651, 1],
+          [0.662, 1],
+          [0.664, 0],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "gate",
+        "type": "gain",
+        "x": 320,
+        "y": 40,
+        "label": "Coups",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "echo",
+        "type": "delay",
+        "x": 580,
+        "y": 40,
+        "label": "Écho",
+        "params": {
+          "time": 0.3,
+          "feedback": 0.5,
+          "mix": 0.35
+        }
+      },
+      {
+        "id": "squash",
+        "type": "compressor",
+        "x": 840,
+        "y": 40,
+        "label": "Compresseur",
+        "params": {
+          "threshold": -24,
+          "ratio": 4,
+          "attack": 0.015,
+          "release": 0.15,
+          "makeup": 6
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 1100,
+        "y": 40,
+        "label": "Réflexions",
+        "params": {
+          "size": 0.4,
+          "damping": 0.6,
+          "mix": 0.4,
+          "width": 0.7,
+          "distance": 0.1
+        }
+      },
+      {
+        "id": "room-motion",
+        "type": "curve",
+        "x": 1100,
+        "y": 200,
+        "label": "Distance · 0 à 10 s",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.5, 1],
+          [1, 0]
+        ]
+      },
+      {
+        "id": "hall",
+        "type": "reverb",
+        "x": 1360,
+        "y": 40,
+        "label": "Réverbération",
+        "params": {
+          "size": 0.6,
+          "mix": 0.1
+        }
+      },
+      {
+        "id": "hall-motion",
+        "type": "curve",
+        "x": 1360,
+        "y": 200,
+        "label": "Mélange de la réverbération",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [0, 0],
+          [0.65, 0.1],
+          [0.7, 0.35],
+          [1, 0.35]
+        ]
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1620,
+        "y": 40,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.6
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-pulses-gate-audio",
+        "from": "pulses",
+        "to": "gate",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-hits-gate-gain",
+        "from": "hits",
+        "to": "gate",
+        "target": "gain",
+        "amount": 2
+      },
+      {
+        "id": "edge-gate-echo-audio",
+        "from": "gate",
+        "to": "echo",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-echo-squash-audio",
+        "from": "echo",
+        "to": "squash",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-squash-room-audio",
+        "from": "squash",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-room-motion-room-distance",
+        "from": "room-motion",
+        "to": "room",
+        "target": "distance",
+        "amount": 0.6
+      },
+      {
+        "id": "edge-room-hall-audio",
+        "from": "room",
+        "to": "hall",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-hall-motion-hall-mix",
+        "from": "hall-motion",
+        "to": "hall",
+        "target": "mix",
+        "amount": 0.4
+      },
+      {
+        "id": "edge-hall-out-audio",
+        "from": "hall",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}
