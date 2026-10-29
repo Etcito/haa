@@ -144,6 +144,11 @@ impl Node for CurveNode {
 /// Sona `validateGraph` clamps points to 0..1 and sorts them by time; a bad curve is flat.
 fn read_points(curve: Option<&serde_json::Value>, out: &mut Vec<(f64, f64)>) {
     out.clear();
+    // sona: `node.curve ?? [[0, 0], [.2, .8], [.75, 1], [1, 0]]` when the node has no curve.
+    if curve.is_none() {
+        out.extend_from_slice(&[(0.0, 0.0), (0.2, 0.8), (0.75, 1.0), (1.0, 0.0)]);
+        return;
+    }
     if let Some(points) = curve.and_then(serde_json::Value::as_array) {
         if (2..=MAX_POINTS).contains(&points.len()) {
             let mut valid = true;
