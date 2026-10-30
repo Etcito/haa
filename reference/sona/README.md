@@ -3,7 +3,7 @@
 This folder is a verbatim copy of the top-level `*.js` files of the Sona v11
 sibling checkout's `dist/` folder.
 
-- **Source checkout:** `/root/nmc/worktrees/79/sona` (read-only sibling of the haa checkout)
+- **Source checkout:** the local sona checkout (read-only sibling of the haa checkout)
 - **Source commit:** `5849617e0ef8798ca4d423902f13afaa2e7ad94f`
 - **Copy date:** 2026-10-28
 

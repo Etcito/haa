@@ -1,0 +1,4 @@
+[
+  {"name": "haa-test", "command": "npm test", "timeout_s": 1800},
+  {"name": "haa-test-host", "command": "npm run test:host", "timeout_s": 1800, "after": ["haa-test"]}
+]

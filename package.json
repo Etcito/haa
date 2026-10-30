@@ -17,7 +17,7 @@
     "inputs": "cargo run -q --release -p haa-cli -- inputs",
     "release:pack": "node scripts/release-pack.mjs",
     "render:node": "node packages/haa/dist/cli.js render",
-    "test:host": "node --test packages/haa/test/",
+    "test:host": "node --test \"packages/haa/test/*.test.ts\"",
     "listen": "node tools/listen/serve.mjs",
     "export:sona": "node tools/export-sona-presets.mjs"
   },
