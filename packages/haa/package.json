@@ -20,6 +20,10 @@
       "types": "./dist/offline.d.ts",
       "default": "./dist/offline.js"
     },
+    "./bank": {
+      "types": "./dist/bank.d.ts",
+      "default": "./dist/bank.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"

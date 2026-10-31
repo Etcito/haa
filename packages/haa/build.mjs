@@ -21,6 +21,7 @@ const ENTRIES = [
     entry: 'src/cli.ts', outfile: 'dist/cli.js', platform: 'node',
     banner: { js: '#!/usr/bin/env node' },
   },
+  { entry: 'src/bank.ts', outfile: 'dist/bank.js', platform: 'neutral' },
 ];
 
 /** Every .d.ts file under dir. */
