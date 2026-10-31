@@ -24,6 +24,10 @@
       "types": "./dist/bank.d.ts",
       "default": "./dist/bank.js"
     },
+    "./arranger": {
+      "types": "./dist/arranger.d.ts",
+      "default": "./dist/arranger.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"
