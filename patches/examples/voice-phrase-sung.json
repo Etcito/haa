@@ -1,0 +1,55 @@
+{
+  "haa": 1,
+  "id": "voice-phrase-sung",
+  "title": "Phrase chant\u00e9e",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "chimera1",
+        "type": "chimera",
+        "x": 80,
+        "y": 170,
+        "label": "Chimera",
+        "params": {
+          "mode": "sing",
+          "text": "We can sing a song.",
+          "pitch": 130,
+          "pressure": 8,
+          "rate": 1,
+          "female": 0,
+          "child": 0,
+          "bpm": 76,
+          "gain": 0.9,
+          "breath": 0.08,
+          "tension": 0.5,
+          "language": "english",
+          "melody": "55:1.5 59:0.75 62:1.5 60:0.5 55:2.5"
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 520,
+        "y": 170,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "chimera1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

@@ -10,6 +10,7 @@ pub mod patch;
 pub mod render;
 pub mod rng;
 pub mod validate;
+pub mod voice_performance;
 
 pub use catalog::catalog_json;
 pub use graph::Voice;

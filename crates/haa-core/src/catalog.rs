@@ -45,6 +45,8 @@ pub struct NodeTypeDef {
     pub audio_in: bool,
     pub audio_out: bool,
     pub control_out: bool,
+    /// Named control outputs; legacy `value` remains implicit.
+    pub control_outputs: &'static [&'static str],
     pub uses_curve: bool,
     pub hidden: bool,
     pub params: &'static [ParamDef],
@@ -86,6 +88,9 @@ fn write_type(out: &mut String, def: &NodeTypeDef) {
     push_str_lit(out, category_name(def.category));
     out.push_str(",\"label\":");
     push_label(out, def.label_en, def.label_fr);
+    out.push_str(",\"controlOutputs\":[");
+    for (i,key) in def.control_outputs.iter().enumerate(){if i>0 {out.push(',');}push_str_lit(out,key);}
+    out.push(']');
     out.push_str(&format!(
         ",\"ports\":{{\"audioIn\":{},\"audioOut\":{},\"controlOut\":{}}}",
         bool_lit(def.audio_in),
@@ -236,6 +241,7 @@ mod tests {
         audio_in: true,
         audio_out: true,
         control_out: false,
+    control_outputs: &[],
         uses_curve: false,
         hidden: false,
         params: &TEST_PARAMS,

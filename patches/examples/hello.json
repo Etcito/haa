@@ -1,0 +1,54 @@
+{
+  "haa": 1,
+  "id": "hello",
+  "title": "Hello",
+  "inputs": [],
+  "graph": {
+    "duration": 4.0,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "chimera1",
+        "type": "chimera",
+        "x": 80,
+        "y": 170,
+        "label": "Chimera",
+        "params": {
+          "mode": "speech",
+          "text": "Hello. How are you?",
+          "pitch": 120,
+          "pressure": 8,
+          "rate": 1,
+          "female": 0,
+          "child": 0,
+          "bpm": 100,
+          "gain": 0.9,
+          "breath": 0.1,
+          "tension": 0.5,
+          "language": "english"
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 520,
+        "y": 170,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "chimera1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

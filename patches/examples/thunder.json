@@ -1,0 +1,145 @@
+{
+  "haa": 1,
+  "id": "thunder",
+  "title": "Thunder",
+  "inputs": [],
+  "graph": {
+    "duration": 7,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "noise1",
+        "type": "noise",
+        "x": 60,
+        "y": 120,
+        "label": "Grondement",
+        "params": {
+          "color": "brown",
+          "level": 0.85,
+          "width": 0
+        }
+      },
+      {
+        "id": "filter1",
+        "type": "filter",
+        "x": 260,
+        "y": 120,
+        "label": "Grave",
+        "params": {
+          "cutoff": 320,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "gain1",
+        "type": "gain",
+        "x": 460,
+        "y": 120,
+        "label": "Enveloppe",
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "curve1",
+        "type": "curve",
+        "x": 460,
+        "y": 320,
+        "label": "Roulement",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.015,
+            1
+          ],
+          [
+            0.08,
+            0.8
+          ],
+          [
+            0.3,
+            0.55
+          ],
+          [
+            0.6,
+            0.35
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "space1",
+        "type": "space",
+        "x": 640,
+        "y": 120,
+        "label": "Espace",
+        "params": {
+          "size": 0.9,
+          "damping": 0.45,
+          "mix": 0.5,
+          "width": 0.8,
+          "distance": 0.2
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 840,
+        "y": 120,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "noise1",
+        "to": "filter1",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c2",
+        "from": "filter1",
+        "to": "gain1",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "gain1",
+        "to": "space1",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "space1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "curve1",
+        "to": "gain1",
+        "target": "gain",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

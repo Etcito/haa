@@ -1,0 +1,56 @@
+{
+  "haa": 1,
+  "id": "voice-librispeech",
+  "title": "Voix \u2014 r\u00e9f\u00e9rence LibriSpeech",
+  "inputs": [],
+  "graph": {
+    "duration": 8,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "chimera1",
+        "type": "chimera",
+        "x": 80,
+        "y": 170,
+        "label": "Chimera",
+        "params": {
+          "mode": "speech",
+          "text": "The little girl had been asleep, but she heard the raps and opened the door.",
+          "pitch": 105,
+          "pressure": 8,
+          "rate": 0.87,
+          "female": 0,
+          "child": 0,
+          "bpm": 90,
+          "gain": 0.9,
+          "breath": 0.08,
+          "tension": 0.5,
+          "language": "english",
+          "melody": "55:1 57:1 59:1 57:1 55:2",
+          "expression": 0.32
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 520,
+        "y": 170,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "chimera1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

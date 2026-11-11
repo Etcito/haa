@@ -1,0 +1,51 @@
+{
+  "haa": 1,
+  "id": "chimera-beatbox",
+  "title": "Chimera beatbox",
+  "inputs": [],
+  "graph": {
+    "duration": 2.6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "chimera1",
+        "type": "chimera",
+        "label": "Chimera",
+        "params": {
+          "mode": "beatbox",
+          "text": "B t tss B | B t tss B | Pf . tss B | B t tss B",
+          "pitch": 120,
+          "pressure": 8,
+          "rate": 1,
+          "female": 0,
+          "child": 0,
+          "bpm": 120,
+          "gain": 0.9
+        },
+        "x": 80,
+        "y": 170
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 520,
+        "y": 170,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "chimera1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

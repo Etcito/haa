@@ -375,7 +375,11 @@ impl Voice {
                 };
             }
             for (m, smoother) in pn.mods.iter().zip(self.mod_smoothers[index].iter_mut()) {
-                effective[m.param] += values[m.from] * smoother.next();
+                let control=match m.from_port {
+                    None=>values[m.from],
+                    Some(port)=>if plan.nodes[m.from].muted {0.}else{finite_or_zero(self.nodes[m.from].control_output(port))},
+                };
+                effective[m.param] += control * smoother.next();
             }
             for (k, param) in pn.def.params.iter().enumerate() {
                 if let ParamKind::Number { min, max, .. } = param.kind {

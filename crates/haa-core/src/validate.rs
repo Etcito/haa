@@ -48,6 +48,7 @@ pub struct Wire {
 /// A control wire into a node param. `from` and `param` are plan indices.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Mod {
+    pub from_port: Option<usize>,
     pub from: usize,
     pub param: usize,
     pub amount: f64,
@@ -215,6 +216,7 @@ enum Port {
 
 /// A connection that passed its checks, with document indices of its endpoints.
 struct Edge {
+    from_port: Option<usize>,
     from: usize,
     to: usize,
     port: Port,
@@ -273,6 +275,16 @@ fn check_connections(
             }
             _ => None,
         };
+        let mut from_port=None;
+        let mut source_valid=true;
+        if let Some(key)=conn.from_port.as_deref() {
+            if target=="audio" { source_valid=key=="audio"; }
+            else if key!="value" {
+                from_port=from.and_then(|i|nodes[i].as_ref()).and_then(|n|n.def.control_outputs.iter().position(|p|*p==key));
+                source_valid=from_port.is_some();
+            }
+            if !source_valid {push(issues,Severity::Error,"bad-port",format!("{path}.fromPort"),Some(&conn.from),"Unknown or incompatible source output");}
+        }
         // sona: a missing id becomes `edge-<index>`.
         let conn_id = if conn.id.is_empty() {
             format!("edge-{i}")
@@ -290,7 +302,9 @@ fn check_connections(
             );
         }
         if let (Some(from), Some(to), Some(port)) = (from, to, port) {
+            if !source_valid {continue;}
             edges.push(Edge {
+                from_port,
                 from,
                 to,
                 port,
@@ -416,6 +430,7 @@ fn plan_in_order(nodes: Vec<Option<PlanNode>>, order: &[usize], edges: &[Edge]) 
                 conn_id: edge.conn_id.clone(),
             }),
             Port::Param(param) => node.mods.push(Mod {
+                from_port: edge.from_port,
                 from,
                 param,
                 amount: edge.amount,
@@ -795,6 +810,7 @@ mod tests {
         audio_in: false,
         audio_out: true,
         control_out: false,
+    control_outputs: &[],
         uses_curve: false,
         hidden: false,
         params: &OSC_PARAMS,
@@ -809,6 +825,7 @@ mod tests {
         audio_in: false,
         audio_out: false,
         control_out: true,
+    control_outputs: &[],
         uses_curve: false,
         hidden: false,
         params: &INPUT_PARAMS,
@@ -823,6 +840,7 @@ mod tests {
         audio_in: true,
         audio_out: false,
         control_out: false,
+    control_outputs: &[],
         uses_curve: false,
         hidden: false,
         params: &[],
@@ -853,6 +871,7 @@ mod tests {
         audio_in: false,
         audio_out: false,
         control_out: true,
+    control_outputs: &[],
         uses_curve: true,
         hidden: false,
         params: &AMOUNT_PARAMS,
@@ -867,6 +886,7 @@ mod tests {
         audio_in: true,
         audio_out: true,
         control_out: false,
+    control_outputs: &[],
         uses_curve: false,
         hidden: false,
         params: &AMOUNT_PARAMS,
@@ -1061,6 +1081,7 @@ mod tests {
         let ids: Vec<&str> = plan.nodes.iter().map(|node| node.id.as_str()).collect();
         assert_eq!(ids, ["env", "lfo", "osc", "out"]);
         let lfo_mod = Mod {
+            from_port: None,
             from: 0,
             param: 0,
             amount: 1.0,
@@ -1068,6 +1089,7 @@ mod tests {
         };
         assert_eq!(plan.nodes[1].mods, [lfo_mod]);
         let osc_mod = Mod {
+            from_port: None,
             from: 1,
             param: 0,
             amount: 300.0,

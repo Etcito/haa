@@ -1,0 +1,71 @@
+{
+  "haa": 1,
+  "id": "voice-vowels",
+  "title": "Voice vowels",
+  "inputs": [],
+  "graph": {
+    "duration": 4,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "voice1",
+        "type": "voice",
+        "x": 70,
+        "y": 150,
+        "label": "Voice",
+        "params": {
+          "pitch": 110,
+          "pressure": 0.6,
+          "tension": 0.5,
+          "vowel": 0.1,
+          "breath": 0.06,
+          "gain": 0.5
+        }
+      },
+      {
+        "id": "curve1",
+        "type": "curve",
+        "x": 70,
+        "y": 340,
+        "label": "Vowels",
+        "params": {
+          "amount": 0.9
+        },
+        "curve": [
+          [0, 0],
+          [0.35, 0.5],
+          [0.7, 1],
+          [1, 0.15]
+        ]
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 470,
+        "y": 150,
+        "label": "Output",
+        "params": {
+          "gain": 0.6
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-voice-out",
+        "from": "voice1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-curve-vowel",
+        "from": "curve1",
+        "to": "voice1",
+        "target": "vowel",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

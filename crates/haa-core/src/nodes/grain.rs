@@ -185,6 +185,7 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
     audio_in: false,
     audio_out: true,
     control_out: false,
+    control_outputs: &[],
     uses_curve: false,
     hidden: false,
     params: &GRAIN_PARAMS,

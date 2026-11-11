@@ -118,6 +118,8 @@ pub struct NodeSpec {
 /// A wire between two nodes. `target` is `"audio"` or the key of a param of `to`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Connection {
+    #[serde(rename="fromPort",default,skip_serializing_if="Option::is_none")]
+    pub from_port: Option<String>,
     pub id: String,
     pub from: String,
     pub to: String,
@@ -284,6 +286,7 @@ fn read_node(value: Value, path: String, issues: &mut Vec<Issue>) -> NodeSpec {
 fn read_connection(value: Value, path: String, issues: &mut Vec<Issue>) -> Connection {
     let mut f = Fields::new(value, path, issues);
     Connection {
+        from_port: f.get("fromPort", None),
         id: f.get("id", String::new()),
         from: f.get("from", String::new()),
         to: f.get("to", String::new()),

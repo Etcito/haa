@@ -1,0 +1,90 @@
+{
+  "haa": 1,
+  "id": "drum-membrane",
+  "title": "Tambour — peau, caisse et air",
+  "inputs": [
+    {
+      "name": "strike",
+      "kind": "trigger",
+      "min": 0,
+      "max": 1,
+      "default": 0,
+      "smooth": 0
+    }
+  ],
+  "graph": {
+    "duration": 4,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "hit",
+        "type": "input",
+        "label": "Frappe manuelle",
+        "x": 40,
+        "y": 180,
+        "params": {
+          "name": "strike"
+        }
+      },
+      {
+        "id": "skin",
+        "type": "membrane",
+        "label": "Peau + caisse + air",
+        "x": 340,
+        "y": 180,
+        "params": {
+          "radius": 0.15,
+          "tension": 800,
+          "density": 1400,
+          "thickness": 0.25,
+          "damping": 12,
+          "highDamping": 1,
+          "strikeRadius": 0,
+          "strikeAngle": 0,
+          "contact": 2,
+          "impulse": 0.005,
+          "strike": 0,
+          "gain": 0.02,
+          "autoStrike": true,
+          "bodyEnabled": true,
+          "depth": 0.25,
+          "ventRadius": 0.015,
+          "shellThickness": 6,
+          "shellDensity": 650,
+          "shellYoung": 1,
+          "shellDamping": 30,
+          "airLoss": 35,
+          "radiation": 1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Sortie",
+        "x": 740,
+        "y": 180,
+        "params": {
+          "gain": 0.9
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "hit-skin",
+        "from": "hit",
+        "to": "skin",
+        "target": "strike",
+        "amount": 1
+      },
+      {
+        "id": "skin-out",
+        "from": "skin",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

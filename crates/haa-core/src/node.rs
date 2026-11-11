@@ -47,6 +47,9 @@ pub struct NodeInit<'a> {
 }
 
 pub trait Node {
+    /// Latest named control output, indexed by DEF.control_outputs. No allocation.
+    fn control_output(&self, _port: usize) -> f64 { 0.0 }
+
     /// Processes one sample. `params` holds the effective (smoothed, modulated, clamped) values.
     fn process_sample(&mut self, ctx: &SampleCtx<'_>, input: (f64, f64), params: &[f64]) -> NodeOut;
 
