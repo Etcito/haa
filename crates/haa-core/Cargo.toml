@@ -9,7 +9,7 @@ license.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # CHIMERA physical-modelling voice engine (MIT). The `chimera` node wraps its speech and beatbox
-# planners; the crate is a sibling checkout at /root/deepeek/chimera (see the VOICE branch notes).
-chimera = { path = "../../../chimera/crates/chimera" }
+# planners; vendored subset in crates/chimera (see its NOTICE.md).
+chimera = { path = "../chimera" }
 # Gzip CMUdict for the English text node: 869 kB instead of 3.3 MB in the wasm.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
