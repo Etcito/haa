@@ -57,7 +57,13 @@
           "pickup": "humbucker",
           "pickupPosition": 0.09,
           "gain": 0.6,
-          "velocity": 0.9
+          "velocity": 0.9,
+          "decayTilt": 0.35,
+          "dampingFreq": 5000,
+          "polarization": 0.2,
+          "detune": 1.2,
+          "pickNoise": 0.15,
+          "attackBend": 0.15
         }
       },
       {
@@ -109,7 +115,13 @@
           "pickup": "humbucker",
           "pickupPosition": 0.09,
           "gain": 0.6,
-          "velocity": 0.9
+          "velocity": 0.9,
+          "decayTilt": 0.35,
+          "dampingFreq": 5000,
+          "polarization": 0.2,
+          "detune": 1.2,
+          "pickNoise": 0.15,
+          "attackBend": 0.15
         }
       },
       {
@@ -161,7 +173,13 @@
           "pickup": "humbucker",
           "pickupPosition": 0.09,
           "gain": 0.6,
-          "velocity": 0.9
+          "velocity": 0.9,
+          "decayTilt": 0.35,
+          "dampingFreq": 5000,
+          "polarization": 0.2,
+          "detune": 1.2,
+          "pickNoise": 0.15,
+          "attackBend": 0.15
         }
       },
       {

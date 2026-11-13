@@ -264,3 +264,85 @@ export function wrapFitter(exports: FitExports): Fitter {
     },
   };
 }
+
+/** One note a render plays, for the spectral judge (seconds, MIDI pitch). */
+export interface SpectralNote {
+  start: number;
+  end: number;
+  midi: number;
+}
+
+/**
+ * The spectral judge's terms (crates/haa-fit/src/spectral.rs), each about 0..1: multi-resolution log-mel,
+ * linear log-spectrum, centroid / flatness / roll-off, MFCC, and per note the relative harmonic amplitudes,
+ * the harmonic line positions, the attack/decay envelope and the pick transient (`notes`: `[harm, lines, env, attack]`,
+ * null = unmeasured).
+ */
+export interface SpectralTerms {
+  total: number;
+  mel: number;
+  lin: number;
+  centroid: number;
+  flatness: number;
+  rolloff: number;
+  mfcc: number;
+  harm: number;
+  lines: number;
+  env: number;
+  attack: number;
+  notes: [number | null, number | null, number | null, number | null][];
+}
+
+interface SpectralExports {
+  memory: WebAssembly.Memory;
+  haa_alloc(len: number): number;
+  haa_free(ptr: number, len: number): void;
+  haa_result_ptr(): number;
+  haa_fit_alloc_f32(frames: number): number;
+  haa_fit_free_f32(ptr: number, frames: number): void;
+  haa_spec_target(pcmPtr: number, frames: number, sampleRate: number, notesPtr: number, notesLen: number): number;
+  haa_spec_score(pcmPtr: number, frames: number): number;
+  haa_spec_free(): void;
+}
+
+/** Scores renders against one stem; the stem and its notes are analysed once, in Rust. */
+export interface SpectralJudge {
+  score(render: Float32Array): SpectralTerms;
+  free(): void;
+}
+
+/** A spectral judge on its own instance of `haa.wasm` (synchronous: the module is already compiled). */
+export function createSpectralJudge(module: WebAssembly.Module, target: Float32Array, sampleRate: number, notes: SpectralNote[]): SpectralJudge {
+  const e = new WebAssembly.Instance(module, {}).exports as unknown as SpectralExports;
+  const text = (len: number) => decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len));
+  const withPcm = <T>(pcm: Float32Array, f: (ptr: number, frames: number) => T): T => {
+    const ptr = e.haa_fit_alloc_f32(pcm.length);
+    try {
+      if (pcm.length > 0) new Float32Array(e.memory.buffer, ptr, pcm.length).set(pcm);
+      return f(ptr, pcm.length);
+    } finally {
+      e.haa_fit_free_f32(ptr, pcm.length);
+    }
+  };
+  const bytes = encodeUtf8(JSON.stringify(notes.map((n) => ({ start: n.start, end: n.end, midi: n.midi }))));
+  const ok = withPcm(target, (ptr, frames) => {
+    const np = e.haa_alloc(bytes.length);
+    try {
+      new Uint8Array(e.memory.buffer, np, bytes.length).set(bytes);
+      return e.haa_spec_target(ptr, frames, sampleRate, np, bytes.length);
+    } finally {
+      e.haa_free(np, bytes.length);
+    }
+  });
+  if (ok !== 1) throw new Error('[haa] spectral judge: the target could not be analysed');
+  return {
+    score(render) {
+      const len = withPcm(render, (ptr, frames) => e.haa_spec_score(ptr, frames));
+      if (len === 0) throw new Error('[haa] spectral judge: no target');
+      return JSON.parse(text(len)) as SpectralTerms;
+    },
+    free() {
+      e.haa_spec_free();
+    },
+  };
+}

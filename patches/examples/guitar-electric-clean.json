@@ -57,7 +57,13 @@
           "pickup": "single",
           "pickupPosition": 0.25,
           "gain": 1.4,
-          "velocity": 0.8
+          "velocity": 0.8,
+          "decayTilt": 0.4,
+          "dampingFreq": 4000,
+          "polarization": 0.25,
+          "detune": 1.2,
+          "pickNoise": 0.1,
+          "attackBend": 0.1
         }
       },
       {
@@ -109,7 +115,13 @@
           "pickup": "single",
           "pickupPosition": 0.25,
           "gain": 1.4,
-          "velocity": 0.8
+          "velocity": 0.8,
+          "decayTilt": 0.4,
+          "dampingFreq": 4000,
+          "polarization": 0.25,
+          "detune": 1.2,
+          "pickNoise": 0.1,
+          "attackBend": 0.1
         }
       },
       {
@@ -161,7 +173,13 @@
           "pickup": "single",
           "pickupPosition": 0.25,
           "gain": 1.4,
-          "velocity": 0.8
+          "velocity": 0.8,
+          "decayTilt": 0.4,
+          "dampingFreq": 4000,
+          "polarization": 0.25,
+          "detune": 1.2,
+          "pickNoise": 0.1,
+          "attackBend": 0.1
         }
       },
       {
@@ -213,7 +231,13 @@
           "pickup": "single",
           "pickupPosition": 0.25,
           "gain": 1.4,
-          "velocity": 0.8
+          "velocity": 0.8,
+          "decayTilt": 0.4,
+          "dampingFreq": 4000,
+          "polarization": 0.25,
+          "detune": 1.2,
+          "pickNoise": 0.1,
+          "attackBend": 0.1
         }
       },
       {
@@ -283,6 +307,20 @@
         "params": {
           "gain": 0.75
         }
+      },
+      {
+        "id": "comp",
+        "type": "compressor",
+        "label": "Compressor",
+        "params": {
+          "threshold": -20,
+          "ratio": 3,
+          "attack": 0.008,
+          "release": 0.18,
+          "makeup": 4
+        },
+        "x": 520,
+        "y": 360
       }
     ],
     "connections": [
@@ -345,28 +383,28 @@
       {
         "id": "c9",
         "from": "strA",
-        "to": "amp",
+        "to": "comp",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c10",
         "from": "strD",
-        "to": "amp",
+        "to": "comp",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c11",
         "from": "strG",
-        "to": "amp",
+        "to": "comp",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c12",
         "from": "strB",
-        "to": "amp",
+        "to": "comp",
         "target": "audio",
         "amount": 1
       },
@@ -395,6 +433,13 @@
         "id": "c16",
         "from": "room",
         "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c17",
+        "from": "comp",
+        "to": "amp",
         "target": "audio",
         "amount": 1
       }

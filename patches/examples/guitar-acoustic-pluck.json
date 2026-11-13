@@ -56,7 +56,14 @@
           "body": 0.6,
           "pickup": "none",
           "gain": 1.3,
-          "velocity": 0.85
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.3,
+          "detune": 1.5,
+          "pickNoise": 0.12,
+          "attackBend": 0.08,
+          "bodySize": 1
         }
       },
       {
@@ -107,7 +114,14 @@
           "body": 0.6,
           "pickup": "none",
           "gain": 1.3,
-          "velocity": 0.85
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.3,
+          "detune": 1.5,
+          "pickNoise": 0.12,
+          "attackBend": 0.08,
+          "bodySize": 1
         }
       },
       {
@@ -158,7 +172,14 @@
           "body": 0.6,
           "pickup": "none",
           "gain": 1.3,
-          "velocity": 0.85
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.3,
+          "detune": 1.5,
+          "pickNoise": 0.12,
+          "attackBend": 0.08,
+          "bodySize": 1
         }
       },
       {
@@ -209,7 +230,14 @@
           "body": 0.6,
           "pickup": "none",
           "gain": 1.3,
-          "velocity": 0.85
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.3,
+          "detune": 1.5,
+          "pickNoise": 0.12,
+          "attackBend": 0.08,
+          "bodySize": 1
         }
       },
       {
@@ -260,7 +288,14 @@
           "body": 0.6,
           "pickup": "none",
           "gain": 1.3,
-          "velocity": 0.85
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.3,
+          "detune": 1.5,
+          "pickNoise": 0.12,
+          "attackBend": 0.08,
+          "bodySize": 1
         }
       },
       {
@@ -286,6 +321,33 @@
         "params": {
           "gain": 0.75
         }
+      },
+      {
+        "id": "eq",
+        "type": "equalizer",
+        "label": "Body EQ",
+        "params": {
+          "low": 2,
+          "mid": -2,
+          "high": 1,
+          "frequency": 900
+        },
+        "x": 520,
+        "y": 460
+      },
+      {
+        "id": "comp",
+        "type": "compressor",
+        "label": "Compressor",
+        "params": {
+          "threshold": -18,
+          "ratio": 2.5,
+          "attack": 0.01,
+          "release": 0.2,
+          "makeup": 3
+        },
+        "x": 550,
+        "y": 550
       }
     ],
     "connections": [
@@ -362,35 +424,35 @@
       {
         "id": "c11",
         "from": "strA",
-        "to": "room",
+        "to": "eq",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c12",
         "from": "strD",
-        "to": "room",
+        "to": "eq",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c13",
         "from": "strG",
-        "to": "room",
+        "to": "eq",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c14",
         "from": "strB",
-        "to": "room",
+        "to": "eq",
         "target": "audio",
         "amount": 1
       },
       {
         "id": "c15",
         "from": "strE",
-        "to": "room",
+        "to": "eq",
         "target": "audio",
         "amount": 1
       },
@@ -398,6 +460,20 @@
         "id": "c16",
         "from": "room",
         "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c17",
+        "from": "eq",
+        "to": "comp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c18",
+        "from": "comp",
+        "to": "room",
         "target": "audio",
         "amount": 1
       }

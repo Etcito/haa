@@ -17,16 +17,26 @@
 //! - `haa_fit_free()`: drops the fit;
 //! - `haa_fit_describe(ptr, len, max_dims) -> i32`: 1 and the fit-able params JSON, or 0 and `{"error"}`;
 //! - `haa_fit_compare(a_ptr, a_frames, b_ptr, b_frames, sample_rate) -> u32`: loss terms plus level
-//!   and brightness summaries of two mono buffers (target first), JSON length.
+//!   and brightness summaries of two mono buffers (target first), JSON length;
+//! - `haa_spec_target(pcm_ptr, frames, sample_rate, notes_ptr, notes_len) -> i32`: analyses a stem
+//!   and its notes (`[{"start","end","midi"}]`) once for the spectral judge (1 ok, 0 error);
+//! - `haa_spec_score(pcm_ptr, frames) -> u32`: spectral terms of a render against that stem, JSON
+//!   length (0 without a target); `haa_spec_free()` drops the target.
 
 use std::sync::Mutex;
 
-use haa_fit::{FitOptions, Fitter};
+use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
 
 use crate::{MemPtr, set_result};
 
 static FIT: Mutex<Option<Fitter>> = Mutex::new(None);
+static SPEC: Mutex<Option<SpectralTarget>> = Mutex::new(None);
+
+fn with_spec<R>(f: impl FnOnce(&mut Option<SpectralTarget>) -> R) -> R {
+    let mut spec = SPEC.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    f(&mut spec)
+}
 
 fn with_fit<R>(f: impl FnOnce(&mut Option<Fitter>) -> R) -> R {
     let mut fit = FIT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -184,4 +194,33 @@ pub extern "C" fn haa_fit_compare(a_ptr: MemPtr, a_frames: u32, b_ptr: MemPtr, b
         return 0;
     }
     set_len(haa_fit::compare(a, b, sample_rate, 16).to_string())
+}
+
+/// Analyses a stem and its notes for `haa_spec_score`. 1 ok, 0 error (`{"error"}` in the result).
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_spec_target(pcm_ptr: MemPtr, frames: u32, sample_rate: f64, notes_ptr: MemPtr, notes_len: u32) -> i32 {
+    // SAFETY: host buffers per the ABI.
+    let (pcm, notes) = unsafe { (f32_at(pcm_ptr, frames), bytes_at(notes_ptr, notes_len)) };
+    if pcm.is_empty() || !(sample_rate.is_finite() && sample_rate > 0.0) {
+        return error("empty target or bad sample rate");
+    }
+    let notes = parse_notes(std::str::from_utf8(notes).unwrap_or("[]"));
+    let target = SpectralTarget::new(pcm, sample_rate, &notes, SpectralWeights::default());
+    set_result(serde_json::json!({ "notes": target.note_count() }).to_string());
+    with_spec(|spec| *spec = Some(target));
+    1
+}
+
+/// Scores a render against the stem of `haa_spec_target`; JSON length, 0 without a target.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_spec_score(pcm_ptr: MemPtr, frames: u32) -> u32 {
+    // SAFETY: host buffer per the ABI.
+    let pcm = unsafe { f32_at(pcm_ptr, frames) };
+    with_spec(|spec| spec.as_mut().map(|t| t.score(pcm).to_json().to_string())).map_or(0, set_len)
+}
+
+/// Drops the spectral judge's target.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_spec_free() {
+    with_spec(|spec| *spec = None);
 }

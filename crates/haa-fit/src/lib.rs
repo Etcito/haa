@@ -10,7 +10,8 @@
 //! - `params`: the fit-able values of a patch (`describe_params`);
 //! - `cmaes`: CMA-ES with box constraints, stepped one evaluation at a time;
 //! - `mutate`: add/remove one catalog node;
-//! - `fit`: the staged search (`Fitter`), stepped by the host.
+//! - `fit`: the staged search (`Fitter`), stepped by the host;
+//! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note).
 
 pub mod cmaes;
 pub mod eval;
@@ -19,7 +20,9 @@ pub mod fit;
 pub mod loss;
 pub mod mutate;
 pub mod params;
+pub mod spectral;
 
 pub use fit::{FitOptions, Fitter, fit};
 pub use loss::{LossConfig, LossTerms, TargetFeatures, compare, loss};
 pub use params::describe_params;
+pub use spectral::{NoteSpan, SpectralTarget, SpectralTerms, SpectralWeights, parse_notes};
