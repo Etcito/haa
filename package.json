@@ -19,7 +19,8 @@
     "render:node": "node packages/haa/dist/cli.js render",
     "test:host": "node --test \"packages/haa/test/*.test.ts\"",
     "listen": "node tools/listen/serve.mjs",
-    "export:sona": "node tools/export-sona-presets.mjs"
+    "export:sona": "node tools/export-sona-presets.mjs",
+    "fit": "node scripts/fit-cli.mjs"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

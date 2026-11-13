@@ -23,6 +23,7 @@ const ENTRIES = [
   },
   { entry: 'src/bank.ts', outfile: 'dist/bank.js', platform: 'neutral' },
   { entry: 'src/arranger.ts', outfile: 'dist/arranger.js', platform: 'neutral' },
+  { entry: 'src/fit.ts', outfile: 'dist/fit.js', platform: 'neutral' },
 ];
 
 /** Every .d.ts file under dir. */

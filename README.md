@@ -147,3 +147,19 @@ Open the printed URL, then review a patch:
 ### Input nodes
 
 The `input` node outputs the current value of a published input. The `map` node turns a value into another through breakpoints drawn against the input range (`in`, `inMin`, `inMax`, `scale`, `outMin`, `outMax`). `patches/examples/siren.json` wires an input through `input` and `map` to an oscillator pitch.
+
+## Graph fitter (`crates/haa-fit`)
+
+Given a mono target sample, the fitter searches for the HAA patch whose offline render matches it best. It runs in Rust (native or inside `haa.wasm`); the JS host only copies buffers and JSON.
+
+```sh
+node scripts/build-wasm.mjs        # haa.wasm now carries the haa_fit_* exports
+npm run fit -- <target.wav> <templates-dir> --out out/fit/best.json [--budget 800] [--seed 1] [--render out/fit/fit.wav]
+cargo test -p haa-fit --test loss -q
+cargo test -p haa-fit --test fit -q
+```
+
+- **Search** (one budget of renders, deterministic for a seed): every template renders once, then once more aligned (source pitch transposed by the target/template median-f0 ratio, output gain by the RMS ratio); the best `topK` race by successive halving with CMA-ES over their numeric params and `curve` breakpoints (at most 40 dimensions, 24 by default); the best patch then tries one-node structure mutations from the catalog (an effect in front of the output, a noise or sine layer under a decaying curve, or a removal), ranked by its mel residual; a short polish ends the run.
+- **Loss:** multi-resolution log-magnitude STFT (256/1024/4096, hop n/4) + log-mel + RMS envelope, plus an f0 term when the target is pitched. Levels are compared as they are; nothing is normalised.
+- **Output:** the fitted patch (it validates and renders the fitted sound with no flags), its loss, per-template scores, the trials, the loss history, `offset` (leading silence cut from the target: place the patch there) and a target-vs-fit report (RMS envelope, spectral centroid).
+- **JS:** `@etcito/haa/fit` exports `createFitter(wasm)`; `start(pcm, rate, templates, opts)`, `step(n)` (at most `n` renders, for progress and cancelling in a Worker), `result()`, `patch()`, `describe(patch)`, `compare(a, b, rate)`, `free()`.

@@ -1,0 +1,11 @@
+[package]
+name = "haa-fit"
+description = "Brute-force graph fitter: finds a HAA patch whose offline render matches a target sample"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+haa-core = { path = "../haa-core" }
+serde_json.workspace = true

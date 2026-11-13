@@ -10,4 +10,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 haa-core = { path = "../haa-core" }
+haa-fit = { path = "../haa-fit" }
 serde_json.workspace = true

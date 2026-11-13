@@ -28,6 +28,10 @@
       "types": "./dist/arranger.d.ts",
       "default": "./dist/arranger.js"
     },
+    "./fit": {
+      "types": "./dist/fit.d.ts",
+      "default": "./dist/fit.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"
