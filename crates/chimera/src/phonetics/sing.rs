@@ -27,8 +27,17 @@ fn cdur(ipa: &str, body: BodyMix, k: f64) -> f64 {
     phoneme(ipa, body).map_or(0.07, |d| d.dur) * k
 }
 
+/// Sung consonants: a duration the front end gives is its own (a language's timing: Mandarin's long
+/// nasal codas); otherwise the phoneme's spoken length times `k`. Either is squeezed when a note is
+/// too short for it.
 fn consonants(segs: &[Segment], body: BodyMix, k: f64) -> Vec<Segment> {
-    segs.iter().map(|c| Segment { ipa: c.ipa.clone(), dur: Some(cdur(&c.ipa, body, k)), ..Default::default() }).collect()
+    segs.iter().map(|c| Segment { ipa: c.ipa.clone(), dur: Some(c.dur.unwrap_or_else(|| cdur(&c.ipa, body, k))), aspirated: c.aspirated, vot: c.vot, palatalized: c.palatalized, breathy: c.breathy, ..Default::default() }).collect()
+}
+
+/// A sung vowel (or one half of a diphthong) at the note's pitch, with the sound marks of the
+/// syllable's nucleus.
+fn nucleus_part(ipa: &str, dur: f64, hz: f64, nucleus: &Segment) -> Segment {
+    Segment { ipa: ipa.to_string(), dur: Some(dur), f0: Some(hz), stress: Some(1), nasalized: nucleus.nasalized, breathy: nucleus.breathy, ..Default::default() }
 }
 
 /// Sung consonants at their note's pitch: an onset consonant moves the pitch to the new note
@@ -148,12 +157,12 @@ pub fn plan_song(notes: &[SungNote], o: &SongOptions) -> Plan {
             let parts = diphthong_parts(&n.syl.nucleus.ipa);
             match parts {
                 Some((a, b)) if !next_melisma => {
-                    segs.push(Segment { ipa: a.to_string(), dur: Some(vdur * 0.8), f0: Some(hz), stress: Some(1), word_end: None });
-                    segs.push(Segment { ipa: b.to_string(), dur: Some(vdur * 0.2), f0: Some(hz), stress: Some(1), word_end: None });
+                    segs.push(nucleus_part(a, vdur * 0.8, hz, &n.syl.nucleus));
+                    segs.push(nucleus_part(b, vdur * 0.2, hz, &n.syl.nucleus));
                 }
                 _ => {
                     let ipa = parts.map_or(n.syl.nucleus.ipa.clone(), |p| p.0.to_string());
-                    segs.push(Segment { ipa, dur: Some(vdur), f0: Some(hz), stress: Some(1), word_end: None });
+                    segs.push(nucleus_part(&ipa, vdur, hz, &n.syl.nucleus));
                 }
             }
             segs.extend(coda);
@@ -219,7 +228,7 @@ pub fn plan_note_on(syl: &Syllable, midi: f64, o: &NoteOnOptions) -> Vec<Gesture
     }
     segs.extend(consonants(&syl.onset, o.body, 0.7));
     let parts = diphthong_parts(&syl.nucleus.ipa);
-    segs.push(Segment { ipa: parts.map_or(syl.nucleus.ipa.clone(), |p| p.0.to_string()), dur: Some(HOLD), f0: Some(hz), stress: Some(1), word_end: None });
+    segs.push(nucleus_part(parts.map_or(syl.nucleus.ipa.as_str(), |p| p.0), HOLD, hz, &syl.nucleus));
     let plan = plan_utterance(&segs, &PlanOptions { body: o.body, t0: LIVE_T0, f0: Some(hz), intonation: Some(Intonation::Flat), open_end: Some(true), ..Default::default() });
     let vowel = &plan.segments[plan.segments.len() - 1];
     let mut out: Vec<Gesture> = plan.gestures.iter().map(|g| g.tag(if g.targets.has(ControlKey::F0) { o.tag + 1.0 } else { o.tag })).collect();
@@ -258,7 +267,7 @@ fn tail(syl: &Syllable, body: BodyMix, hz: f64) -> Vec<Segment> {
     let parts = diphthong_parts(&syl.nucleus.ipa);
     let mut out: Vec<Segment> = Vec::new();
     if let Some((_, b)) = parts {
-        out.push(Segment { ipa: b.to_string(), dur: Some(0.07), stress: Some(1), f0: Some(hz), word_end: None });
+        out.push(nucleus_part(b, 0.07, hz, &syl.nucleus));
     }
     out.extend(consonants(&syl.coda, body, 0.7));
     out

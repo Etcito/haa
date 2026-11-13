@@ -198,6 +198,15 @@ pub struct HumanVoice {
     pub max_penetration: f64,
 }
 
+/// How many times the airway is oversampled at this output rate: the smallest factor that puts
+/// the simulation above 60 kHz (2× at 44.1 and 48 kHz, 1× at 88.2 and 96 kHz). The tubes keep a
+/// minimum section count, so a lower simulation rate makes the sections shorter than one step of
+/// sound and the airway blows up: at 2× a 16 kHz output (a Bluetooth headset's) went NaN within a
+/// second, and 24 kHz ran at the limiter ceiling (issue #33).
+pub fn oversample_for(fs_out: f64) -> usize {
+    js_max(1.0, (60000.0 / fs_out).floor() + 1.0) as usize
+}
+
 impl HumanVoice {
     /// A voice rendering at `fs_out`, simulating at `fs_out · oversample`.
     pub fn new(fs_out: f64, body: HumanBody, oversample: usize) -> Self {
@@ -268,9 +277,9 @@ impl HumanVoice {
         v
     }
 
-    /// The defaults the browser uses: male body, 2× oversampling below 60 kHz.
+    /// The defaults the browser uses: male body, oversampled by [`oversample_for`].
     pub fn with_defaults(fs_out: f64) -> Self {
-        Self::new(fs_out, BODY_MALE, if fs_out > 60000.0 { 1 } else { 2 })
+        Self::new(fs_out, BODY_MALE, oversample_for(fs_out))
     }
 
     pub fn set_articulation(&mut self, values: &ArticPatch, tip_free: Option<bool>) {
@@ -490,7 +499,17 @@ impl HumanVoice {
             0.07
         };
         self.gate += (gate_goal - self.gate) * (1.0 - exp(-dt / tau));
+        // a breath let go decays toward zero for ever, and a denormal lung pressure makes denormals
+        // of the whole airway (see `AirwayNetwork::flush_tiny`): nothing is nothing
+        crate::airway::network::tiny(&mut self.gate);
+        self.glottis.flush_tiny();
+        crate::airway::network::tiny(&mut self.dc_x);
+        crate::airway::network::tiny(&mut self.dc_y);
+        crate::airway::network::tiny(&mut self.lim_env);
         self.p_lung = self.source.pressure * CM_H2O * self.gate;
+        if self.p_lung == 0.0 {
+            crate::airway::network::tiny(&mut self.p_lung_now);
+        }
         self.p_lung_step = (self.p_lung - self.p_lung_now) / self.ctrl_every as f64;
         // vocal effort follows the pressure actually applied: a harder breath (a louder sung note)
         // gives wider, sharper-closing pulses, as in real phonation, not just more flow
@@ -505,6 +524,7 @@ impl HumanVoice {
         for k in 0..n_ph + self.airway.n_or {
             let br = if k < n_ph { self.airway.branch_of(self.airway.pharynx, k as isize) } else { self.airway.branch_of(self.airway.oral, (k - n_ph) as isize) };
             self.flow_sm[k] += a * (self.airway.net.u[br] - self.flow_sm[k]);
+            crate::airway::network::tiny(&mut self.flow_sm[k]);
         }
     }
 
@@ -539,6 +559,15 @@ impl HumanVoice {
         fix(&mut self.artic, ct, ctn, ArticKey::TtX, ArticKey::TtY);
         fix(&mut self.artic, cb, cbn, ArticKey::TbX, ArticKey::TbY);
         changed
+    }
+
+    /// How many of the voice's decaying states are denormal numbers (for tests: none should be;
+    /// see `AirwayNetwork::flush_tiny`).
+    pub fn denormal_states(&self) -> usize {
+        use crate::airway::network::is_denormal;
+        let own = [self.gate, self.dc_x, self.dc_y, self.lim_env, self.p_lung_now];
+        let artic = ArticKey::ALL.iter().filter(|k| is_denormal(self.artic.x.get(**k))).count() + self.artic.v.iter().filter(|v| is_denormal(**v)).count();
+        self.airway.net.denormal_states() + self.glottis.denormal_states() + own.iter().filter(|x| is_denormal(**x)).count() + self.flow_sm.iter().filter(|x| is_denormal(**x)).count() + artic
     }
 
     /// Fill a telemetry snapshot and reset the accumulators.

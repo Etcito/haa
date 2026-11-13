@@ -170,7 +170,22 @@ struct Seg<'a> {
     def: Option<PhonemeDef>,
     vowel: Option<ArticPatch>,
     glide_from: bool,
+    aspirated: Option<bool>,
+    vot: Option<f64>,
+    nasalized: Option<bool>,
+    palatalized: Option<bool>,
+    breathy: Option<bool>,
 }
+
+/// glottal abduction of breathy voice: /ɦ/'s, a gap the folds still vibrate across
+const BREATHY_ABDUCTION: f64 = 0.1;
+/// how long past its release a breathy-voiced stop's folds stay apart (s), at most to the end of
+/// the next segment
+const BREATHY_RELEASE: f64 = 0.08;
+
+/// velum port area (cm²) of a nasalized vowel, and the ramps of its lowering and raising (s)
+const NASAL_VOWEL_PORT: f64 = 0.3;
+const NASAL_VOWEL_RAMP: f64 = 0.04;
 
 #[derive(Clone, Copy)]
 struct Span {
@@ -196,10 +211,10 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
             let base = durs[si];
             for (i, p) in parts.iter().enumerate() {
                 let dur = if parts.len() > 1 { base * (if i == 0 { 0.55 } else { 0.45 }) } else { base };
-                segs.push(Seg { ipa: p, dur: Some(dur), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: i > 0 });
+                segs.push(Seg { ipa: p, dur: Some(dur), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: i > 0, aspirated: None, vot: None, nasalized: s.nasalized, palatalized: None, breathy: s.breathy });
             }
         } else {
-            segs.push(Seg { ipa: &s.ipa, dur: Some(durs[si]), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: false });
+            segs.push(Seg { ipa: &s.ipa, dur: Some(durs[si]), stress: s.stress, f0: s.f0, def: None, vowel: None, glide_from: false, aspirated: s.aspirated, vot: s.vot, nasalized: s.nasalized, palatalized: s.palatalized, breathy: s.breathy });
         }
     }
     for s in segs.iter_mut() {
@@ -258,6 +273,18 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
             stress: if s.vowel.is_some() { Some(s.stress.unwrap_or(0)) } else { None },
             kind: if s.vowel.is_some() { "vowel".to_string() } else { s.def.map_or("?", |d| d.manner.as_str()).to_string() },
         });
+        if s.vowel.is_some() && !s.glide_from {
+            // what a vowel's marks hold for the whole vowel, through a diphthong's glide
+            let end = times[(i + 1..segs.len()).take_while(|&j| segs[j].glide_from).last().unwrap_or(i)].t1;
+            if s.nasalized == Some(true) {
+                // nasalized: the velum is down
+                gestures.push(Gesture::new(t0, end, NASAL_VOWEL_RAMP, NASAL_VOWEL_RAMP, 4.0, one(ArticKey::Velum, NASAL_VOWEL_PORT)).label("velum"));
+            }
+            if s.breathy == Some(true) {
+                // breathy: the folds part-open, as for /ɦ/
+                gestures.push(Gesture::new(t0, end, 0.03, 0.03, 5.0, one(ControlKey::ABDUCTION, BREATHY_ABDUCTION)).label("breathy"));
+            }
+        }
         let Some(def) = s.def.as_ref() else { continue };
         let next_vowel = i < segs.len() - 1 && segs[i + 1].vowel.is_some();
         let prev_seg = if i > 0 { Some(&segs[i - 1]) } else { None };
@@ -300,6 +327,7 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
         }
         // phonation
         let k2 = 1.0; // abduction is body-scaled in the voice
+        let mut voiced_again = t1; // when the folds are back, after an aspirated release
         if def.glottal == Some(Glottal::Open) {
             gestures.push(Gesture::new(t0 - 0.01, t1, 0.03, 0.035, 5.0, one(ControlKey::ABDUCTION, 0.33 * k2)).label("h"));
         } else if def.glottal == Some(Glottal::Breathy) {
@@ -308,15 +336,38 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
             gestures.push(Gesture::new(t0, t1, 0.012, 0.015, 8.0, one(ControlKey::CLOSURE, 1.0)).label("ʔ"));
         } else if def.voicing == Voicing::Voiceless {
             if def.manner == Manner::Stop || def.manner == Manner::Affricate {
-                // aspirated when syllable-initial before a vowel and not after /s/ (English-like)
-                let aspirated = next_vowel && !prev_seg.is_some_and(|p| p.ipa == "s");
-                let vot = if aspirated { 0.05 / rate } else { 0.012 };
-                gestures.push(Gesture::new(t0 + 0.25 * dur, t1 + vot * 0.4, 0.035, if aspirated { 0.045 } else { 0.02 }, 6.0, one(ControlKey::ABDUCTION, if aspirated { 0.36 } else { 0.22 })).label("aspiration"));
+                // as the front end says; by default English's rule: aspirated when syllable-initial
+                // before a vowel and not after /s/
+                let aspirated = s.aspirated.unwrap_or_else(|| next_vowel && !prev_seg.is_some_and(|p| p.ipa == "s"));
+                // the folds stay apart past the release by 40% of the default 50 ms (the ramps
+                // make up the rest of the aspiration); a front end's longer or shorter `vot` moves
+                // that by the whole difference, so the voice onset time it asks for is what it gets
+                let past = match (aspirated, s.vot) {
+                    (true, None) => DEFAULT_VOT / rate * 0.4, // as before, to the bit
+                    (true, Some(v)) => js_max(0.0, 0.4 * DEFAULT_VOT + v - DEFAULT_VOT) / rate,
+                    (false, _) => 0.012 * 0.4,
+                };
+                let g = Gesture::new(t0 + 0.25 * dur, t1 + past, 0.035, if aspirated { 0.045 } else { 0.02 }, 6.0, one(ControlKey::ABDUCTION, if aspirated { 0.36 } else { 0.22 })).label("aspiration");
+                voiced_again = g.end();
+                gestures.push(g);
             } else {
                 gestures.push(Gesture::new(t0 - 0.015, t1 + 0.005, 0.03, 0.03, 6.0, one(ControlKey::ABDUCTION, 0.3)).label("voiceless"));
             }
         } else if def.manner == Manner::Fricative {
             gestures.push(Gesture::new(t0, t1, 0.03, 0.03, 3.0, one(ControlKey::ABDUCTION, 0.035)).label("voiced frication"));
+        }
+        // a breathy-voiced release (Hindi bʱ): the folds part as the closure lets go and stay
+        // apart into the start of the vowel
+        if s.breathy == Some(true) && def.voicing == Voicing::Voiced && matches!(def.manner, Manner::Stop | Manner::Affricate) {
+            let until = js_min(t1 + BREATHY_RELEASE, times.get(i + 1).map_or(f64::MAX, |n| n.t1));
+            gestures.push(Gesture::new(t1 - 0.02, until, 0.03, 0.03, 5.0, one(ControlKey::ABDUCTION, BREATHY_ABDUCTION)).label("breathy"));
+        }
+        // palatalization: the tongue body goes toward /j/ under the consonant, stays there until the
+        // voice returns, and lets go into the vowel, so the release carries the [j]-like transition
+        if s.palatalized == Some(true) {
+            if let Some(tg) = palatal_body(def, body) {
+                gestures.push(Gesture::new(t0, voiced_again, PALATAL_RAMP, PALATAL_RAMP, PALATAL_STRENGTH, artic_targets(&tg)).label("palatalized"));
+            }
         }
     }
     let open_end = o.open_end == Some(true);
@@ -398,6 +449,26 @@ pub fn plan_utterance(input: &[Segment], o: &PlanOptions) -> Plan {
     Plan { gestures, segments: planned, end }
 }
 
+/// How firmly a palatalized consonant's tongue body is held (the overlapping vowel has 1.0, the
+/// consonant's own articulators 40), and how long it takes to take and let go of the posture (s)
+const PALATAL_STRENGTH: f64 = 3.0;
+const PALATAL_RAMP: f64 = 0.04;
+
+/// The tongue body's posture for a palatalized consonant: /j/'s, on the coordinates the consonant
+/// itself does not use. A velar closes with the body's height, so only its front-back
+/// place moves (fronted); a consonant with no free body coordinate (palatals, uvulars, /w/, /ɫ/,
+/// glottals) has nothing to add.
+fn palatal_body(def: &PhonemeDef, body: BodyMix) -> Option<ArticPatch> {
+    let j = phoneme("j", body)?;
+    let mut out = ArticPatch::default();
+    for k in [ArticKey::TbX, ArticKey::TbY] {
+        if let (false, Some(x)) = (def.dominant.contains(&k), j.targets.get(k)) {
+            out.set(k, x);
+        }
+    }
+    (!out.is_empty() && def.place != "palatal" && def.manner != Manner::Glottal).then_some(out)
+}
+
 /// Front-to-back order of the oral places of articulation.
 fn place_rank(place: &str) -> Option<u8> {
     Some(match place {
@@ -417,6 +488,8 @@ fn place_rank(place: &str) -> Option<u8> {
 /// How much later a pre-placed closure behind another stop's closure is aimed (s): the time its
 /// shorter travel saves, so it seals as the front closure opens.
 const PLACED_CLOSURE_DELAY: f64 = 0.025;
+/// An aspirated stop's voice onset time when its front end doesn't say (English's), in seconds.
+const DEFAULT_VOT: f64 = 0.05;
 
 /// Whether stop `i` closes behind the closure of the stop before it, with its own articulators
 /// already set by the consonant before that one (/t/ in /ɹpt/: the tip is up for the /ɹ/ and

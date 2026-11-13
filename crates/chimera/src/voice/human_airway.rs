@@ -41,6 +41,10 @@ pub struct HumanAirway {
     pub frame: Option<HumanFrame>,
     pub ph_len: f64,
     pub or_len: f64,
+    /// shortest section (cm) the airway's time step allows, at Courant number 0.97: a pharynx or
+    /// oral tube is never shorter than its node count times this. (The node counts are sized for
+    /// 0.93; the beatbox's raised larynx already reaches 0.954, stably, and stays as it was.)
+    pub dx_stable: f64,
     /// noise gains (tunable)
     pub noise_gain: NoiseGains,
     /// max area change rate (cm²/s, body-scaled): a physiological guard against geometric jumps
@@ -99,7 +103,10 @@ impl HumanAirway {
             })
             .collect();
         let nasal = net.add_tube(TubeSpec::new("nasal", n_na, na_len, Area::Profile(na_areas)).wall(Some(WALL_NASAL)).perimeter(3.2).viscous(2.5));
-        let fossa = net.add_tube(TubeSpec::new("piriform", 3, 2.0 * k, Area::Uniform(0.9 * k * k)).wall(Some(WALL_SOFT)).perimeter(1.3));
+        // three sections where they fit the time step: a child's 1.5 cm fossa in a 64 kHz airway
+        // (a 16 or 32 kHz device) had 0.49 cm sections, Courant number 1.09, and the voice rang 3x loud
+        let n_fo = js_max(1.0, js_min(3.0, (2.0 * k / dx_min).floor())) as usize;
+        let fossa = net.add_tube(TubeSpec::new("piriform", n_fo, 2.0 * k, Area::Uniform(0.9 * k * k)).wall(Some(WALL_SOFT)).perimeter(1.3));
 
         let lungs = net.add_pressure_node("lungs");
         let tr_a = 2.5 * k * k;
@@ -139,6 +146,7 @@ impl HumanAirway {
             frame: None,
             ph_len: 8.8,
             or_len: 8.3,
+            dx_stable: (C_SOUND / fs) / 0.97,
             noise_gain: NoiseGains { glottis: 3.2e-6, constriction: 2.2e-6, teeth: 3.0e-6 },
             max_area_rate: 45.0,
             area_rate_gain: 40.0,
@@ -252,10 +260,18 @@ impl HumanAirway {
             clamp_arr(&mut self.ph_areas, &base[0], &mut self.ph_min, &base[2]);
             clamp_arr(&mut self.or_areas, &base[1], &mut self.or_min, &base[3]);
         }
+        // A pose past the expected extremes (the tongue pressed into the floor of the mouth moves
+        // the pharynx/oral split forward: issue #50, a 5.3 cm oral tube) made sections shorter than
+        // one time step allows: Courant number 1.24, a self-oscillating airway that squealed at the
+        // limiter with the voice off. Such a tube is stretched instead; poses in range are unchanged.
+        // Only the network gets the stretch: ph_len/or_len stay anatomical, since the noise sources
+        // (against the teeth) and the UI's overlays map sections to places in the head with them.
         self.ph_len = ph_len;
         self.or_len = or_len;
-        self.net.set_tube_targets(self.pharynx, &self.ph_areas, Some(ph_len), Some(&self.ph_min));
-        self.net.set_tube_targets(self.oral, &self.or_areas, Some(or_len), Some(&self.or_min));
+        let ph_sim = js_max(ph_len, self.n_ph as f64 * self.dx_stable);
+        let or_sim = js_max(or_len, self.n_or as f64 * self.dx_stable);
+        self.net.set_tube_targets(self.pharynx, &self.ph_areas, Some(ph_sim), Some(&self.ph_min));
+        self.net.set_tube_targets(self.oral, &self.or_areas, Some(or_sim), Some(&self.or_min));
         self.net.set_port_target(self.velum_port, f.velum_port);
         self.update_noise(&f);
         self.frame = Some(f);

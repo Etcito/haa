@@ -160,6 +160,20 @@ pub struct LinearElements {
     pub rad_area: Vec<f64>,
 }
 
+/// Below this a state is nothing (the network's own silence is 1e-9): see `flush_tiny`.
+pub const TINY: f64 = 1e-30;
+#[inline]
+pub fn tiny(x: &mut f64) {
+    if x.abs() < TINY {
+        *x = 0.0;
+    }
+}
+/// A number too small to be held at full precision, which a processor computes with slowly.
+#[inline]
+pub fn is_denormal(x: f64) -> bool {
+    x != 0.0 && x.abs() < f64::MIN_POSITIVE
+}
+
 /// A turbulence noise source request (control rate).
 #[derive(Clone, Copy, Debug)]
 pub struct NoiseSpec {
@@ -719,6 +733,50 @@ impl AirwayNetwork {
             if self.b_kind[j] == KIND_PORT {
                 self.port_area_step[j] = (self.port_area_target[j] - self.port_area[j]) * inv;
             }
+        }
+        self.flush_tiny();
+    }
+
+    /// How many of the states `flush_tiny` looks after are denormal (for tests: none should be).
+    pub fn denormal_states(&self) -> usize {
+        let per_node = [&self.p, &self.wall_v, &self.wall_y, &self.vol_src1, &self.vol_src2];
+        let per_branch = [&self.u, &self.mom, &self.rad_ul, &self.rad_u];
+        let arrays = per_node.iter().chain(per_branch.iter()).map(|a| a.iter().filter(|x| is_denormal(**x)).count()).sum::<usize>();
+        let noise = self.noise.iter().map(|s| [s.hp, s.lp1, s.lp2, s.level].iter().filter(|x| is_denormal(**x)).count()).sum::<usize>();
+        arrays + noise + is_denormal(self.rad_prev_total) as usize
+    }
+
+    /// Zero whatever has decayed to nothing, each on its own. The flush above waits for the whole
+    /// network to fall silent, but one part can die away while another sounds: a nasal tract shut
+    /// off by the velum, a sealed cell, the wall-movement source once the mouth has stopped moving.
+    /// Their states then shrink into the denormal range and stay there (a one-pole decay rounds a
+    /// small enough denormal back to itself), and arithmetic on denormals is several times slower:
+    /// measured, a block took four times as long after the velum had been lowered and raised.
+    /// WebAssembly has no flush-to-zero mode, so it is done here, once a control block.
+    fn flush_tiny(&mut self) {
+        for k in 0..self.n_nodes {
+            if !self.fixed[k] {
+                tiny(&mut self.p[k]);
+            }
+            tiny(&mut self.wall_v[k]);
+            tiny(&mut self.wall_y[k]);
+            tiny(&mut self.vol_src1[k]);
+            tiny(&mut self.vol_src2[k]);
+        }
+        for j in 0..self.n_branches {
+            tiny(&mut self.u[j]);
+            tiny(&mut self.mom[j]);
+        }
+        for r in 0..self.rad_ul.len() {
+            tiny(&mut self.rad_ul[r]);
+            tiny(&mut self.rad_u[r]);
+        }
+        tiny(&mut self.rad_prev_total);
+        for s in self.noise.iter_mut() {
+            tiny(&mut s.hp);
+            tiny(&mut s.lp1);
+            tiny(&mut s.lp2);
+            tiny(&mut s.level);
         }
     }
 

@@ -10,7 +10,9 @@ pub mod durations;
 pub mod english;
 pub mod inventory;
 pub mod ipa;
+pub mod korean;
 pub mod planner;
+pub mod russian;
 pub mod sing;
 pub mod syllables;
 pub mod vowel_data;
@@ -32,6 +34,26 @@ pub struct Segment {
     /// word boundary after this segment
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub word_end: Option<bool>,
+    /// a voiceless stop or affricate's aspiration, as its front end decides it (Mandarin and Korean
+    /// contrast it); None: the planner's default, English's rule (aspirated syllable-initially
+    /// before a vowel, not after /s/)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aspirated: Option<bool>,
+    /// how long an aspirated stop or affricate aspirates (voice onset time, s), as its front end
+    /// decides it (Korean's lax stops aspirate briefly, its aspirated ones long); None: 50 ms
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vot: Option<f64>,
+    /// a vowel said with the velum lowered (IPA combining tilde); None or false: oral
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nasalized: Option<bool>,
+    /// a consonant made with a second, palatal gesture: the tongue body raised and fronted toward
+    /// the palate (IPA ʲ); None or false: plain
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub palatalized: Option<bool>,
+    /// breathy voice: a voiced stop or affricate released with the folds apart (IPA ʱ), or a
+    /// vowel said with them part-open (IPA combining diaeresis below); None or false: modal
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub breathy: Option<bool>,
 }
 
 impl Segment {
@@ -74,7 +96,7 @@ pub struct Plan {
 }
 
 /// A sung syllable.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Syllable {
     /// lyric text shown on the note
@@ -86,8 +108,11 @@ pub struct Syllable {
     /// continue the previous syllable's vowel at a new pitch
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub melisma: Option<bool>,
-    /// last syllable of a word (codas sound here; phrase breaks follow punctuation)
+    /// last syllable of a word (codas sound here; phrase breaks follow punctuation); may be left
+    /// out of hand-written JSON (false)
+    #[serde(default)]
     pub word_end: bool,
-    /// a breath follows (comma, full stop, line break)
+    /// a breath follows (comma, full stop, line break); may be left out (false)
+    #[serde(default)]
     pub phrase_end: bool,
 }

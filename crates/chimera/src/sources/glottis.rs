@@ -226,6 +226,23 @@ impl ParametricGlottis {
     pub fn cycle_phase(&self) -> f64 {
         self.phase
     }
+
+    /// How many of the smoothed values are denormal (for tests: none should be).
+    pub fn denormal_states(&self) -> usize {
+        [self.dp_sm, self.voicing_sm, self.amp_sm, self.closure_sm, self.static_sm].iter().filter(|x| crate::airway::network::is_denormal(**x)).count()
+    }
+
+    /// Zero the smoothed values that have decayed to nothing (see `AirwayNetwork::flush_tiny`):
+    /// with the breath off or the folds apart each of them heads for zero and would otherwise
+    /// stall among the denormals. Called at control rate.
+    pub fn flush_tiny(&mut self) {
+        use crate::airway::network::tiny;
+        tiny(&mut self.dp_sm);
+        tiny(&mut self.voicing_sm);
+        tiny(&mut self.amp_sm);
+        tiny(&mut self.closure_sm);
+        tiny(&mut self.static_sm);
+    }
 }
 
 /// Normalised area pulse (0..1) at cycle phase ph.

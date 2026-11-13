@@ -145,6 +145,8 @@ const PAL_STOP: Tg = &[(TbX, 3.75), (TbY, 8.45)];
 const VEL_STOP: Tg = &[(TbX, 2.3), (TbY, 8.35), (Jaw, 0.7)];
 const UVU_STOP: Tg = &[(TbX, 1.55), (TbY, 7.6)];
 const NONE: Tg = &[];
+const ALVPAL_FRIC: Tg = &[(TtX, 5.85), (TtY, 9.5), (TbX, 3.6), (TbY, 7.75), (Jaw, 0.3), (LipProt, 0.0), (LipWidth, 0.7)];
+const ALVPAL_STOP: Tg = &[(TtX, 5.85), (TtY, 10.0), (TbX, 3.6), (TbY, 8.1), (LipProt, 0.0), (LipWidth, 0.7)];
 
 const TIP_CURL: &[ArticKey] = &[TtX, TtY, TtCurl];
 
@@ -203,6 +205,15 @@ fn base() -> Vec<PhonemeDef> {
         c("dz", "voiced alveolar affricate", M::Affricate, Voiced, "alveolar", t(ALV_STOP), &TIP, 0.12).rel("z"),
         c("tʃ", "voiceless postalveolar affricate", M::Affricate, Voiceless, "postalveolar", tg(POSTALV_STOP, &[(LipProt, 0.75), (LipWidth, 0.2)]), &[TtX, TtY, LipProt, LipWidth], 0.15).rel("ʃ"),
         c("dʒ", "voiced postalveolar affricate", M::Affricate, Voiced, "postalveolar", tg(POSTALV_STOP, &[(LipProt, 0.75), (LipWidth, 0.2)]), &[TtX, TtY, LipProt, LipWidth], 0.13).rel("ʒ"),
+        // Mandarin: alveolo-palatal fricatives and affricates (x, j, q), retroflex
+        // affricates (zh, ch). Laminal: the blade and front of the body raised behind the ridge,
+        // lips spread (rounding comes from the vowel)
+        c("ɕ", "voiceless alveolo-palatal fricative", M::Fricative, Voiceless, "alveolo-palatal", t(ALVPAL_FRIC), &[TtX, TtY, TbX, TbY, Jaw, LipProt, LipWidth], 0.12).cal(0.17, TtY),
+        c("ʑ", "voiced alveolo-palatal fricative", M::Fricative, Voiced, "alveolo-palatal", t(ALVPAL_FRIC), &[TtX, TtY, TbX, TbY, Jaw, LipProt, LipWidth], 0.09).cal(0.19, TtY),
+        c("tɕ", "voiceless alveolo-palatal affricate", M::Affricate, Voiceless, "alveolo-palatal", t(ALVPAL_STOP), &[TtX, TtY, TbX, TbY, LipProt, LipWidth], 0.14).rel("ɕ"),
+        c("dʑ", "voiced alveolo-palatal affricate", M::Affricate, Voiced, "alveolo-palatal", t(ALVPAL_STOP), &[TtX, TtY, TbX, TbY, LipProt, LipWidth], 0.12).rel("ʑ"),
+        c("tʂ", "voiceless retroflex affricate", M::Affricate, Voiceless, "retroflex", t(RETRO_STOP), TIP_CURL, 0.14).rel("ʂ"),
+        c("dʐ", "voiced retroflex affricate", M::Affricate, Voiced, "retroflex", t(RETRO_STOP), TIP_CURL, 0.12).rel("ʐ"),
         c("pf", "voiceless labiodental affricate", M::Affricate, Voiceless, "labiodental", t(BILABIAL), &LIPS, 0.14).rel("f"),
         // approximants, laterals, taps, trills
         c("w", "labial-velar approximant", M::Approximant, Voiced, "labial-velar", t(&[(LipAp, 0.28), (LipProt, 1.0), (LipWidth, 0.05), (TbX, 2.45), (TbY, 7.45)]), &[LipAp, LipProt, LipWidth, TbX, TbY], 0.06),
@@ -210,6 +221,7 @@ fn base() -> Vec<PhonemeDef> {
         c("ɹ", "alveolar approximant", M::Approximant, Voiced, "postalveolar", t(&[(TtX, 5.35), (TtY, 9.35), (TtCurl, 0.85), (LipProt, 0.5), (LipWidth, 0.3), (Root, -0.6), (TbX, 2.3), (TbY, 7.1)]), &[TtX, TtY, TtCurl, LipProt, LipWidth, Root], 0.065),
         c("ɻ", "retroflex approximant", M::Approximant, Voiced, "retroflex", t(&[(TtX, 5.4), (TtY, 9.55), (TtCurl, 1.0)]), TIP_CURL, 0.065),
         c("j", "palatal approximant", M::Approximant, Voiced, "palatal", t(&[(TbX, 3.8), (TbY, 7.95), (Jaw, 0.25)]), &BODY, 0.055),
+        c("ɥ", "labial-palatal approximant", M::Approximant, Voiced, "labial-palatal", t(&[(TbX, 3.8), (TbY, 7.95), (Jaw, 0.25), (LipAp, 0.28), (LipProt, 1.0), (LipWidth, 0.05)]), &[TbX, TbY, Jaw, LipAp, LipProt, LipWidth], 0.055),
         c("ɰ", "velar approximant", M::Approximant, Voiced, "velar", t(&[(TbX, 2.35), (TbY, 7.45)]), &BODY, 0.06),
         c("l", "alveolar lateral approximant", M::Lateral, Voiced, "alveolar", tg(ALV_STOP, &[(Lateral, 1.0)]), &[TtX, TtY, Lateral], 0.065),
         c("ɫ", "velarised lateral", M::Lateral, Voiced, "alveolar", tg(ALV_STOP, &[(Lateral, 1.0), (TbX, 1.9), (TbY, 6.8)]), &[TtX, TtY, Lateral, TbX, TbY], 0.075),

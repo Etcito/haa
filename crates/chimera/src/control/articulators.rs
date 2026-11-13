@@ -143,7 +143,15 @@ impl ArticulatorBank {
             let x = self.x.get(k);
             let acc = w * w * (tgt - x) - 2.0 * w * self.v[i];
             self.v[i] += acc * dt;
-            self.x.set(k, x + self.v[i] * dt);
+            let mut nx = x + self.v[i] * dt;
+            // an articulator sent to zero (the velum raised, the tongue's sides back up) arrives
+            // asymptotically, which in floating point means among the denormals, for good
+            // (see `AirwayNetwork::flush_tiny`): once it is there to all purposes, it is there
+            if tgt == 0.0 {
+                crate::airway::network::tiny(&mut nx);
+            }
+            crate::airway::network::tiny(&mut self.v[i]);
+            self.x.set(k, nx);
         }
     }
 }
