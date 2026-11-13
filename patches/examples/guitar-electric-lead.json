@@ -1,0 +1,268 @@
+{
+  "haa": 1,
+  "id": "guitar-electric-lead",
+  "title": "Electric guitar · lead line with delay and reverb",
+  "inputs": [],
+  "graph": {
+    "duration": 6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "strPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 40,
+        "label": "Corde · hauteur",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":0.9,\"midi\":45,\"level\":0.9},{\"start\":1.2,\"duration\":0.3,\"midi\":60.0003,\"level\":0.85},{\"start\":1.5,\"duration\":0.3,\"midi\":61.9997,\"level\":0.8},{\"start\":1.8,\"duration\":0.45,\"midi\":64.0001,\"level\":0.85},{\"start\":2.3,\"duration\":0.3,\"midi\":67.0002,\"level\":0.85},{\"start\":2.6,\"duration\":1.6,\"midi\":69,\"level\":0.9},{\"start\":4.2,\"duration\":0.4,\"midi\":67.0002,\"level\":0.8},{\"start\":4.6,\"duration\":1.2,\"midi\":64.0001,\"level\":0.85}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "str"
+        }
+      },
+      {
+        "id": "strGate",
+        "type": "notes",
+        "x": 40,
+        "y": 130,
+        "label": "Corde · attaque",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":0.9,\"midi\":45,\"level\":0.9},{\"start\":1.2,\"duration\":0.3,\"midi\":60.0003,\"level\":0.85},{\"start\":1.5,\"duration\":0.3,\"midi\":61.9997,\"level\":0.8},{\"start\":1.8,\"duration\":0.45,\"midi\":64.0001,\"level\":0.85},{\"start\":2.3,\"duration\":0.3,\"midi\":67.0002,\"level\":0.85},{\"start\":2.6,\"duration\":1.6,\"midi\":69,\"level\":0.9},{\"start\":4.2,\"duration\":0.4,\"midi\":67.0002,\"level\":0.8},{\"start\":4.6,\"duration\":1.2,\"midi\":64.0001,\"level\":0.85}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "str"
+        }
+      },
+      {
+        "id": "str",
+        "type": "pluck",
+        "x": 300,
+        "y": 40,
+        "label": "Corde",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 8,
+          "release": 0.2,
+          "damping": 0.3,
+          "brightness": 0.65,
+          "pickPosition": 0.13,
+          "pickHardness": 0.8,
+          "stiffness": 0.1,
+          "body": 0,
+          "pickup": "humbucker",
+          "pickupPosition": 0.1,
+          "gain": 0.7,
+          "velocity": 0.9
+        }
+      },
+      {
+        "id": "strGlide",
+        "type": "glide",
+        "x": 170,
+        "y": 85,
+        "label": "Corde · glissé",
+        "params": {
+          "input": 0,
+          "time": 0.045
+        }
+      },
+      {
+        "id": "vib",
+        "type": "lfo",
+        "x": 170,
+        "y": 320,
+        "label": "Vibrato",
+        "params": {
+          "rate": 5.5,
+          "depth": 0,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "vibCurve",
+        "type": "curve",
+        "x": 40,
+        "y": 420,
+        "label": "Vibrato retardé",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.5,
+            0
+          ],
+          [
+            0.62,
+            1
+          ],
+          [
+            0.7,
+            1
+          ],
+          [
+            0.72,
+            0
+          ],
+          [
+            0.86,
+            0
+          ],
+          [
+            0.95,
+            0.8
+          ],
+          [
+            1,
+            0.8
+          ]
+        ]
+      },
+      {
+        "id": "amp",
+        "type": "amp",
+        "x": 560,
+        "y": 200,
+        "label": "Ampli lead",
+        "params": {
+          "gain": 42,
+          "bias": 0.3,
+          "bass": 1,
+          "mid": 4,
+          "treble": 0,
+          "presence": 3,
+          "level": 2
+        }
+      },
+      {
+        "id": "cab",
+        "type": "cabinet",
+        "x": 760,
+        "y": 200,
+        "label": "Baffle 4x12",
+        "params": {
+          "voicing": "closed4x12",
+          "mic": 0.5,
+          "distance": 0.2,
+          "mix": 1
+        }
+      },
+      {
+        "id": "echo",
+        "type": "delay",
+        "x": 960,
+        "y": 200,
+        "label": "Écho",
+        "params": {
+          "time": 0.375,
+          "feedback": 0.35,
+          "mix": 0.25
+        }
+      },
+      {
+        "id": "verb",
+        "type": "reverb",
+        "x": 1160,
+        "y": 200,
+        "label": "Réverbération",
+        "params": {
+          "size": 0.6,
+          "mix": 0.2
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1360,
+        "y": 200,
+        "label": "Sortie",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strPitch",
+        "to": "strGlide",
+        "target": "input",
+        "amount": 2000
+      },
+      {
+        "id": "c2",
+        "from": "strGlide",
+        "to": "str",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "strGate",
+        "to": "str",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "vibCurve",
+        "to": "vib",
+        "target": "depth",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "vib",
+        "to": "str",
+        "target": "frequency",
+        "amount": 7
+      },
+      {
+        "id": "c6",
+        "from": "str",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "amp",
+        "to": "cab",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c8",
+        "from": "cab",
+        "to": "echo",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "echo",
+        "to": "verb",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c10",
+        "from": "verb",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}

@@ -1,0 +1,408 @@
+{
+  "haa": 1,
+  "id": "guitar-acoustic-pluck",
+  "title": "Acoustic guitar · arpeggio and strums",
+  "inputs": [],
+  "graph": {
+    "duration": 6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "strAPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 40,
+        "label": "Corde La · hauteur",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":2.5,\"midi\":47.9996,\"level\":0.9},{\"start\":2.8,\"duration\":1.15,\"midi\":47.9996,\"level\":0.8},{\"start\":4.012,\"duration\":1.9,\"midi\":45,\"level\":0.8}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strAGate",
+        "type": "notes",
+        "x": 40,
+        "y": 130,
+        "label": "Corde La · attaque",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":2.5,\"midi\":47.9996,\"level\":0.9},{\"start\":2.8,\"duration\":1.15,\"midi\":47.9996,\"level\":0.8},{\"start\":4.012,\"duration\":1.9,\"midi\":45,\"level\":0.8}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strA",
+        "type": "pluck",
+        "x": 300,
+        "y": 40,
+        "label": "Corde La",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 5,
+          "release": 2.5,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.16,
+          "pickHardness": 0.4,
+          "stiffness": 0.08,
+          "body": 0.6,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85
+        }
+      },
+      {
+        "id": "strDPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 240,
+        "label": "Corde Ré · hauteur",
+        "params": {
+          "score": "[{\"start\":2.25,\"duration\":0.5,\"midi\":51.9996,\"level\":0.7},{\"start\":2.812,\"duration\":1.15,\"midi\":51.9996,\"level\":0.75},{\"start\":4.024,\"duration\":1.9,\"midi\":51.9996,\"level\":0.75}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strDGate",
+        "type": "notes",
+        "x": 40,
+        "y": 330,
+        "label": "Corde Ré · attaque",
+        "params": {
+          "score": "[{\"start\":2.25,\"duration\":0.5,\"midi\":51.9996,\"level\":0.7},{\"start\":2.812,\"duration\":1.15,\"midi\":51.9996,\"level\":0.75},{\"start\":4.024,\"duration\":1.9,\"midi\":51.9996,\"level\":0.75}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strD",
+        "type": "pluck",
+        "x": 300,
+        "y": 240,
+        "label": "Corde Ré",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 5,
+          "release": 2.5,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.16,
+          "pickHardness": 0.4,
+          "stiffness": 0.08,
+          "body": 0.6,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85
+        }
+      },
+      {
+        "id": "strGPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 440,
+        "label": "Corde Sol · hauteur",
+        "params": {
+          "score": "[{\"start\":1,\"duration\":0.95,\"midi\":55.0002,\"level\":0.7},{\"start\":2,\"duration\":0.23,\"midi\":55.0002,\"level\":0.65},{\"start\":2.824,\"duration\":1.15,\"midi\":55.0002,\"level\":0.7},{\"start\":4.036,\"duration\":1.9,\"midi\":57,\"level\":0.7}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strG"
+        }
+      },
+      {
+        "id": "strGGate",
+        "type": "notes",
+        "x": 40,
+        "y": 530,
+        "label": "Corde Sol · attaque",
+        "params": {
+          "score": "[{\"start\":1,\"duration\":0.95,\"midi\":55.0002,\"level\":0.7},{\"start\":2,\"duration\":0.23,\"midi\":55.0002,\"level\":0.65},{\"start\":2.824,\"duration\":1.15,\"midi\":55.0002,\"level\":0.7},{\"start\":4.036,\"duration\":1.9,\"midi\":57,\"level\":0.7}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strG"
+        }
+      },
+      {
+        "id": "strG",
+        "type": "pluck",
+        "x": 300,
+        "y": 440,
+        "label": "Corde Sol",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 5,
+          "release": 2.5,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.16,
+          "pickHardness": 0.4,
+          "stiffness": 0.08,
+          "body": 0.6,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85
+        }
+      },
+      {
+        "id": "strBPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 640,
+        "label": "Corde Si · hauteur",
+        "params": {
+          "score": "[{\"start\":1.25,\"duration\":0.47,\"midi\":60.0003,\"level\":0.7},{\"start\":1.75,\"duration\":0.2,\"midi\":60.0003,\"level\":0.65},{\"start\":2.836,\"duration\":1.15,\"midi\":60.0003,\"level\":0.7},{\"start\":4.048,\"duration\":1.9,\"midi\":60.0003,\"level\":0.7}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strB"
+        }
+      },
+      {
+        "id": "strBGate",
+        "type": "notes",
+        "x": 40,
+        "y": 730,
+        "label": "Corde Si · attaque",
+        "params": {
+          "score": "[{\"start\":1.25,\"duration\":0.47,\"midi\":60.0003,\"level\":0.7},{\"start\":1.75,\"duration\":0.2,\"midi\":60.0003,\"level\":0.65},{\"start\":2.836,\"duration\":1.15,\"midi\":60.0003,\"level\":0.7},{\"start\":4.048,\"duration\":1.9,\"midi\":60.0003,\"level\":0.7}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strB"
+        }
+      },
+      {
+        "id": "strB",
+        "type": "pluck",
+        "x": 300,
+        "y": 640,
+        "label": "Corde Si",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 5,
+          "release": 2.5,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.16,
+          "pickHardness": 0.4,
+          "stiffness": 0.08,
+          "body": 0.6,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85
+        }
+      },
+      {
+        "id": "strEPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 840,
+        "label": "Corde Mi aiguë · hauteur",
+        "params": {
+          "score": "[{\"start\":1.5,\"duration\":1.2,\"midi\":64.0001,\"level\":0.75},{\"start\":2.848,\"duration\":1.15,\"midi\":64.0001,\"level\":0.7},{\"start\":4.06,\"duration\":1.9,\"midi\":64.0001,\"level\":0.7}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strE"
+        }
+      },
+      {
+        "id": "strEGate",
+        "type": "notes",
+        "x": 40,
+        "y": 930,
+        "label": "Corde Mi aiguë · attaque",
+        "params": {
+          "score": "[{\"start\":1.5,\"duration\":1.2,\"midi\":64.0001,\"level\":0.75},{\"start\":2.848,\"duration\":1.15,\"midi\":64.0001,\"level\":0.7},{\"start\":4.06,\"duration\":1.9,\"midi\":64.0001,\"level\":0.7}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strE"
+        }
+      },
+      {
+        "id": "strE",
+        "type": "pluck",
+        "x": 300,
+        "y": 840,
+        "label": "Corde Mi aiguë",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 5,
+          "release": 2.5,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.16,
+          "pickHardness": 0.4,
+          "stiffness": 0.08,
+          "body": 0.6,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 560,
+        "y": 300,
+        "label": "Pièce",
+        "params": {
+          "size": 0.35,
+          "damping": 0.55,
+          "mix": 0.16,
+          "width": 0.7,
+          "distance": 0.12
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 820,
+        "y": 300,
+        "label": "Sortie",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strAPitch",
+        "to": "strA",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c2",
+        "from": "strAGate",
+        "to": "strA",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "strDPitch",
+        "to": "strD",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c4",
+        "from": "strDGate",
+        "to": "strD",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "strGPitch",
+        "to": "strG",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c6",
+        "from": "strGGate",
+        "to": "strG",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "strBPitch",
+        "to": "strB",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c8",
+        "from": "strBGate",
+        "to": "strB",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "strEPitch",
+        "to": "strE",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c10",
+        "from": "strEGate",
+        "to": "strE",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c11",
+        "from": "strA",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c12",
+        "from": "strD",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c13",
+        "from": "strG",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c14",
+        "from": "strB",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c15",
+        "from": "strE",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c16",
+        "from": "room",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}

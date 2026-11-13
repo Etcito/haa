@@ -163,3 +163,14 @@ cargo test -p haa-fit --test fit -q
 - **Loss:** multi-resolution log-magnitude STFT (256/1024/4096, hop n/4) + log-mel + RMS envelope, plus an f0 term when the target is pitched. Levels are compared as they are; nothing is normalised.
 - **Output:** the fitted patch (it validates and renders the fitted sound with no flags), its loss, per-template scores, the trials, the loss history, `offset` (leading silence cut from the target: place the patch there) and a target-vs-fit report (RMS envelope, spectral centroid).
 - **JS:** `@etcito/haa/fit` exports `createFitter(wasm)`; `start(pcm, rate, templates, opts)`, `step(n)` (at most `n` renders, for progress and cancelling in a Worker), `result()`, `patch()`, `describe(patch)`, `compare(a, b, rate)`, `free()`.
+
+## Guitar sources and effects
+
+HAA-only nodes (no Sona counterpart) for acoustic, electric and bass guitar parts:
+
+- `pluck` (source): one plucked string, an extended Karplus-Strong waveguide tuned by exact phase delay (41 Hz bass E1 up to 4 kHz). Params: `frequency`, `gate` (rising edge plucks with `velocity` x gate level; the falling edge damps with `release`), `decay` (T60), `damping`, `brightness`, `pickPosition`, `pickHardness`, `stiffness` (inharmonicity), `body` (acoustic body modes), `pickup` (`none` | `single` | `humbucker`) and `pickupPosition`, `gain`, `autoStrike`. A chord is one `pluck` per string; a `notes` node pair (pitch, gate) plays each string, and `glide` between the pitch `notes` and `frequency` gives slides and hammer-ons (adjacent notes play legato, without a new pluck).
+- `amp` (effect): preamp/amp with 4x oversampled, antialiased asymmetric tube-style clipping, tone stack (`bass`, `mid`, `treble`), `presence`, `level`; clean, crunch and lead are `gain` settings.
+- `cabinet` (effect): speaker cabinet and mic from fixed biquads (`open1x12`, `closed4x12`, `combo2x12`), `mic` position, `distance`, `mix`.
+- `chorus`, `flanger`, `phaser`, `tremolo` (effects): stereo modulation effects (`rate`, `depth`, `mix`, `feedback`, `width`). A wah is the existing `filter` (bandpass) with its cutoff driven by an `lfo`, `curve` or `input`.
+
+Examples: `patches/examples/guitar-acoustic-pluck.json`, `guitar-electric-clean.json`, `guitar-electric-crunch.json`, `guitar-electric-lead.json`, `bass-guitar.json`.
