@@ -1,0 +1,760 @@
+{
+  "haa": 1,
+  "id": "engine-harley-vtwin-rev",
+  "title": "Harley-style 45° V-twin, rev",
+  "inputs": [],
+  "graph": {
+    "duration": 7.0,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "rpm-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 40,
+        "label": "Courbe de régime",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.08,
+            0
+          ],
+          [
+            0.5,
+            1
+          ],
+          [
+            0.6,
+            1
+          ],
+          [
+            0.95,
+            0.05
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "throttle-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 150,
+        "label": "Courbe de charge",
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0.15
+          ],
+          [
+            0.08,
+            0.15
+          ],
+          [
+            0.12,
+            0.85
+          ],
+          [
+            0.58,
+            0.9
+          ],
+          [
+            0.6,
+            0.0
+          ],
+          [
+            0.9,
+            0.0
+          ],
+          [
+            0.95,
+            0.15
+          ],
+          [
+            1,
+            0.15
+          ]
+        ]
+      },
+      {
+        "id": "rpm-span",
+        "type": "math",
+        "x": 40,
+        "y": 260,
+        "label": "Plage",
+        "params": {
+          "a": 0,
+          "b": 3600,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "rpm-scale",
+        "type": "math",
+        "x": 40,
+        "y": 370,
+        "label": "Régime",
+        "params": {
+          "a": 900,
+          "b": 0,
+          "operation": "add",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "cycle-rate",
+        "type": "math",
+        "x": 280,
+        "y": 40,
+        "label": "Cadence du cycle",
+        "params": {
+          "a": 0,
+          "b": 0.008333333333333333,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "lope-depth",
+        "type": "map",
+        "x": 280,
+        "y": 150,
+        "label": "Galop au ralenti",
+        "params": {
+          "in": 0,
+          "inMin": 700,
+          "inMax": 2200,
+          "scale": "lin",
+          "outMin": 0.07,
+          "outMax": 0
+        }
+      },
+      {
+        "id": "lope",
+        "type": "sampleHold",
+        "x": 280,
+        "y": 260,
+        "label": "Irrégularité par cycle",
+        "params": {
+          "input": 0,
+          "rate": 0.01,
+          "noise": 0,
+          "slew": 0.035
+        }
+      },
+      {
+        "id": "fire-rate",
+        "type": "math",
+        "x": 280,
+        "y": 370,
+        "label": "Cadence instantanée",
+        "params": {
+          "a": 0,
+          "b": 1,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "header",
+        "type": "waveguide",
+        "x": 760,
+        "y": 40,
+        "label": "Collecteur (quart d’onde)",
+        "params": {
+          "frequency": 150,
+          "feedback": 0.62,
+          "damping": 0.35,
+          "dispersion": 0,
+          "ends": "closed",
+          "mix": 0.85
+        }
+      },
+      {
+        "id": "cylinder-1",
+        "type": "pulse",
+        "x": 520,
+        "y": 40,
+        "label": "Cylindre 1 (0°)",
+        "params": {
+          "frequency": 0,
+          "width": 0.035,
+          "phase": 0.0,
+          "jitter": 0.003,
+          "shimmer": 0.16,
+          "level": 0.3948,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "cylinder-2",
+        "type": "pulse",
+        "x": 520,
+        "y": 150,
+        "label": "Cylindre 2 (405°)",
+        "params": {
+          "frequency": 0,
+          "width": 0.035,
+          "phase": 0.5625,
+          "jitter": 0.003,
+          "shimmer": 0.16,
+          "level": 0.42,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "muffler-chamber",
+        "type": "waveguide",
+        "x": 1000,
+        "y": 40,
+        "label": "Chambre du silencieux",
+        "params": {
+          "frequency": 410,
+          "feedback": 0.35,
+          "damping": 0.5,
+          "dispersion": 0.2,
+          "ends": "open",
+          "mix": 0.45
+        }
+      },
+      {
+        "id": "pressure",
+        "type": "shaper",
+        "x": 1000,
+        "y": 150,
+        "label": "Pression d’échappement",
+        "params": {
+          "drive": 9,
+          "bias": 0.3,
+          "fold": 0,
+          "output": -4,
+          "mix": 1
+        }
+      },
+      {
+        "id": "muffler-tone",
+        "type": "crossover",
+        "x": 1240,
+        "y": 40,
+        "label": "Voix du silencieux",
+        "params": {
+          "lowFrequency": 180,
+          "highFrequency": 2200,
+          "lowGain": 3,
+          "midGain": 0,
+          "highGain": -12
+        }
+      },
+      {
+        "id": "rumble",
+        "type": "harmonics",
+        "x": 760,
+        "y": 150,
+        "label": "Ordres moteur",
+        "params": {
+          "frequency": 10,
+          "partials": 24,
+          "tilt": -4,
+          "oddEven": 0,
+          "offset": 0.5625,
+          "inharmonicity": 0,
+          "detune": 0,
+          "level": 0.06
+        }
+      },
+      {
+        "id": "decel",
+        "type": "response",
+        "x": 280,
+        "y": 480,
+        "label": "Lâcher de gaz",
+        "params": {
+          "input": 0,
+          "mode": "fall",
+          "attack": 0.001,
+          "release": 0.7,
+          "delay": 0.04,
+          "shape": 1,
+          "gain": 1.2,
+          "sensitivity": 0.1
+        }
+      },
+      {
+        "id": "crackle",
+        "type": "grain",
+        "x": 520,
+        "y": 260,
+        "label": "Pétarades",
+        "params": {
+          "wave": "noise",
+          "frequency": 1400,
+          "resonance": 0.7,
+          "rate": 11,
+          "attack": 0.0001,
+          "decay": 0.007,
+          "spread": 4,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0,
+          "width": 0.3,
+          "level": 0
+        }
+      },
+      {
+        "id": "tick-rate",
+        "type": "math",
+        "x": 280,
+        "y": 590,
+        "label": "Cadence de distribution",
+        "params": {
+          "a": 0,
+          "b": 4.0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "valve-tick",
+        "type": "pulse",
+        "x": 520,
+        "y": 370,
+        "label": "Claquement de soupapes",
+        "params": {
+          "frequency": 0,
+          "width": 0.01,
+          "phase": 0.13,
+          "jitter": 0.03,
+          "shimmer": 0.6,
+          "level": 0.22,
+          "shape": "exponential"
+        }
+      },
+      {
+        "id": "tick-ring",
+        "type": "waveguide",
+        "x": 760,
+        "y": 260,
+        "label": "Résonance du carter",
+        "params": {
+          "frequency": 2900,
+          "feedback": 0.8,
+          "damping": 0.12,
+          "dispersion": 0.35,
+          "ends": "open",
+          "mix": 1
+        }
+      },
+      {
+        "id": "clatter",
+        "type": "bandNoise",
+        "x": 520,
+        "y": 480,
+        "label": "Bruit mécanique",
+        "params": {
+          "frequency": 2600,
+          "bandwidth": 2,
+          "tilt": -3,
+          "level": 0.012,
+          "width": 0.3
+        }
+      },
+      {
+        "id": "clatter-am",
+        "type": "ring",
+        "x": 760,
+        "y": 370,
+        "label": "Battement mécanique",
+        "params": {
+          "frequency": 0.1,
+          "depth": 0.85,
+          "bias": 0.8,
+          "shape": 0.7,
+          "width": 0.2
+        }
+      },
+      {
+        "id": "intake",
+        "type": "bandNoise",
+        "x": 520,
+        "y": 590,
+        "label": "Admission",
+        "params": {
+          "frequency": 520,
+          "bandwidth": 1.4,
+          "tilt": -2,
+          "level": 0.01,
+          "width": 0.2
+        }
+      },
+      {
+        "id": "intake-am",
+        "type": "ring",
+        "x": 760,
+        "y": 480,
+        "label": "Pulsation d’admission",
+        "params": {
+          "frequency": 0.1,
+          "depth": 0.7,
+          "bias": 1,
+          "shape": 0.4,
+          "width": 0
+        }
+      },
+      {
+        "id": "compressor",
+        "type": "compressor",
+        "x": 1480,
+        "y": 40,
+        "label": "Compresseur",
+        "params": {
+          "threshold": -16,
+          "ratio": 2.5,
+          "attack": 0.004,
+          "release": 0.08,
+          "makeup": 3
+        }
+      },
+      {
+        "id": "space",
+        "type": "space",
+        "x": 1480,
+        "y": 150,
+        "label": "Espace",
+        "params": {
+          "size": 0.22,
+          "damping": 0.6,
+          "mix": 0.08,
+          "width": 0.55,
+          "distance": 0.05
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1720,
+        "y": 40,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.8
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "rpm-curve",
+        "to": "rpm-span",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "c2",
+        "from": "rpm-span",
+        "to": "rpm-scale",
+        "target": "b",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "rpm-scale",
+        "to": "cycle-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "rpm-scale",
+        "to": "lope-depth",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "cycle-rate",
+        "to": "lope",
+        "target": "rate",
+        "amount": 1
+      },
+      {
+        "id": "c6",
+        "from": "lope-depth",
+        "to": "lope",
+        "target": "noise",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "cycle-rate",
+        "to": "fire-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "c8",
+        "from": "lope",
+        "to": "fire-rate",
+        "target": "b",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "throttle-curve",
+        "to": "header",
+        "target": "frequency",
+        "amount": 25
+      },
+      {
+        "id": "c10",
+        "from": "fire-rate",
+        "to": "cylinder-1",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "c11",
+        "from": "throttle-curve",
+        "to": "cylinder-1",
+        "target": "level",
+        "amount": 0.45
+      },
+      {
+        "id": "c12",
+        "from": "throttle-curve",
+        "to": "cylinder-1",
+        "target": "width",
+        "amount": 0.02
+      },
+      {
+        "id": "c13",
+        "from": "cylinder-1",
+        "to": "header",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c14",
+        "from": "fire-rate",
+        "to": "cylinder-2",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "c15",
+        "from": "throttle-curve",
+        "to": "cylinder-2",
+        "target": "level",
+        "amount": 0.45
+      },
+      {
+        "id": "c16",
+        "from": "throttle-curve",
+        "to": "cylinder-2",
+        "target": "width",
+        "amount": 0.02
+      },
+      {
+        "id": "c17",
+        "from": "cylinder-2",
+        "to": "header",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c18",
+        "from": "header",
+        "to": "muffler-chamber",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c19",
+        "from": "muffler-chamber",
+        "to": "pressure",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c20",
+        "from": "throttle-curve",
+        "to": "pressure",
+        "target": "drive",
+        "amount": 8
+      },
+      {
+        "id": "c21",
+        "from": "pressure",
+        "to": "muffler-tone",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c22",
+        "from": "fire-rate",
+        "to": "rumble",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "c23",
+        "from": "throttle-curve",
+        "to": "rumble",
+        "target": "level",
+        "amount": 0.12
+      },
+      {
+        "id": "c24",
+        "from": "rumble",
+        "to": "muffler-tone",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c25",
+        "from": "throttle-curve",
+        "to": "decel",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "c26",
+        "from": "decel",
+        "to": "crackle",
+        "target": "level",
+        "amount": 0.6
+      },
+      {
+        "id": "c27",
+        "from": "crackle",
+        "to": "header",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c28",
+        "from": "fire-rate",
+        "to": "tick-rate",
+        "target": "a",
+        "amount": 1
+      },
+      {
+        "id": "c29",
+        "from": "tick-rate",
+        "to": "valve-tick",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "c30",
+        "from": "valve-tick",
+        "to": "tick-ring",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c31",
+        "from": "clatter",
+        "to": "clatter-am",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c32",
+        "from": "fire-rate",
+        "to": "clatter-am",
+        "target": "frequency",
+        "amount": 2
+      },
+      {
+        "id": "c33",
+        "from": "throttle-curve",
+        "to": "intake",
+        "target": "level",
+        "amount": 0.08
+      },
+      {
+        "id": "c34",
+        "from": "rpm-scale",
+        "to": "intake",
+        "target": "frequency",
+        "amount": 0.06
+      },
+      {
+        "id": "c35",
+        "from": "intake",
+        "to": "intake-am",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c36",
+        "from": "fire-rate",
+        "to": "intake-am",
+        "target": "frequency",
+        "amount": 2
+      },
+      {
+        "id": "c37",
+        "from": "muffler-tone",
+        "to": "compressor",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c38",
+        "from": "tick-ring",
+        "to": "compressor",
+        "target": "audio",
+        "amount": 0.35
+      },
+      {
+        "id": "c39",
+        "from": "clatter-am",
+        "to": "compressor",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c40",
+        "from": "intake-am",
+        "to": "compressor",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c41",
+        "from": "compressor",
+        "to": "space",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c42",
+        "from": "space",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
