@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HAA demo</title>
+  <style>
+    :root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #111827; color: #f3f4f6; }
+    body { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    button, select, input { margin: .35rem; padding: .5rem; }
+    #panels { display: grid; gap: 1rem; }
+    #meter { display: block; width: 100%; height: auto; background: #080d16; border-radius: 8px; }
+    #error { color: #fca5a5; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>HAA demo</h1>
+  <button id="start" type="button">Start</button>
+  <p id="error" role="status"></p>
+  <canvas id="meter" width="960" height="240"></canvas>
+  <div id="panels"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

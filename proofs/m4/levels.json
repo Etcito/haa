@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "build": {
+    "mainSha256": "6a2ae7090e009be7d48d93534efb3453d55f08fdc79193b23c9f1fea9eef7d67",
+    "workletSha256": "02a1c191f3c837a70667cfa09d855eb5de79f563e1fce6c852b09051756ab9c8",
+    "manifestSha256": "a6b7fdacc5c715b09f2319dba58ca549b838792de79014a40539e75470c064f5"
+  },
+  "ctxState": "running",
+  "sampleRate": 44100,
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.8037.57 Safari/537.36",
+  "actions": [
+    {
+      "id": "family:cue.countdown",
+      "baselineDb": -200,
+      "maxRmsDb": -34.582211115835506,
+      "peakDb": -25.903131187697706
+    },
+    {
+      "id": "family:cue.go",
+      "baselineDb": -103.6485945429639,
+      "maxRmsDb": -36.678096638542755,
+      "peakDb": -26.575015018922702
+    },
+    {
+      "id": "family:cue.itemGet",
+      "baselineDb": -99.77167489471059,
+      "maxRmsDb": -38.081131281486236,
+      "peakDb": -24.878581135013448
+    },
+    {
+      "id": "family:cue.lap",
+      "baselineDb": -104.14207004745171,
+      "maxRmsDb": -38.10741877630258,
+      "peakDb": -27.867940234061145
+    },
+    {
+      "id": "family:cue.placeDown",
+      "baselineDb": -105.43346920417514,
+      "maxRmsDb": -36.900723771392606,
+      "peakDb": -22.638199619756094
+    },
+    {
+      "id": "family:cue.placeUp",
+      "baselineDb": -96.5696456422622,
+      "maxRmsDb": -35.31390370288131,
+      "peakDb": -21.366119810923237
+    },
+    {
+      "id": "family:cue.roulette",
+      "baselineDb": -102.3506272332726,
+      "maxRmsDb": -31.096762767636225,
+      "peakDb": -18.140222195785654
+    },
+    {
+      "id": "family:impact.concrete.large",
+      "baselineDb": -86.80268836080924,
+      "maxRmsDb": -25.301982387118652,
+      "peakDb": -17.763548277126432
+    },
+    {
+      "id": "family:impact.concrete.medium",
+      "baselineDb": -111.43074041786015,
+      "maxRmsDb": -27.140186324318073,
+      "peakDb": -15.99307120323144
+    },
+    {
+      "id": "family:impact.concrete.small",
+      "baselineDb": -107.7233975618675,
+      "maxRmsDb": -24.00015592961107,
+      "peakDb": -15.58218465548306
+    },
+    {
+      "id": "family:impact.metal.large",
+      "baselineDb": -98.79392435262211,
+      "maxRmsDb": -25.0596123312206,
+      "peakDb": -15.29559366248228
+    },
+    {
+      "id": "family:impact.metal.medium",
+      "baselineDb": -126.2513845413485,
+      "maxRmsDb": -28.13416636385595,
+      "peakDb": -15.518250200012545
+    },
+    {
+      "id": "family:impact.metal.small",
+      "baselineDb": -120.35822304270528,
+      "maxRmsDb": -26.747316617848888,
+      "peakDb": -16.334644510043
+    },
+    {
+      "id": "family:impact.plastic.large",
+      "baselineDb": -117.67850135101506,
+      "maxRmsDb": -24.584775623514222,
+      "peakDb": -16.36670134855891
+    },
+    {
+      "id": "family:impact.plastic.medium",
+      "baselineDb": -95.33425708279378,
+      "maxRmsDb": -24.84421928614602,
+      "peakDb": -15.257521035505945
+    },
+    {
+      "id": "family:impact.plastic.small",
+      "baselineDb": -91.35806986480047,
+      "maxRmsDb": -26.149761247174602,
+      "peakDb": -14.688178474468572
+    },
+    {
+      "id": "family:impact.wood.large",
+      "baselineDb": -94.32777497209833,
+      "maxRmsDb": -25.27139668552312,
+      "peakDb": -16.82581981284034
+    },
+    {
+      "id": "family:impact.wood.medium",
+      "baselineDb": -108.81430971394698,
+      "maxRmsDb": -26.00291626266271,
+      "peakDb": -18.236427559635647
+    },
+    {
+      "id": "family:impact.wood.small",
+      "baselineDb": -105.04297864345132,
+      "maxRmsDb": -23.13839205977191,
+      "peakDb": -14.35845587742473
+    },
+    {
+      "id": "family:sting.climax",
+      "baselineDb": -90.02620718176854,
+      "maxRmsDb": -35.572667232844395,
+      "peakDb": -27.20412586731937
+    },
+    {
+      "id": "family:sting.end",
+      "baselineDb": -85.64450527220814,
+      "maxRmsDb": -35.32354907993164,
+      "peakDb": -27.510298361198213
+    },
+    {
+      "id": "family:sting.win",
+      "baselineDb": -83.12259651726038,
+      "maxRmsDb": -39.829632940867825,
+      "peakDb": -30.295343899790698
+    },
+    {
+      "id": "family:ui.back",
+      "baselineDb": -86.89214028300617,
+      "maxRmsDb": -36.49997167724338,
+      "peakDb": -22.907570666348015
+    },
+    {
+      "id": "family:ui.move",
+      "baselineDb": -97.71264276536198,
+      "maxRmsDb": -34.652869342958766,
+      "peakDb": -21.398617343935975
+    },
+    {
+      "id": "family:ui.select",
+      "baselineDb": -91.41568404874835,
+      "maxRmsDb": -35.837544874683175,
+      "peakDb": -23.28734536072872
+    },
+    {
+      "id": "family:wind.passby",
+      "baselineDb": -103.58423998006381,
+      "maxRmsDb": -31.48790701586732,
+      "peakDb": -21.630294079541482
+    },
+    {
+      "id": "bed:wind",
+      "baselineDb": -104.68419842063031,
+      "maxRmsDb": -37.1304076275114,
+      "peakDb": -26.622160409103415
+    },
+    {
+      "id": "music:upbeat",
+      "baselineDb": -82.52548866752653,
+      "maxRmsDb": -34.40979871834844,
+      "peakDb": -20.400131136301106
+    },
+    {
+      "id": "music:calm",
+      "baselineDb": -83.52590778535726,
+      "maxRmsDb": -39.15975204709401,
+      "peakDb": -28.124204886540323
+    }
+  ],
+  "captures": [
+    {
+      "file": "snapshot-0.png",
+      "sha256": "13e9b01044120ed8520c8589fcb4d6f394c47ae3c6dbc13ac5e883584bb1ab9c"
+    }
+  ]
+}

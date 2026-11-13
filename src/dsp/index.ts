@@ -1,0 +1,15 @@
+// The dsp barrel (module dsp). DSP-safe: it re-exports every DSP primitive file, and
+// src/index.ts exposes it as the `dsp` namespace. No two files export the same name.
+export * from './math.ts'
+export * from './rng.ts'
+export * from './filters.ts'
+export * from './noise.ts'
+export * from './osc.ts'
+export * from './shaper.ts'
+export * from './env.ts'
+export * from './modal.ts'
+export * from './delay.ts'
+export * from './reverb.ts'
+export * from './dynamics.ts'
+export * from './meter.ts'
+export * from './loop.ts'
