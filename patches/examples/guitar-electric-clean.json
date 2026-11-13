@@ -1,0 +1,405 @@
+{
+  "haa": 1,
+  "id": "guitar-electric-clean",
+  "title": "Electric guitar · clean arpeggios with chorus",
+  "inputs": [],
+  "graph": {
+    "duration": 6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "strAPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 40,
+        "label": "Corde La · hauteur",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":1.75,\"midi\":45,\"level\":0.9},{\"start\":3,\"duration\":1.9,\"midi\":52.9996,\"level\":0.8}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strAGate",
+        "type": "notes",
+        "x": 40,
+        "y": 130,
+        "label": "Corde La · attaque",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":1.75,\"midi\":45,\"level\":0.9},{\"start\":3,\"duration\":1.9,\"midi\":52.9996,\"level\":0.8}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strA",
+        "type": "pluck",
+        "x": 300,
+        "y": 40,
+        "label": "Corde La",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 4,
+          "release": 1.5,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.18,
+          "pickHardness": 0.55,
+          "stiffness": 0.08,
+          "body": 0,
+          "pickup": "single",
+          "pickupPosition": 0.25,
+          "gain": 1.4,
+          "velocity": 0.8
+        }
+      },
+      {
+        "id": "strDPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 240,
+        "label": "Corde Ré · hauteur",
+        "params": {
+          "score": "[{\"start\":1,\"duration\":0.45,\"midi\":51.9996,\"level\":0.7},{\"start\":2,\"duration\":0.95,\"midi\":51.9996,\"level\":0.7},{\"start\":3.25,\"duration\":0.7,\"midi\":57,\"level\":0.7},{\"start\":4.25,\"duration\":1.5,\"midi\":57,\"level\":0.7}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strDGate",
+        "type": "notes",
+        "x": 40,
+        "y": 330,
+        "label": "Corde Ré · attaque",
+        "params": {
+          "score": "[{\"start\":1,\"duration\":0.45,\"midi\":51.9996,\"level\":0.7},{\"start\":2,\"duration\":0.95,\"midi\":51.9996,\"level\":0.7},{\"start\":3.25,\"duration\":0.7,\"midi\":57,\"level\":0.7},{\"start\":4.25,\"duration\":1.5,\"midi\":57,\"level\":0.7}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strD",
+        "type": "pluck",
+        "x": 300,
+        "y": 240,
+        "label": "Corde Ré",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 4,
+          "release": 1.5,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.18,
+          "pickHardness": 0.55,
+          "stiffness": 0.08,
+          "body": 0,
+          "pickup": "single",
+          "pickupPosition": 0.25,
+          "gain": 1.4,
+          "velocity": 0.8
+        }
+      },
+      {
+        "id": "strGPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 440,
+        "label": "Corde Sol · hauteur",
+        "params": {
+          "score": "[{\"start\":1.25,\"duration\":0.7,\"midi\":55.0002,\"level\":0.7},{\"start\":2.25,\"duration\":0.7,\"midi\":55.0002,\"level\":0.7},{\"start\":3.5,\"duration\":0.95,\"midi\":60.0003,\"level\":0.7},{\"start\":4.5,\"duration\":1.3,\"midi\":60.0003,\"level\":0.7}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strG"
+        }
+      },
+      {
+        "id": "strGGate",
+        "type": "notes",
+        "x": 40,
+        "y": 530,
+        "label": "Corde Sol · attaque",
+        "params": {
+          "score": "[{\"start\":1.25,\"duration\":0.7,\"midi\":55.0002,\"level\":0.7},{\"start\":2.25,\"duration\":0.7,\"midi\":55.0002,\"level\":0.7},{\"start\":3.5,\"duration\":0.95,\"midi\":60.0003,\"level\":0.7},{\"start\":4.5,\"duration\":1.3,\"midi\":60.0003,\"level\":0.7}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strG"
+        }
+      },
+      {
+        "id": "strG",
+        "type": "pluck",
+        "x": 300,
+        "y": 440,
+        "label": "Corde Sol",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 4,
+          "release": 1.5,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.18,
+          "pickHardness": 0.55,
+          "stiffness": 0.08,
+          "body": 0,
+          "pickup": "single",
+          "pickupPosition": 0.25,
+          "gain": 1.4,
+          "velocity": 0.8
+        }
+      },
+      {
+        "id": "strBPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 640,
+        "label": "Corde Si · hauteur",
+        "params": {
+          "score": "[{\"start\":1.5,\"duration\":0.45,\"midi\":60.0003,\"level\":0.75},{\"start\":2.5,\"duration\":0.45,\"midi\":60.0003,\"level\":0.75},{\"start\":3.75,\"duration\":0.45,\"midi\":64.0001,\"level\":0.75},{\"start\":4.75,\"duration\":1.1,\"midi\":64.0001,\"level\":0.75}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strB"
+        }
+      },
+      {
+        "id": "strBGate",
+        "type": "notes",
+        "x": 40,
+        "y": 730,
+        "label": "Corde Si · attaque",
+        "params": {
+          "score": "[{\"start\":1.5,\"duration\":0.45,\"midi\":60.0003,\"level\":0.75},{\"start\":2.5,\"duration\":0.45,\"midi\":60.0003,\"level\":0.75},{\"start\":3.75,\"duration\":0.45,\"midi\":64.0001,\"level\":0.75},{\"start\":4.75,\"duration\":1.1,\"midi\":64.0001,\"level\":0.75}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strB"
+        }
+      },
+      {
+        "id": "strB",
+        "type": "pluck",
+        "x": 300,
+        "y": 640,
+        "label": "Corde Si",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 4,
+          "release": 1.5,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.18,
+          "pickHardness": 0.55,
+          "stiffness": 0.08,
+          "body": 0,
+          "pickup": "single",
+          "pickupPosition": 0.25,
+          "gain": 1.4,
+          "velocity": 0.8
+        }
+      },
+      {
+        "id": "amp",
+        "type": "amp",
+        "x": 560,
+        "y": 200,
+        "label": "Ampli clair",
+        "params": {
+          "gain": 4,
+          "bias": 0.2,
+          "bass": 1,
+          "mid": 0,
+          "treble": 2,
+          "presence": 3,
+          "level": 3
+        }
+      },
+      {
+        "id": "cab",
+        "type": "cabinet",
+        "x": 760,
+        "y": 200,
+        "label": "Baffle combo",
+        "params": {
+          "voicing": "combo2x12",
+          "mic": 0.3,
+          "distance": 0.2,
+          "mix": 1
+        }
+      },
+      {
+        "id": "chorus",
+        "type": "chorus",
+        "x": 960,
+        "y": 200,
+        "label": "Chorus",
+        "params": {
+          "rate": 0.7,
+          "depth": 0.45,
+          "delay": 12,
+          "feedback": 0.1,
+          "mix": 0.4,
+          "width": 1
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 1160,
+        "y": 200,
+        "label": "Pièce",
+        "params": {
+          "size": 0.3,
+          "damping": 0.6,
+          "mix": 0.12,
+          "width": 0.7,
+          "distance": 0.15
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1360,
+        "y": 200,
+        "label": "Sortie",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strAPitch",
+        "to": "strA",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c2",
+        "from": "strAGate",
+        "to": "strA",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "strDPitch",
+        "to": "strD",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c4",
+        "from": "strDGate",
+        "to": "strD",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "strGPitch",
+        "to": "strG",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c6",
+        "from": "strGGate",
+        "to": "strG",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "strBPitch",
+        "to": "strB",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c8",
+        "from": "strBGate",
+        "to": "strB",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "strA",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c10",
+        "from": "strD",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c11",
+        "from": "strG",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c12",
+        "from": "strB",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c13",
+        "from": "amp",
+        "to": "cab",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c14",
+        "from": "cab",
+        "to": "chorus",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c15",
+        "from": "chorus",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c16",
+        "from": "room",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}

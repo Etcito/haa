@@ -147,3 +147,14 @@ Open the printed URL, then review a patch:
 ### Input nodes
 
 The `input` node outputs the current value of a published input. The `map` node turns a value into another through breakpoints drawn against the input range (`in`, `inMin`, `inMax`, `scale`, `outMin`, `outMax`). `patches/examples/siren.json` wires an input through `input` and `map` to an oscillator pitch.
+
+## Guitar sources and effects
+
+HAA-only nodes (no Sona counterpart) for acoustic, electric and bass guitar parts:
+
+- `pluck` (source): one plucked string, an extended Karplus-Strong waveguide tuned by exact phase delay (41 Hz bass E1 up to 4 kHz). Params: `frequency`, `gate` (rising edge plucks with `velocity` x gate level; the falling edge damps with `release`), `decay` (T60), `damping`, `brightness`, `pickPosition`, `pickHardness`, `stiffness` (inharmonicity), `body` (acoustic body modes), `pickup` (`none` | `single` | `humbucker`) and `pickupPosition`, `gain`, `autoStrike`. A chord is one `pluck` per string; a `notes` node pair (pitch, gate) plays each string, and `glide` between the pitch `notes` and `frequency` gives slides and hammer-ons (adjacent notes play legato, without a new pluck).
+- `amp` (effect): preamp/amp with 4x oversampled, antialiased asymmetric tube-style clipping, tone stack (`bass`, `mid`, `treble`), `presence`, `level`; clean, crunch and lead are `gain` settings.
+- `cabinet` (effect): speaker cabinet and mic from fixed biquads (`open1x12`, `closed4x12`, `combo2x12`), `mic` position, `distance`, `mix`.
+- `chorus`, `flanger`, `phaser`, `tremolo` (effects): stereo modulation effects (`rate`, `depth`, `mix`, `feedback`, `width`). A wah is the existing `filter` (bandpass) with its cutoff driven by an `lfo`, `curve` or `input`.
+
+Examples: `patches/examples/guitar-acoustic-pluck.json`, `guitar-electric-clean.json`, `guitar-electric-crunch.json`, `guitar-electric-lead.json`, `bass-guitar.json`.

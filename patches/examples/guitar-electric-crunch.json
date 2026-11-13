@@ -1,0 +1,310 @@
+{
+  "haa": 1,
+  "id": "guitar-electric-crunch",
+  "title": "Electric guitar · crunch power chords",
+  "inputs": [],
+  "graph": {
+    "duration": 5,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "strEPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 40,
+        "label": "Corde Mi grave · hauteur",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":0.7,\"midi\":45,\"level\":0.9},{\"start\":1,\"duration\":0.4,\"midi\":40.0007,\"level\":0.9},{\"start\":1.5,\"duration\":0.4,\"midi\":40.0007,\"level\":0.9},{\"start\":2,\"duration\":0.9,\"midi\":43.0002,\"level\":0.9},{\"start\":3,\"duration\":0.4,\"midi\":45,\"level\":0.9},{\"start\":3.5,\"duration\":1.2,\"midi\":45,\"level\":0.9}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strE"
+        }
+      },
+      {
+        "id": "strEGate",
+        "type": "notes",
+        "x": 40,
+        "y": 130,
+        "label": "Corde Mi grave · attaque",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":0.7,\"midi\":45,\"level\":0.9},{\"start\":1,\"duration\":0.4,\"midi\":40.0007,\"level\":0.9},{\"start\":1.5,\"duration\":0.4,\"midi\":40.0007,\"level\":0.9},{\"start\":2,\"duration\":0.9,\"midi\":43.0002,\"level\":0.9},{\"start\":3,\"duration\":0.4,\"midi\":45,\"level\":0.9},{\"start\":3.5,\"duration\":1.2,\"midi\":45,\"level\":0.9}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strE"
+        }
+      },
+      {
+        "id": "strE",
+        "type": "pluck",
+        "x": 300,
+        "y": 40,
+        "label": "Corde Mi grave",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 3,
+          "release": 0.08,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.12,
+          "pickHardness": 0.85,
+          "stiffness": 0.1,
+          "body": 0,
+          "pickup": "humbucker",
+          "pickupPosition": 0.09,
+          "gain": 0.6,
+          "velocity": 0.9
+        }
+      },
+      {
+        "id": "strAPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 240,
+        "label": "Corde La · hauteur",
+        "params": {
+          "score": "[{\"start\":1.008,\"duration\":0.4,\"midi\":46.9999,\"level\":0.85},{\"start\":1.508,\"duration\":0.4,\"midi\":46.9999,\"level\":0.85},{\"start\":2.008,\"duration\":0.9,\"midi\":49.9997,\"level\":0.85},{\"start\":3.008,\"duration\":0.4,\"midi\":51.9996,\"level\":0.85},{\"start\":3.508,\"duration\":1.2,\"midi\":51.9996,\"level\":0.85}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strAGate",
+        "type": "notes",
+        "x": 40,
+        "y": 330,
+        "label": "Corde La · attaque",
+        "params": {
+          "score": "[{\"start\":1.008,\"duration\":0.4,\"midi\":46.9999,\"level\":0.85},{\"start\":1.508,\"duration\":0.4,\"midi\":46.9999,\"level\":0.85},{\"start\":2.008,\"duration\":0.9,\"midi\":49.9997,\"level\":0.85},{\"start\":3.008,\"duration\":0.4,\"midi\":51.9996,\"level\":0.85},{\"start\":3.508,\"duration\":1.2,\"midi\":51.9996,\"level\":0.85}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strA"
+        }
+      },
+      {
+        "id": "strA",
+        "type": "pluck",
+        "x": 300,
+        "y": 240,
+        "label": "Corde La",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 3,
+          "release": 0.08,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.12,
+          "pickHardness": 0.85,
+          "stiffness": 0.1,
+          "body": 0,
+          "pickup": "humbucker",
+          "pickupPosition": 0.09,
+          "gain": 0.6,
+          "velocity": 0.9
+        }
+      },
+      {
+        "id": "strDPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 440,
+        "label": "Corde Ré · hauteur",
+        "params": {
+          "score": "[{\"start\":1.016,\"duration\":0.4,\"midi\":51.9996,\"level\":0.8},{\"start\":1.516,\"duration\":0.4,\"midi\":51.9996,\"level\":0.8},{\"start\":2.016,\"duration\":0.9,\"midi\":55.0002,\"level\":0.8},{\"start\":3.016,\"duration\":0.4,\"midi\":57,\"level\":0.8},{\"start\":3.516,\"duration\":1.2,\"midi\":57,\"level\":0.8}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strDGate",
+        "type": "notes",
+        "x": 40,
+        "y": 530,
+        "label": "Corde Ré · attaque",
+        "params": {
+          "score": "[{\"start\":1.016,\"duration\":0.4,\"midi\":51.9996,\"level\":0.8},{\"start\":1.516,\"duration\":0.4,\"midi\":51.9996,\"level\":0.8},{\"start\":2.016,\"duration\":0.9,\"midi\":55.0002,\"level\":0.8},{\"start\":3.016,\"duration\":0.4,\"midi\":57,\"level\":0.8},{\"start\":3.516,\"duration\":1.2,\"midi\":57,\"level\":0.8}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "strD"
+        }
+      },
+      {
+        "id": "strD",
+        "type": "pluck",
+        "x": 300,
+        "y": 440,
+        "label": "Corde Ré",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 3,
+          "release": 0.08,
+          "damping": 0.3,
+          "brightness": 0.7,
+          "pickPosition": 0.12,
+          "pickHardness": 0.85,
+          "stiffness": 0.1,
+          "body": 0,
+          "pickup": "humbucker",
+          "pickupPosition": 0.09,
+          "gain": 0.6,
+          "velocity": 0.9
+        }
+      },
+      {
+        "id": "amp",
+        "type": "amp",
+        "x": 560,
+        "y": 200,
+        "label": "Ampli crunch",
+        "params": {
+          "gain": 28,
+          "bias": 0.4,
+          "bass": 2,
+          "mid": 3,
+          "treble": 1,
+          "presence": 4,
+          "level": 4
+        }
+      },
+      {
+        "id": "cab",
+        "type": "cabinet",
+        "x": 760,
+        "y": 200,
+        "label": "Baffle 4x12",
+        "params": {
+          "voicing": "closed4x12",
+          "mic": 0.35,
+          "distance": 0.15,
+          "mix": 1
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 960,
+        "y": 200,
+        "label": "Pièce",
+        "params": {
+          "size": 0.3,
+          "damping": 0.6,
+          "mix": 0.1,
+          "width": 0.7,
+          "distance": 0.1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1160,
+        "y": 200,
+        "label": "Sortie",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strEPitch",
+        "to": "strE",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c2",
+        "from": "strEGate",
+        "to": "strE",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "strAPitch",
+        "to": "strA",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c4",
+        "from": "strAGate",
+        "to": "strA",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "strDPitch",
+        "to": "strD",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c6",
+        "from": "strDGate",
+        "to": "strD",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "strE",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c8",
+        "from": "strA",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "strD",
+        "to": "amp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c10",
+        "from": "amp",
+        "to": "cab",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c11",
+        "from": "cab",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c12",
+        "from": "room",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
