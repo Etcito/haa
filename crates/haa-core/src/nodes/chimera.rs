@@ -16,7 +16,8 @@ use ::chimera::control::score::Gesture;
 use ::chimera::phonetics::beatbox::parse_beat;
 use ::chimera::phonetics::english::EnglishG2P;
 use ::chimera::phonetics::ipa::tokenize_ipa;
-use ::chimera::phonetics::planner::{plan_phrases, plan_utterance, vowel_artic, PhraseInput, PlanOptions};
+use ::chimera::anatomy::human::ArticPatch;
+use ::chimera::phonetics::planner::{plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
 use ::chimera::phonetics::Intonation;
 use ::chimera::phonetics::sing::{plan_song, SongOptions, SungNote};
 use ::chimera::phonetics::syllables::lyrics_to_syllables;
@@ -47,6 +48,8 @@ const EXPRESSION: usize = 13;
 const PERFORMANCE: usize = 14;
 const WHISTLE_BODY: usize = 15;
 const WHISTLE_EDGE: usize = 16;
+const VOWEL_F1: usize = 17;
+const VOWEL_F2: usize = 18;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
@@ -277,6 +280,20 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             unit: "", label_en: "Whistle edge", label_fr: "Mordant du sifflet",
             modulatable: true, smooth: true,
         },
+        // `voice` mode: the vowel as two formant targets. 0 keeps the text vowel; driven by curves, the tract glides
+        // between the calibrated vowels nearest to (F1, F2), so a measured vowel trajectory plays on the real tract.
+        ParamDef {
+            key: "vowelF1",
+            kind: ParamKind::Number { min: 0.0, max: 1_200.0, default: 0.0, step: 1.0, scale: Scale::Lin },
+            unit: "Hz", label_en: "Vowel F1 (open)", label_fr: "Voyelle F1 (ouverture)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "vowelF2",
+            kind: ParamKind::Number { min: 0.0, max: 3_200.0, default: 0.0, step: 1.0, scale: Scale::Lin },
+            unit: "Hz", label_en: "Vowel F2 (front)", label_fr: "Voyelle F2 (avant)",
+            modulatable: true, smooth: true,
+        },
     ],
     create,
 };
@@ -330,6 +347,8 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
         planned_end: 0.0,
         speech_end: None,
         beat_end: None,
+        vowels: Vec::new(),
+        vowel_at: (0.0, 0.0),
     };
     node.plan(init);
     Box::new(node)
@@ -366,6 +385,67 @@ struct ChimeraNode {
     speech_end: Option<f64>,
     /// Voice-clock time at which one beat pass ends.
     beat_end: Option<f64>,
+    /// `voice` mode: the calibrated vowels of the current body, (ln F1, ln F2, articulation).
+    vowels: Vec<(f64, f64, ArticPatch)>,
+    /// (F1, F2) the tract was last steered to.
+    vowel_at: (f64, f64),
+}
+
+/// The calibrated vowels of a body mix: formants blended by the body weights, articulation from `vowel_artic`.
+fn body_vowels(body: BodyMix) -> Vec<(f64, f64, ArticPatch)> {
+    let table = vowel_table();
+    let Some(male) = table.get("male") else { return Vec::new() };
+    let mut out = Vec::new();
+    for ipa in male.keys() {
+        let (mut f1, mut f2, mut wsum) = (0.0, 0.0, 0.0);
+        for (b, w) in body.weights() {
+            if w <= 0.0 {
+                continue;
+            }
+            let Some(v) = table.get(b.as_str()).and_then(|t| t.get(ipa)).or_else(|| male.get(ipa)) else { continue };
+            if v.formants.len() < 2 {
+                continue;
+            }
+            f1 += w * v.formants[0];
+            f2 += w * v.formants[1];
+            wsum += w;
+        }
+        if let (true, Some(artic)) = (wsum > 0.0, vowel_artic(ipa, body)) {
+            out.push(((f1 / wsum).ln(), (f2 / wsum).ln(), artic));
+        }
+    }
+    out
+}
+
+impl ChimeraNode {
+    /// Steer the tract toward (F1, F2): inverse-distance blend of the three nearest calibrated vowels (ln formants,
+    /// F2 counted at 0.6 of F1's weight: its spread is wider). Never allocates.
+    fn steer_vowel(&mut self, f1: f64, f2: f64) {
+        if self.vowels.is_empty() || f1 <= 0.0 || f2 <= 0.0 {
+            return;
+        }
+        let (a, b) = self.vowel_at;
+        if (f1 / a.max(1.0)).ln().abs() < 0.01 && (f2 / b.max(1.0)).ln().abs() < 0.01 {
+            return;
+        }
+        let (l1, l2) = (f1.ln(), f2.ln());
+        let mut near = [(f64::MAX, 0usize); 3];
+        for (i, (v1, v2, _)) in self.vowels.iter().enumerate() {
+            let d = ((l1 - v1).powi(2) + (0.6 * (l2 - v2)).powi(2)).sqrt();
+            if d < near[2].0 {
+                near[2] = (d, i);
+                near.sort_by(|x, y| x.0.total_cmp(&y.0));
+            }
+        }
+        let mut parts = [(0.0, ArticPatch::default()); 3];
+        for (k, (d, i)) in near.iter().enumerate() {
+            if *d < f64::MAX {
+                parts[k] = (1.0 / (d + 0.02).powi(2), self.vowels[*i].2);
+            }
+        }
+        self.engine.set_artic(&ArticPatch::blend(&parts), None);
+        self.vowel_at = (f1, f2);
+    }
 }
 
 impl ChimeraNode {
@@ -480,6 +560,8 @@ impl ChimeraNode {
                 if let Some(artic) = vowel_artic(vowel, BodyMix::new(female, child)) {
                     self.engine.set_artic(&artic, None);
                 }
+                self.vowels = body_vowels(BodyMix::new(female, child));
+                self.vowel_at = (0.0, 0.0);
                 self.engine.stop_speech();
                 self.engine.set_gate(1.0);
                 self.speech_end = None;
@@ -602,6 +684,11 @@ impl Node for ChimeraNode {
                 ..SourcePatch::default()
             };
             self.engine.set_source(&patch);
+            if self.mode == VOICE {
+                let f1 = params.get(VOWEL_F1).copied().unwrap_or(0.0);
+                let f2 = params.get(VOWEL_F2).copied().unwrap_or(0.0);
+                self.steer_vowel(f1, f2);
+            }
             self.engine.render(&mut self.buffer);
             self.pos = 0;
         }
@@ -832,6 +919,41 @@ mod tests {
         let level = rms(&output);
         assert!(level > 0.005, "rms {level}");
         assert!(output.iter().all(|x| x.is_finite() && x.abs() <= 1.5));
+    }
+
+    #[test]
+    fn voice_mode_follows_the_vowel_formant_inputs() {
+        // steered to an /i/ (F1 300, F2 2200), then to an /a/ (F1 750, F2 1250): the render opens up
+        let mut params = [2.0, 0.0, 130.0, 9.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.05, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0, 300.0, 2200.0];
+        let texts: [Option<String>; 19] = Default::default();
+        // energy of the 130 Hz harmonics between lo and hi Hz
+        let band = |y: &[f64], lo: f64, hi: f64| {
+            let mut e = 0.0;
+            let mut h = 1.0;
+            while 130.0 * h < hi {
+                let f = 130.0 * h;
+                if f >= lo {
+                    let (mut re, mut im) = (0.0, 0.0);
+                    for (i, x) in y.iter().enumerate() {
+                        let ph = core::f64::consts::TAU * f * i as f64 / 48_000.0;
+                        re += x * ph.cos();
+                        im += x * ph.sin();
+                    }
+                    e += re * re + im * im;
+                }
+                h += 1.0;
+            }
+            e
+        };
+        let i = run(&init(&params, &texts), 48_000);
+        params[VOWEL_F1] = 750.0;
+        params[VOWEL_F2] = 1250.0;
+        let a = run(&init(&params, &texts), 48_000);
+        assert!(i.iter().chain(a.iter()).all(|x| x.is_finite() && x.abs() <= 1.5));
+        let (ti, ta) = (&i[24_000..], &a[24_000..]);
+        let ri = band(ti, 600.0, 900.0) / band(ti, 200.0, 450.0);
+        let ra = band(ta, 600.0, 900.0) / band(ta, 200.0, 450.0);
+        assert!(ra > 3.0 * ri, "open/close energy ratio /a/ {ra} vs /i/ {ri}");
     }
 
     #[test]
