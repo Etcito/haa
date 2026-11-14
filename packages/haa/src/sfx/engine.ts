@@ -17,6 +17,7 @@ import { bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, 
 import type { FaceSource, FaceSourceOptions, SoundFace } from './faces.ts';
 import { createFaceSource } from './faces.ts';
 import type { SwarmOptions } from './swarm.ts';
+import type { AcousticTracer, VoiceGeometry } from './tracer.ts';
 import { SwarmTracker } from './swarm.ts';
 
 export interface SfxEngineOptions {
@@ -58,6 +59,11 @@ export interface AcousticsOptions {
   traceEvery?: number;
   /** Geometry period of each voice (s). Default 0.15. */
   voiceEvery?: number;
+  /**
+   * Who traces (tracer.ts): the Rust/wasm tracer on its own BVH (`createWasmTracer`) or in a worker
+   * (`createWorkerTracer`). Without it the TS traces run over `raycast`.
+   */
+  tracer?: AcousticTracer;
 }
 
 export interface PresetRecord {
@@ -227,6 +233,8 @@ export interface SfxEngine {
   loop(preset: string, position: Vec3, inputs?: Partial<SfxInputs>, o?: PlayOptions): SfxLoop;
   update(listener: SfxListener): void;
   setRaycast(cast: RayCast | undefined): void;
+  /** The acoustic tracer (`AcousticsOptions.tracer`); undefined goes back to the TS traces over the ray cast. */
+  setTracer(tracer: AcousticTracer | undefined): void;
   /** Occlusion strength, 0..2 (default 1); the running voices follow at their next geometry update. */
   setOcclusionStrength(strength: number): void;
   /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
@@ -347,6 +355,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const pool: SfxPool = await createSfxPool(ctx, { module: o.module, processorUrl: o.processorUrl, slots: o.slots ?? 16 });
   const budget = o.cpuBudget ?? 0.6;
   let raycast = o.raycast;
+  let tracer = o.acoustics?.tracer;
   let occlusionStrength = o.occlusionStrength ?? 1;
   let wetOffsetDb = clampWetDb(o.reverbLevelDb ?? WET_OFFSET_DB);
   const faceSources = new Set<FaceSource>();
@@ -456,6 +465,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     if (s.key && continuous.get(s.key) === s) continuous.delete(s.key);
     s.key = null;
     voiceRays.delete(s.index);
+    tracer?.forget?.(s.id);
   }
 
   function measure(bytes: Uint8Array): { info: VoiceInfo; cost: number; playable: boolean; speedLevels: number[] | null } {
@@ -553,7 +563,24 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     return out;
   }
 
+  function setRoom(space: SpaceEstimate, feet: VoiceReverb): void {
+    room = { ...space, wet: feet.energy > 0 ? Math.min(SEND_MAX, 10 ** (mixedWetDb(10 * Math.log10(feet.energy), wetOffsetDb) / 20)) : 0, wetRt60: feet.rt60 };
+  }
+
   function retrace(now: number): void {
+    if (tracer) {
+      // An async tracer is asked every frame and sends a request when the trace is due.
+      const due = now >= nextRoom;
+      const rays: RaySegment[] = [];
+      const res = tracer.listener(listener.position, { rays: ao.traceRays ?? 256, bounces: ao.bounces ?? 6, reverbStride: ao.reverbStride ?? 2, ref: REF_DISTANCE }, rays, due);
+      if (due) nextRoom = now + traceEvery;
+      if (res) {
+        trace = res.trace;
+        if (rays.length) roomRays = rays;
+        setRoom(res.trace.space, res.feet);
+      }
+      return;
+    }
     if (!raycast) return;
     const rays: RaySegment[] = [];
     trace = traceListener(listener.position, raycast, { rays: ao.traceRays ?? 256, bounces: ao.bounces ?? 6 }, rays);
@@ -565,6 +592,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   /** Recompute a voice's geometry (direct path, its diffuse field, its echoes) when due. */
   function geometry(s: Slot, now: number, immediate: boolean): void {
+    if (tracer) {
+      tracedGeometry(tracer, s, now, immediate);
+      return;
+    }
     if (!raycast || !(immediate || now >= s.nextGeo)) return;
     if (!trace) retrace(now);
     const rays: RaySegment[] = [];
@@ -574,7 +605,30 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const refl = earlyReflections(s.position, listener.position, raycast, {
       max: TAPS_PER_VOICE, directions: SOURCE_DIRS, soft: 0.35, minDelay: 0.0015, scattering: 0.35,
     }, rays);
-    // A tap keeps its plane while the plane reflects; a new plane takes a free tap from silence.
+    takeReflections(s.ac, refl, immediate);
+    voiceRays.set(s.index, rays);
+    s.nextGeo = now + voiceEvery * (0.8 + 0.4 * ((s.index * 0.618) % 1));
+    if (immediate || !ac.primed) prime(ac);
+  }
+
+  /** `geometry` through the tracer: when due it asks; an async tracer's answer is taken when it lands. */
+  function tracedGeometry(t: AcousticTracer, s: Slot, now: number, immediate: boolean): void {
+    const due = immediate || now >= s.nextGeo;
+    if (!due && !t.async) return;
+    if (!trace && !t.async) retrace(now);
+    const rays: RaySegment[] = [];
+    const g: VoiceGeometry | null = t.voice(s.id, s.position, listener.position, { extent: s.extent, reverbStride: ao.reverbStride ?? 2, ref: REF_DISTANCE, taps: TAPS_PER_VOICE }, rays, due);
+    if (due) s.nextGeo = now + voiceEvery * (0.8 + 0.4 * ((s.index * 0.618) % 1));
+    if (!g) return;
+    s.ac.path = g.path;
+    s.ac.reverb = g.reverb;
+    takeReflections(s.ac, g.reflections, immediate || !s.ac.primed);
+    if (rays.length) voiceRays.set(s.index, rays);
+    if (immediate || !s.ac.primed) prime(s.ac);
+  }
+
+  /** A tap keeps its plane while the plane reflects; a new plane takes a free tap from silence. */
+  function takeReflections(ac: Acoustic, refl: Reflection[], immediate: boolean): void {
     const keep = new Set(refl.map((r) => r.key));
     for (const t of ac.taps) if (t && !keep.has(t.key)) t.target = 0;
     for (const r of refl) {
@@ -587,9 +641,6 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       const free = ac.taps.findIndex((t) => !t || (t.target === 0 && t.w < 1e-3));
       if (free >= 0) ac.taps[free] = { key: r.key, refl: r, w: immediate ? r.weight : 0, target: r.weight };
     }
-    voiceRays.set(s.index, rays);
-    s.nextGeo = now + voiceEvery * (0.8 + 0.4 * ((s.index * 0.618) % 1));
-    if (immediate || !ac.primed) prime(ac);
   }
 
   /** Jump the smoothed values to the targets (a voice that starts). */
@@ -643,7 +694,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const hidden = Math.min(1, Math.max(0, 1 - ac.visible));
     let dir = dirS;
     let len = dEff;
-    if (hidden > 0 && raycast) {
+    if (hidden > 0 && (raycast || tracer)) {
       const toV = sub(ac.via, L);
       const lv = length(toV);
       if (lv > 1e-3) {
@@ -653,7 +704,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         len = dEff + (Math.max(dEff, around) - dEff) * hidden;
       }
     }
-    const levels = raycast
+    const levels = raycast || tracer
       ? diffractionLevels({ visible: ac.visible, excess: ac.excess, found: ac.found > 0.5 }, occlusionStrength)
       : { bandsDb: [0, 0, 0] as [number, number, number] };
     for (let b = 0; b < 3; b++) {
@@ -1014,7 +1065,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     lastFrame = now;
     runDue();
     updateSwarms(now);
-    if (raycast && now >= nextRoom) retrace(now);
+    if (tracer || (raycast && now >= nextRoom)) retrace(now);
     for (const f of faceSources) f.tick(dt);
     for (const s of slots) {
       if (!s.busy) continue;
@@ -1022,6 +1073,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       geometry(s, now, false);
       applyChain(s, dt, false);
     }
+    tracer?.flush?.();
   }
 
   return {
@@ -1038,6 +1090,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     update,
     setRaycast(cast) {
       raycast = cast;
+      trace = null;
+      nextRoom = 0;
+    },
+    setTracer(t) {
+      tracer = t;
       trace = null;
       nextRoom = 0;
     },

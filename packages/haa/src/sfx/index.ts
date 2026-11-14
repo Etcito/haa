@@ -9,3 +9,8 @@ export * from './pool.ts';
 export * from './spatial3d.ts';
 export * from './swarm.ts';
 export * from './engine.ts';
+export * from './tracer.ts';
+export * from './trace-wasm.ts';
+export * from './trace-worker-client.ts';
+export * from './gpu-trace.ts';
+export * from './gpu-particles.ts';
