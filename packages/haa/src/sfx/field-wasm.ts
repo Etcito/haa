@@ -9,10 +9,12 @@ import { v3 } from './acoustics.ts';
 export const BOX_STRIDE = 12;
 /** Floats per triangle: three vertices (9), absorption, surface id. */
 export const TRI_STRIDE = 11;
-/** Floats per baked cell record. */
-export const FIELD_RECORD = 27;
-/** Spherical-harmonic coefficients per quantity (order 2). */
-export const FIELD_SH = 9;
+/** Spherical-harmonic coefficients per quantity (order 1: Y00, Y1-1 ∝ y, Y10 ∝ z, Y11 ∝ x). */
+export const FIELD_SH = 4;
+/** Reflecting planes stored per cell. */
+export const FIELD_PLANES = 6;
+/** Floats per baked cell record (crates/haa-field `RECORD`). */
+export const FIELD_RECORD = 2 + FIELD_SH + FIELD_SH + 5 + 2 + 1 + FIELD_PLANES * 5;
 
 /** The static level as the field reads it: oriented boxes and triangles with their Sabine α. */
 export interface SfxGeometry {
@@ -90,7 +92,7 @@ interface FieldExports {
   field_alloc(floats: number): number;
   field_out(): number;
   field_records(): number;
-  field_scene(boxes: number, tris: number): void;
+  field_scene(boxes: number, tris: number, rebuild: number): void;
   field_grid(ox: number, oy: number, oz: number, cell: number, nx: number, ny: number, nz: number): void;
   field_bake(budget: number, fx: number, fy: number, fz: number): number;
   field_take(): number;
@@ -99,7 +101,10 @@ interface FieldExports {
   field_sample(x: number, y: number, z: number): void;
   field_flood(x: number, y: number, z: number, max: number): number;
   field_clear(ax: number, ay: number, az: number, bx: number, by: number, bz: number): number;
-  field_path(sx: number, sy: number, sz: number, lx: number, ly: number, lz: number): void;
+  field_path(sx: number, sy: number, sz: number, lx: number, ly: number, lz: number, wantAperture: number): void;
+  field_planes(x: number, y: number, z: number): void;
+  field_flood_export(): number;
+  field_flood_import(floats: number): void;
   field_debug(): number;
   field_stats(): void;
 }
@@ -123,6 +128,18 @@ export interface FieldPath {
   excess: number;
   via: Vec3;
   corners: number;
+  /** Narrowest free cross-section along the path (m², Infinity when not measured), where, and at the two ends. */
+  aperture: number;
+  aperturePoint: Vec3;
+  atListener: number;
+  atSource: number;
+}
+
+/** A reflecting plane: unit normal toward the air, offset (n · point on the plane), absorption. */
+export interface FieldPlane {
+  n: Vec3;
+  offset: number;
+  absorption: number;
 }
 
 /** A haa-field instance: scene, grid, bake, records in and out, lookups. */
@@ -133,14 +150,15 @@ export class FieldWasm {
     this.x = new WebAssembly.Instance(module, {}).exports as unknown as FieldExports;
   }
 
-  setScene(g: SfxGeometry): void {
+  /** The level's records; `rebuild` false only stores them for the next `setGrid` (one BVH build). */
+  setScene(g: SfxGeometry, rebuild = true): void {
     const nb = g.boxes.length / BOX_STRIDE;
     const nt = g.triangles.length / TRI_STRIDE;
     const ptr = this.x.field_alloc(g.boxes.length + g.triangles.length);
     const view = new Float32Array(this.x.memory.buffer, ptr, g.boxes.length + g.triangles.length);
     view.set(g.boxes, 0);
     view.set(g.triangles, g.boxes.length);
-    this.x.field_scene(nb, nt);
+    this.x.field_scene(nb, nt, rebuild ? 1 : 0);
   }
 
   setGrid(g: FieldGrid): void {
@@ -174,8 +192,8 @@ export class FieldWasm {
 
   sample(p: Vec3): FieldSample {
     this.x.field_sample(p.x, p.y, p.z);
-    const o = this.out(24);
-    return { weight: o[0], rt60: o[1], mfp: o[2], volume: o[3], absorption: o[4], escape: o[5], dist: o.slice(6, 15), open: o.slice(15, 24) };
+    const o = this.out(6 + 2 * FIELD_SH);
+    return { weight: o[0], rt60: o[1], mfp: o[2], volume: o[3], absorption: o[4], escape: o[5], dist: o.slice(6, 6 + FIELD_SH), open: o.slice(6 + FIELD_SH, 6 + 2 * FIELD_SH) };
   }
 
   /** One ray: true when the segment crosses no geometry. */
@@ -188,13 +206,41 @@ export class FieldWasm {
     return this.x.field_flood(l.x, l.y, l.z, max);
   }
 
-  path(s: Vec3, l: Vec3): FieldPath {
-    this.x.field_path(s.x, s.y, s.z, l.x, l.y, l.z);
-    const o = this.out(9);
-    return { found: o[0] > 0, visible: o[1] > 0, lattice: o[2], length: o[3], excess: o[4], via: v3(o[5], o[6], o[7]), corners: o[8] };
+  path(s: Vec3, l: Vec3, wantAperture = false): FieldPath {
+    this.x.field_path(s.x, s.y, s.z, l.x, l.y, l.z, wantAperture ? 1 : 0);
+    const o = this.out(15);
+    return {
+      found: o[0] > 0, visible: o[1] > 0, lattice: o[2], length: o[3], excess: o[4], via: v3(o[5], o[6], o[7]), corners: o[8],
+      aperture: wantAperture ? o[9] : Infinity, aperturePoint: v3(o[10], o[11], o[12]), atListener: o[13], atSource: o[14],
+    };
   }
 
-  /** Per baked air cell: x, y, z, escape, rt60, flooded distance, up openness, mean distance. */
+  /** The reflecting planes of the air cell nearest `p`. */
+  planes(p: Vec3): FieldPlane[] {
+    this.x.field_planes(p.x, p.y, p.z);
+    const n = this.out(1)[0];
+    const o = this.out(1 + n * 5);
+    const out: FieldPlane[] = [];
+    for (let j = 0; j < n; j++) {
+      const k = 1 + j * 5;
+      out.push({ n: v3(o[k], o[k + 1], o[k + 2]), offset: o[k + 3], absorption: o[k + 4] });
+    }
+    return out;
+  }
+
+  /** The current flood (distance, parent per cell), to hand to another instance of the same grid. */
+  floodExport(): Float32Array {
+    const n = this.x.field_flood_export();
+    return new Float32Array(this.x.memory.buffer, this.x.field_records(), n).slice();
+  }
+
+  floodImport(data: Float32Array): void {
+    const ptr = this.x.field_alloc(data.length);
+    new Float32Array(this.x.memory.buffer, ptr, data.length).set(data);
+    this.x.field_flood_import(data.length);
+  }
+
+  /** Per baked air cell: x, y, z, escape, rt60, flooded distance, up openness, plane count. */
   debug(): Float32Array {
     const n = this.x.field_debug();
     return new Float32Array(this.x.memory.buffer, this.x.field_records(), n * 8).slice();
@@ -207,17 +253,15 @@ export class FieldWasm {
   }
 }
 
-/** Real spherical harmonics up to order 2 (same basis as the Rust side). */
-export function sh9(d: Vec3): number[] {
-  const { x, y, z } = d;
-  return [0.282095, 0.488603 * y, 0.488603 * z, 0.488603 * x, 1.092548 * x * y, 1.092548 * y * z, 0.315392 * (3 * z * z - 1), 1.092548 * x * z, 0.546274 * (x * x - y * y)];
+/** Real spherical harmonics of order 0 and 1 (same basis as the Rust side). */
+export function sh4(d: Vec3): number[] {
+  return [0.282095, 0.488603 * d.y, 0.488603 * d.z, 0.488603 * d.x];
 }
 
-/** Evaluate SH coefficients in a direction; order 1 keeps the first 4. */
-export function shEval(c: ArrayLike<number>, d: Vec3, order = 2): number {
-  const y = sh9(d);
-  const n = order >= 2 ? FIELD_SH : 4;
+/** Evaluate stored SH coefficients in a direction. */
+export function shEval(c: ArrayLike<number>, d: Vec3): number {
+  const y = sh4(d);
   let s = 0;
-  for (let k = 0; k < n; k++) s += c[k] * y[k];
+  for (let k = 0; k < FIELD_SH; k++) s += c[k] * y[k];
   return s;
 }

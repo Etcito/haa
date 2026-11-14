@@ -21,8 +21,13 @@ use std::collections::{BinaryHeap, HashMap};
 use haa_trace::trace::{self, ListenerTrace};
 use haa_trace::{Scene, V3, v3};
 
-/// Spherical-harmonic coefficients per quantity (order 2).
-pub const SH: usize = 9;
+/// Spherical-harmonic coefficients per quantity: order 1. Order 2 cut the per-direction distance error
+/// only from 5.9 to 4.9 m RMS (openness 0.24 to 0.21) in a room with a door and cubes, and the
+/// runtime reads only the first-order vector (the enclosed side) and the mean: the reflections come
+/// from stored planes, not from the harmonics.
+pub const SH: usize = 4;
+/// Reflecting planes stored per cell (the nearest distinct surfaces seen by the 64 probes).
+pub const PLANES: usize = 6;
 /// Probe directions per cell.
 pub const DIRS: usize = 64;
 /// Distances are clamped here (m): farther walls are "far".
@@ -30,8 +35,8 @@ pub const FAR: f64 = 30.0;
 /// A ray that hits nothing within this (m) has escaped.
 pub const ESCAPE: f64 = 60.0;
 const BRICK: usize = 4;
-/// Floats per exported cell record.
-pub const RECORD: usize = 27;
+/// Floats per exported cell record: index, state, dist SH, open SH, 5 scalars, 2 edge halves, plane count, planes.
+pub const RECORD: usize = 2 + SH + SH + 5 + 2 + 1 + PLANES * 5;
 
 #[derive(Clone, Copy, Default)]
 pub struct Cell {
@@ -46,6 +51,9 @@ pub struct Cell {
     pub escape: f32,
     /// Bit k: the segment to neighbour k (`OFFSETS`) is clear.
     pub edges: u32,
+    /// Reflecting planes: unit normal (toward the cell), offset dot(n, point on plane), absorption.
+    pub planes: [[f32; 5]; PLANES],
+    pub nplanes: u8,
 }
 
 /// The 26 neighbours of a cell.
@@ -83,27 +91,15 @@ pub fn rt60(decay: f64, mfp: f64) -> f64 {
     (60.0 * mfp / (343.0 * db)).clamp(0.1, 8.5)
 }
 
-/// Real spherical harmonics up to order 2 at a unit direction.
+/// Real spherical harmonics of order 0 and 1 at a unit direction (Y00, Y1-1 ∝ y, Y10 ∝ z, Y11 ∝ x).
 pub fn sh9(d: V3) -> [f64; SH] {
-    let (x, y, z) = (d.x, d.y, d.z);
-    [
-        0.282_095,
-        0.488_603 * y,
-        0.488_603 * z,
-        0.488_603 * x,
-        1.092_548 * x * y,
-        1.092_548 * y * z,
-        0.315_392 * (3.0 * z * z - 1.0),
-        1.092_548 * x * z,
-        0.546_274 * (x * x - y * y),
-    ]
+    [0.282_095, 0.488_603 * d.y, 0.488_603 * d.z, 0.488_603 * d.x]
 }
 
-/// Evaluate SH coefficients in a direction; `order` 1 keeps the first 4.
-pub fn sh_eval(c: &[f32; SH], d: V3, order: usize) -> f64 {
+/// Evaluate the stored SH coefficients in a direction (order 1).
+pub fn sh_eval(c: &[f32; SH], d: V3, _order: usize) -> f64 {
     let y = sh9(d);
-    let n = if order >= 2 { SH } else { 4 };
-    (0..n).map(|k| f64::from(c[k]) * y[k]).sum()
+    (0..SH).map(|k| f64::from(c[k]) * y[k]).sum()
 }
 
 #[derive(Clone, Copy)]
@@ -159,6 +155,16 @@ pub struct Sample {
 }
 
 #[derive(Clone, Copy, Default)]
+pub struct Aperture {
+    /// Narrowest free cross-section along the path (m²) and where it is.
+    pub area: f64,
+    pub point: V3,
+    /// Cross-section at the listener's and at the source's end.
+    pub at_listener: f64,
+    pub at_source: f64,
+}
+
+#[derive(Clone, Copy, Default)]
 pub struct PathResult {
     pub found: bool,
     pub visible: bool,
@@ -169,6 +175,7 @@ pub struct PathResult {
     /// First corner after the listener (or the source when visible).
     pub via: V3,
     pub corners: usize,
+    pub aperture: Aperture,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -200,6 +207,7 @@ pub struct Field {
     flood_parent: Vec<i32>,
     pub flood_reached: usize,
     path_pts: Vec<V3>,
+    pulled: Vec<V3>,
 }
 
 impl Field {
@@ -221,6 +229,7 @@ impl Field {
             flood_parent: Vec::new(),
             flood_reached: 0,
             path_pts: Vec::new(),
+            pulled: Vec::new(),
         }
     }
 
@@ -269,6 +278,9 @@ impl Field {
         let w = 4.0 * core::f64::consts::PI / DIRS as f64;
         let mut dist = [0.0f64; SH];
         let mut open = [0.0f64; SH];
+        // Reflecting planes: per surface (id) and orientation, the nearest hit.
+        let mut planes: Vec<(f64, V3, f64, f64)> = Vec::new();
+        let mut keys: Vec<(u32, i32, i32, i32)> = Vec::new();
         for i in 0..DIRS {
             let d = self.dirs[i];
             let hit = self.scene.cast(c, d, ESCAPE);
@@ -280,6 +292,33 @@ impl Field {
                 dist[k] += w * r * self.basis[i][k];
                 open[k] += w * o * self.basis[i][k];
             }
+            if let Some(h) = hit
+                && h.toi > 0.05
+                && h.toi < FAR
+            {
+                let mut n = h.normal.normalize();
+                if n.dot(c - h.point) < 0.0 {
+                    n = -n;
+                }
+                let key = (h.id, (n.x * 4.0).round() as i32, (n.y * 4.0).round() as i32, (n.z * 4.0).round() as i32);
+                let plane = (h.toi, n, n.dot(h.point), h.absorption);
+                match keys.iter().position(|k| *k == key) {
+                    Some(j) => {
+                        if h.toi < planes[j].0 {
+                            planes[j] = plane;
+                        }
+                    }
+                    None => {
+                        keys.push(key);
+                        planes.push(plane);
+                    }
+                }
+            }
+        }
+        planes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        for (j, pl) in planes.iter().take(PLANES).enumerate() {
+            cell.planes[j] = [pl.1.x as f32, pl.1.y as f32, pl.1.z as f32, pl.2 as f32, pl.3 as f32];
+            cell.nplanes = (j + 1) as u8;
         }
         for k in 0..SH {
             cell.dist[k] = dist[k] as f32;
@@ -472,12 +511,15 @@ impl Field {
     /// The path from the listener to a source through the flooded field, string-pulled into
     /// straight legs (each leg checked by one ray), its excess over the straight line and its first
     /// corner (where the sound arrives from).
-    pub fn path(&mut self, s: V3, l: V3) -> PathResult {
+    pub fn path(&mut self, s: V3, l: V3, want_aperture: bool) -> PathResult {
         let direct = (s - l).length();
         let mut r = PathResult { via: s, length: direct, lattice: direct, ..Default::default() };
         if self.clear(l, s) {
             r.found = true;
             r.visible = true;
+            if want_aperture {
+                r.aperture = self.aperture(&[l, s]);
+            }
             return r;
         }
         if self.flood_dist.is_empty() {
@@ -505,6 +547,9 @@ impl Field {
         self.path_pts.reverse();
         // String-pull from the listener: keep the farthest point the current corner sees.
         let pts = std::mem::take(&mut self.path_pts);
+        let mut pulled = std::mem::take(&mut self.pulled);
+        pulled.clear();
+        pulled.push(pts[0]);
         let mut cur = pts[0];
         let mut len = 0.0;
         let mut first: Option<V3> = None;
@@ -525,13 +570,19 @@ impl Field {
                     first = Some(corner);
                 }
                 cur = corner;
+                pulled.push(corner);
                 corners += 1;
                 continue;
             }
             j += 1;
         }
         len += (pts[pts.len() - 1] - cur).length();
+        pulled.push(pts[pts.len() - 1]);
         self.path_pts = pts;
+        if want_aperture {
+            r.aperture = self.aperture(&pulled);
+        }
+        self.pulled = pulled;
         r.found = true;
         r.lattice = total;
         r.length = len;
@@ -539,6 +590,99 @@ impl Field {
         r.via = first.unwrap_or(s);
         r.corners = corners;
         r
+    }
+
+    /// Free cross-section at `p`: the narrowest of 4 horizontal chords through it (0, 45, 90, 135
+    /// degrees) times the vertical chord; 10 casts of at most 10 m. In a doorway the chord along the
+    /// door's plane is the door's width; across a room, the room's.
+    fn section(&mut self, p: V3, _d: V3) -> f64 {
+        let mut reach = |dir: V3| self.scene.cast(p, dir, 10.0).map_or(10.0, |h| h.toi);
+        let h = reach(v3(0.0, 1.0, 0.0)) + reach(v3(0.0, -1.0, 0.0));
+        let mut w = f64::INFINITY;
+        for k in 0..4 {
+            let a = k as f64 * core::f64::consts::FRAC_PI_4;
+            let u = v3(a.cos(), 0.0, a.sin());
+            w = w.min(reach(u) + reach(-u));
+        }
+        w * h
+    }
+
+    /// The narrowest cross-section along a polyline, and at its two ends. A wall with a door is
+    /// 0.2-0.4 m thick, so the line is scanned every 0.25 m with the vertical chord only (2 casts:
+    /// a lintel lowers it), then the full section (10 casts) is taken at the 3 lowest points and at
+    /// the corners of the polyline (the edges the path bends around).
+    pub fn aperture(&mut self, pts: &[V3]) -> Aperture {
+        let mut ap = Aperture { area: f64::INFINITY, ..Default::default() };
+        if pts.len() < 2 {
+            return ap;
+        }
+        let mut scan: Vec<(f64, V3)> = Vec::new();
+        for w in pts.windows(2) {
+            let seg = w[1] - w[0];
+            let len = seg.length();
+            if len < 1e-6 {
+                continue;
+            }
+            let d = seg * (1.0 / len);
+            let steps = (len / 0.25).ceil().max(1.0) as usize;
+            for k in 0..=steps {
+                let p = w[0] + d * (len * k as f64 / steps as f64);
+                let up = self.scene.cast(p, v3(0.0, 1.0, 0.0), 10.0).map_or(10.0, |h| h.toi);
+                let down = self.scene.cast(p, v3(0.0, -1.0, 0.0), 10.0).map_or(10.0, |h| h.toi);
+                scan.push((up + down, p));
+            }
+        }
+        scan.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        let mut probe: Vec<V3> = scan.iter().take(3).map(|x| x.1).collect();
+        probe.extend_from_slice(&pts[1..pts.len() - 1]);
+        for p in probe {
+            let a = self.section(p, v3(1.0, 0.0, 0.0));
+            if a < ap.area {
+                ap.area = a;
+                ap.point = p;
+            }
+        }
+        let n = pts.len();
+        ap.at_listener = self.section(pts[0], v3(1.0, 0.0, 0.0));
+        ap.at_source = self.section(pts[n - 1], v3(1.0, 0.0, 0.0));
+        ap
+    }
+
+    /// The reflecting planes of the air cell nearest `p` among the 8 around it.
+    pub fn planes_at(&self, p: V3) -> Option<&Cell> {
+        let (b, _) = self.grid.base(p);
+        let mut best: Option<(f64, &Cell)> = None;
+        for corner in 0..8 {
+            let o = [corner & 1, (corner >> 1) & 1, (corner >> 2) & 1];
+            let Some(idx) = self.grid.index([b[0] + o[0] as i64, b[1] + o[1] as i64, b[2] + o[2] as i64]) else { continue };
+            let Some(c) = self.cell(idx) else { continue };
+            if c.state != 1 {
+                continue;
+            }
+            let d = (self.grid.centre(idx) - p).length();
+            if best.is_none_or(|x| d < x.0) {
+                best = Some((d, c));
+            }
+        }
+        best.map(|x| x.1)
+    }
+
+    /// The flood as flat arrays (distance, parent as f32) for another instance of the same grid.
+    pub fn flood_export(&self, out: &mut Vec<f32>) {
+        out.clear();
+        out.extend_from_slice(&self.flood_dist);
+        out.extend(self.flood_parent.iter().map(|&p| p as f32));
+    }
+
+    pub fn flood_import(&mut self, data: &[f32]) {
+        let n = self.grid.len();
+        if data.len() < 2 * n {
+            return;
+        }
+        self.flood_dist.clear();
+        self.flood_dist.extend_from_slice(&data[..n]);
+        self.flood_parent.clear();
+        self.flood_parent.extend(data[n..2 * n].iter().map(|&p| p as i32));
     }
 
     /// Flooded distance at a cell (debug).
@@ -555,19 +699,33 @@ impl Field {
         out.extend_from_slice(&[c.rt60, c.mfp, c.volume, c.absorption, c.escape]);
         out.push((c.edges & 0xffff) as f32);
         out.push((c.edges >> 16) as f32);
+        out.push(f32::from(c.nplanes));
+        for pl in &c.planes {
+            out.extend_from_slice(pl);
+        }
     }
 
     pub fn ingest(&mut self, r: &[f32]) {
         for rec in r.chunks_exact(RECORD) {
             let mut c = Cell { state: rec[1] as u8, ..Default::default() };
-            c.dist.copy_from_slice(&rec[2..11]);
-            c.open.copy_from_slice(&rec[11..20]);
-            c.rt60 = rec[20];
-            c.mfp = rec[21];
-            c.volume = rec[22];
-            c.absorption = rec[23];
-            c.escape = rec[24];
-            c.edges = (rec[25] as u32) | ((rec[26] as u32) << 16);
+            let mut k = 2;
+            c.dist.copy_from_slice(&rec[k..k + SH]);
+            k += SH;
+            c.open.copy_from_slice(&rec[k..k + SH]);
+            k += SH;
+            c.rt60 = rec[k];
+            c.mfp = rec[k + 1];
+            c.volume = rec[k + 2];
+            c.absorption = rec[k + 3];
+            c.escape = rec[k + 4];
+            k += 5;
+            c.edges = (rec[k] as u32) | ((rec[k + 1] as u32) << 16);
+            k += 2;
+            c.nplanes = rec[k] as u8;
+            k += 1;
+            for j in 0..PLANES {
+                c.planes[j].copy_from_slice(&rec[k + j * 5..k + j * 5 + 5]);
+            }
             self.set_cell(rec[0] as usize, c);
         }
     }
@@ -591,6 +749,46 @@ mod abi {
 
     thread_local! {
         static STATE: RefCell<State> = RefCell::new(State { field: None, input: Vec::new(), boxes: Vec::new(), tris: Vec::new(), out: vec![0.0; 64], records: Vec::new() });
+    }
+
+    /// The flood (distance then parent, one f32 each per cell) into `field_records`; returns the floats.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_flood_export() -> u32 {
+        with(|s| {
+            let State { field, records, .. } = s;
+            let Some(f) = field.as_ref() else { return 0 };
+            f.flood_export(records);
+            records.len() as u32
+        })
+    }
+
+    /// A flood computed elsewhere (the worker), from the scratch area.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_flood_import(floats: u32) {
+        with(|s| {
+            let State { field, input, .. } = s;
+            if let Some(f) = field.as_mut() {
+                let n = (floats as usize).min(input.len());
+                f.flood_import(&input[..n]);
+            }
+        })
+    }
+
+    /// out = [n, then per plane nx, ny, nz, offset, absorption] of the air cell nearest the point.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_planes(x: f64, y: f64, z: f64) {
+        with(|s| {
+            let State { field, out, .. } = s;
+            out[0] = 0.0;
+            let Some(f) = field.as_ref() else { return };
+            let Some(c) = f.planes_at(v3(x, y, z)) else { return };
+            out[0] = f64::from(c.nplanes);
+            for j in 0..c.nplanes as usize {
+                for k in 0..5 {
+                    out[1 + j * 5 + k] = f64::from(c.planes[j][k]);
+                }
+            }
+        })
     }
 
     fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
@@ -618,15 +816,18 @@ mod abi {
         with(|s| s.records.as_ptr() as u32)
     }
 
-    /// Scene from the scratch area (haa-trace box and triangle records).
+    /// Scene from the scratch area (haa-trace box and triangle records). `rebuild` 0 only stores it
+    /// for the next `field_grid` (one BVH build instead of two for a new level).
     #[unsafe(no_mangle)]
-    pub extern "C" fn field_scene(n_boxes: u32, n_tris: u32) {
+    pub extern "C" fn field_scene(n_boxes: u32, n_tris: u32, rebuild: u32) {
         with(|s| {
             let nb = n_boxes as usize * haa_trace::geom::BOX_STRIDE;
             let nt = n_tris as usize * haa_trace::geom::TRI_STRIDE;
             s.boxes = s.input[..nb.min(s.input.len())].to_vec();
             s.tris = s.input[nb.min(s.input.len())..(nb + nt).min(s.input.len())].to_vec();
-            if let Some(f) = s.field.as_mut() {
+            if rebuild != 0
+                && let Some(f) = s.field.as_mut()
+            {
                 f.scene = Scene::new(&s.boxes, &s.tris);
             }
         })
@@ -679,7 +880,7 @@ mod abi {
         with(|s| s.field.as_mut().map_or(0, |f| f.dirty(v3(lx, ly, lz), v3(hx, hy, hz)) as u32))
     }
 
-    /// out = [weight, rt60, mfp, volume, absorption, escape, dist sh 9, open sh 9].
+    /// out = [weight, rt60, mfp, volume, absorption, escape, dist sh, open sh] (SH coefficients each).
     #[unsafe(no_mangle)]
     pub extern "C" fn field_sample(x: f64, y: f64, z: f64) {
         with(|s| {
@@ -694,7 +895,7 @@ mod abi {
             out[5] = p.escape;
             for k in 0..SH {
                 out[6 + k] = f64::from(p.dist[k]);
-                out[15 + k] = f64::from(p.open[k]);
+                out[6 + SH + k] = f64::from(p.open[k]);
             }
         })
     }
@@ -710,13 +911,13 @@ mod abi {
         with(|s| s.field.as_mut().map_or(0, |f| f.flood(v3(x, y, z), max) as u32))
     }
 
-    /// out = [found, visible, lattice, length, excess, via x, y, z, corners].
+    /// out = [found, visible, lattice, length, excess, via x, y, z, corners, aperture area, its point x y z, section at listener, at source].
     #[unsafe(no_mangle)]
-    pub extern "C" fn field_path(sx: f64, sy: f64, sz: f64, lx: f64, ly: f64, lz: f64) {
+    pub extern "C" fn field_path(sx: f64, sy: f64, sz: f64, lx: f64, ly: f64, lz: f64, want_aperture: u32) {
         with(|s| {
             let State { field, out, .. } = s;
             let Some(f) = field.as_mut() else { return };
-            let r = f.path(v3(sx, sy, sz), v3(lx, ly, lz));
+            let r = f.path(v3(sx, sy, sz), v3(lx, ly, lz), want_aperture != 0);
             out[0] = f64::from(u8::from(r.found));
             out[1] = f64::from(u8::from(r.visible));
             out[2] = r.lattice;
@@ -726,6 +927,12 @@ mod abi {
             out[6] = r.via.y;
             out[7] = r.via.z;
             out[8] = r.corners as f64;
+            out[9] = r.aperture.area;
+            out[10] = r.aperture.point.x;
+            out[11] = r.aperture.point.y;
+            out[12] = r.aperture.point.z;
+            out[13] = r.aperture.at_listener;
+            out[14] = r.aperture.at_source;
         })
     }
 
@@ -744,7 +951,7 @@ mod abi {
                 }
                 let p = f.grid.centre(i);
                 let up = sh_eval(&c.open, v3(0.0, 1.0, 0.0), 2);
-                records.extend_from_slice(&[p.x as f32, p.y as f32, p.z as f32, c.escape, c.rt60, f.flood_at(i), up as f32, c.dist[0] * 0.282_095]);
+                records.extend_from_slice(&[p.x as f32, p.y as f32, p.z as f32, c.escape, c.rt60, f.flood_at(i), up as f32, f32::from(c.nplanes)]);
                 n += 1;
             }
             n
@@ -796,16 +1003,19 @@ mod tests {
         assert!(inside.weight > 0.9 && inside.escape < 0.1, "inside escape {}", inside.escape);
         assert!(outside.escape > 0.3, "outside escape {}", outside.escape);
         assert!(inside.rt60 > outside.rt60 * 2.0, "rt60 {} vs {}", inside.rt60, outside.rt60);
-        // The wall at -x is 5 m from the centre: the distance SH reads it within a metre.
-        let d = sh_eval(&inside.dist, v3(-1.0, 0.0, 0.0), 2);
-        assert!((d - 5.0).abs() < 1.5, "distance to -x wall {d}");
+        // The wall at -x (x = -5) is among the stored planes of the centre cell.
+        let cell = f.planes_at(v3(0.0, 1.5, 0.0)).unwrap();
+        let wall = (0..cell.nplanes as usize).map(|j| cell.planes[j]).find(|p| p[0] > 0.9);
+        assert!(wall.is_some_and(|p| (f64::from(p[3]) + 5.0).abs() < 0.05), "planes {:?}", &cell.planes[..cell.nplanes as usize]);
         // A source inside behind the +x wall, the listener outside off the door: the sound goes
         // around through the door, a few metres longer than the straight line.
         let l = v3(8.0, 1.5, -4.0);
         f.flood(l, 100.0);
-        let p = f.path(v3(3.0, 1.5, -3.5), l);
+        let p = f.path(v3(3.0, 1.5, -3.5), l, true);
         assert!(p.found && !p.visible, "found {} visible {}", p.found, p.visible);
         assert!(p.excess > 0.5 && p.excess < 6.0, "excess {}", p.excess);
         assert!(p.via.z > -1.6 && p.via.z < 1.6, "arrives through the door: via {:?}", (p.via.x, p.via.y, p.via.z));
+        // The narrowest section on the way is the 2 x 3 m door.
+        assert!(p.aperture.area > 3.0 && p.aperture.area < 9.0 && (p.aperture.point.x - 5.15).abs() < 1.0, "aperture {} at {:?}", p.aperture.area, (p.aperture.point.x, p.aperture.point.z));
     }
 }
