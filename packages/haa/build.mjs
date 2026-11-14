@@ -22,6 +22,7 @@ const ENTRIES = [
     banner: { js: '#!/usr/bin/env node' },
   },
   { entry: 'src/bank.ts', outfile: 'dist/bank.js', platform: 'neutral' },
+  { entry: 'src/sfx/index.ts', outfile: 'dist/sfx.js', platform: 'browser' },
   { entry: 'src/arranger.ts', outfile: 'dist/arranger.js', platform: 'neutral' },
   { entry: 'src/fit.ts', outfile: 'dist/fit.js', platform: 'neutral' },
 ];

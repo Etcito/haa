@@ -1,6 +1,8 @@
 // AudioWorkletGlobalScope only: the `haa-player` processor. It runs one wasm voice at the context
 // rate, renders at most BLOCK frames per call and talks to player.ts through the port (ARCHITECTURE §9).
 import { HaaEngine } from './engine.ts';
+// The sfx voice pool processor (`haa-sfx-pool`) ships in the same bundle.
+import './sfx/pool-worklet.ts';
 import type { HaaVoice } from './engine.ts';
 import { BLOCK, PLAYER_PROCESSOR, TRACE_HZ } from './types.ts';
 import type { PatchIssue, PlayerInMsg, PlayerOutMsg, PlayerProcessorOptions, VoiceInfo } from './types.ts';

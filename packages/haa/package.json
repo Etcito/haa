@@ -20,6 +20,10 @@
       "types": "./dist/offline.d.ts",
       "default": "./dist/offline.js"
     },
+    "./sfx": {
+      "types": "./dist/sfx/index.d.ts",
+      "default": "./dist/sfx.js"
+    },
     "./bank": {
       "types": "./dist/bank.d.ts",
       "default": "./dist/bank.js"

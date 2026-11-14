@@ -283,6 +283,18 @@ impl Voice {
                     smoother.jump(m.amount);
                 }
             }
+            // A restarted one-shot starts at the input values set before it (a physics hit sets
+            // `energy`, then restarts): continuous inputs settle on their targets, no glide in.
+            for (index, smoother) in self.input_smoothers.iter_mut().enumerate() {
+                let continuous = plan
+                    .inputs
+                    .get(index)
+                    .is_none_or(|input| input.kind != InputKind::Trigger);
+                if continuous {
+                    smoother.settle();
+                    self.input_values[index] = smoother.value();
+                }
+            }
         }
     }
 
@@ -853,6 +865,21 @@ mod tests {
             {"name":"hit", "kind":"trigger"}
         ]);
         json.to_string()
+    }
+
+    #[test]
+    fn restart_starts_continuous_inputs_at_their_targets() {
+        let mut voice = Voice::new(RATE, 0);
+        assert!(voice.load(&input_patch(), false).playable);
+        voice.set_input(0, 80.0);
+        voice.set_input(3, 12.0);
+        voice.restart();
+        voice.process(&mut [0.0; 1], &mut [0.0; 1]);
+        assert_eq!(voice.input_values[0], 80.0);
+        assert_eq!(voice.input_values[3], 12.0);
+        voice.set_input(0, 20.0);
+        voice.process(&mut [0.0; 1], &mut [0.0; 1]);
+        assert!(voice.input_values[0] > 20.0 && voice.input_values[0] < 80.0);
     }
 
     #[test]

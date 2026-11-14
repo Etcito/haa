@@ -50,6 +50,11 @@ impl Smoother {
     pub fn value(&self) -> f64 {
         self.value
     }
+
+    /// Moves the value onto the target at once, keeping the target.
+    pub fn settle(&mut self) {
+        self.value = self.target;
+    }
 }
 
 fn coefficient(time_s: f64, sample_rate: f64) -> f64 {
