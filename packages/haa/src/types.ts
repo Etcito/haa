@@ -36,6 +36,7 @@ export type PatchIssueCode =
   | 'too-many-connections'
   | 'no-output'
   | 'unknown-input'
+  | 'input-unconnected'
   | 'duplicate-input'
   | 'bad-input'
   | 'unknown-param'

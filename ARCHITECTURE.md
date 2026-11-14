@@ -321,7 +321,7 @@ On disk a patch is UTF-8 JSON:
     - `cycle`, `too-many-nodes`, `too-many-connections`;
     - `no-output` (no `output` node);
     - `unknown-input`, `duplicate-input`, `bad-input` (min ≥ max, log with min ≤ 0, enum without values, reserved name).
-  - Warnings: `unknown-param` (kept in JSON, ignored), `param-clamped` (base value outside its range, clamped).
+  - Warnings: `unknown-param` (kept in JSON, ignored), `param-clamped` (base value outside its range, clamped), `input-unconnected` (an `input` node with no outgoing connection: its value is ignored).
   - Info: `wrapped-sona-project`, `wrapped-sona-graph`, `performance-converted`.
 - **Order:** errors follow document order. Kahn ordering runs only when there is no structural error.
 - **Plan order:** Kahn's algorithm over audio and control edges. The queue is seeded with the zero-in-degree nodes in `graph.nodes` order, exactly as in Sona's `validateGraph`.

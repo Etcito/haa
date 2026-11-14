@@ -160,6 +160,7 @@ fn validate_with(
         );
     }
     let edges = check_connections(&p.graph.connections, &graph.nodes, &nodes, &mut issues);
+    check_unconnected_inputs(graph, &mut issues);
     let master = p.master.as_f64().unwrap_or_else(|| {
         push(
             &mut issues,
@@ -205,6 +206,24 @@ fn validate_with(
         master,
     };
     Ok((plan, issues))
+}
+
+/// An `input` node that feeds nothing is silently ignored by the interpreter, so a game value
+/// moved on it changes nothing: warn about every such node.
+fn check_unconnected_inputs(graph: &crate::patch::Graph, issues: &mut Vec<Issue>) {
+    for (i, spec) in graph.nodes.iter().enumerate() {
+        if spec.kind != "input" || graph.connections.iter().any(|conn| conn.from == spec.id) {
+            continue;
+        }
+        push(
+            issues,
+            Severity::Warning,
+            "input-unconnected",
+            format!("graph.nodes[{i}]"),
+            Some(spec.id.as_str()),
+            "This input node has no outgoing connection, so its value is ignored",
+        );
+    }
 }
 
 /// Where a checked connection lands: the audio input or a param index of its `to` node.
@@ -919,7 +938,9 @@ mod tests {
       "graph":{"duration":2,"nodes":[
         {"id":"in1","type":"input","x":0,"y":0,"label":"Pitch","params":{"name":"pitch"}},
         {"id":"osc","type":"test-osc","x":0,"y":0,"label":"Osc","params":{"cutoff":500,"shape":"hp"}},
-        {"id":"out","type":"output","x":0,"y":0,"label":"Out","params":{}}]}}"#;
+        {"id":"out","type":"output","x":0,"y":0,"label":"Out","params":{}}],
+      "connections":[{"id":"c1","from":"in1","to":"osc","target":"cutoff"},
+        {"id":"c2","from":"osc","to":"out","target":"audio"}]}}"#;
 
     #[test]
     fn a_valid_graph_plans_nodes_in_document_order() {
@@ -928,7 +949,7 @@ mod tests {
         let ids: Vec<&str> = plan.nodes.iter().map(|node| node.id.as_str()).collect();
         assert_eq!(ids, ["in1", "osc", "out"]);
         assert_eq!(plan.nodes[1].params, [500.0, 1.0]);
-        assert!(plan.nodes[1].audio_in.is_empty() && plan.nodes[1].mods.is_empty());
+        assert!(plan.nodes[1].audio_in.is_empty() && plan.nodes[1].mods.len() == 1);
         assert_eq!(plan.master, 1.0);
         assert!(plan.performance.is_none());
     }
@@ -945,6 +966,20 @@ mod tests {
         assert_eq!(warning.severity, Severity::Warning);
         assert_eq!(warning.path, "graph.nodes[1].params.cutoff");
         assert_eq!(warning.node.as_deref(), Some("osc"));
+    }
+
+    #[test]
+    fn an_input_node_with_no_outgoing_connection_warns() {
+        let json = CLEAN.replace(r#"{"id":"c1","from":"in1","to":"osc","target":"cutoff"},"#, "");
+        let (_, issues) = run(&json).ok().expect("a warning keeps the patch playable");
+        let warning = issues
+            .iter()
+            .find(|issue| issue.code == "input-unconnected")
+            .expect("warning");
+        assert_eq!(warning.severity, Severity::Warning);
+        assert_eq!(warning.path, "graph.nodes[0]");
+        assert_eq!(warning.node.as_deref(), Some("in1"));
+        assert!(!has(&run(CLEAN).ok().expect("valid").1, "input-unconnected", "graph.nodes[0]"));
     }
 
     #[test]
