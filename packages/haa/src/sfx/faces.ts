@@ -77,6 +77,9 @@ interface FaceState extends FaceEmitter {
   /** The listener's projection on the face, rounded (0.5 m), and whether the rain reaches it. */
   projKey: string;
   projExposed: boolean;
+  /** Listener and emitter positions (rounded) of the last occlusion ray, and its answer. */
+  occKey: string;
+  occluded: boolean;
   cellArea: number;
   loop: ReturnType<FaceHost['loop']> | null;
 }
@@ -107,6 +110,8 @@ export interface FaceSource {
 const FADE_S = 0.6;
 /** A playing face is replaced only by one estimated this much louder (dB): no flapping. */
 const SWAP_MARGIN_DB = 3;
+/** Ranking penalty of a face hidden from the listener (dB): a wall or a roof between them. */
+const OCCLUDED_DB = 25;
 
 export function createFaceSource(host: FaceHost, faces: SoundFace[], options: FaceSourceOptions): FaceSource {
   let o = { maxVoices: 6, cell: 2, gain: 1, ...options };
@@ -131,7 +136,7 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
       }
       return {
         face, flux: 0, area: 0, position: face.center, back: false, under: 0, score: 0, fade: 0, playing: false,
-        samples, nu, nv, projKey: '', projExposed: false, cellArea: (4 * lu * lv) / samples.length, loop: null,
+        samples, nu, nv, projKey: '', projExposed: false, occKey: '', occluded: false, cellArea: (4 * lu * lv) / samples.length, loop: null,
       };
     });
     dirty = true;
@@ -209,8 +214,8 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
       }
       const n = normalize(s.face.normal);
       let p = v3(wx / w, wy / w, wz / w);
-      // Over the face (the rain reaches the listener's projection on it), the nearest point is
-      // that projection: standing on wet ground the rain is right under the feet. The nearest cell
+      // The face's own nearest point to the listener (the projection, clamped to the face), when the
+      // rain reaches it: standing on wet ground the rain is right under the feet. The nearest cell
       // centre alone put it up to half a cell away (4 m cells on the 160 m ground: the ground's rain
       // 4.3 m away while a 6 m plank next to it, 2 m cells, played at 1.5 m: 9 dB louder).
       {
@@ -248,8 +253,26 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
       const d = Math.max(1, length(sub(p, L)));
       s.score = (o.intensity ** 1.3 * s.flux * Math.sqrt(Math.min(25, s.area)) * (0.08 + 0.92 * s.face.material.hardness ** 1.5) * 10 ** (-loss[1] / 10)) / (d * d);
     }
+    // What reaches the listener: a face whose emitter is hidden from the listener (a wall, a roof in
+    // between) is ranked OCCLUDED_DB lower. Without it, inside the hall under a wooden or concrete roof
+    // (its far-side loss 16 / 38 dB) six outdoor faces behind the walls outranked the roof and the hall
+    // was nearly silent (-87 dB). One ray per candidate (the 3 x maxVoices best by the open estimate),
+    // cast again only when the listener or the emitter moved by half a metre.
+    const cast = host.raycast();
+    const candidates = states.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 3 * o.maxVoices);
+    for (const s of candidates) {
+      if (!cast) break;
+      const key = `${Math.round(L.x * 2)},${Math.round(L.y * 2)},${Math.round(L.z * 2)}|${Math.round(s.position.x * 2)},${Math.round(s.position.y * 2)},${Math.round(s.position.z * 2)}`;
+      if (key !== s.occKey) {
+        s.occKey = key;
+        const to = sub(s.position, L);
+        const dist = length(to);
+        s.occluded = dist > 0.2 && !!cast(L, scale(to, 1 / dist), dist - 0.1);
+      }
+      if (s.occluded) s.score *= 10 ** (-OCCLUDED_DB / 10);
+    }
     // The loudest faces play; a playing one leaves only for one clearly louder.
-    const ranked = states.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+    const ranked = candidates.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
     const want = new Set(ranked.slice(0, o.maxVoices));
     for (const s of ranked.slice(o.maxVoices)) {
       if (!s.playing) continue;

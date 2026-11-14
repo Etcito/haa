@@ -744,7 +744,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const near = len < REF_DISTANCE ? REF_DISTANCE / Math.max(len, NEAR_MIN_DISTANCE) : 1;
     const u = s.extent / Math.max(len, 0.01);
     const spread = u >= 1 ? 1 : u * u;
-    const send = Math.min(SEND_MAX, 10 ** (mixedWetDb(ac.wetDb, wetOffsetDb) / 20));
+    // A source heard through a solid (a face's far side, `setTransmission`) feeds the room with what
+    // passes through it: the send loses the mid-band transmission loss too. Without it, under the
+    // hall's 0.3 m concrete roof the rain's reverb sat 14 dB above its direct sound (-60.9 dB wet,
+    // -74.9 dry): the slab let the rain into the room's reverb untouched.
+    const send = Math.min(SEND_MAX, 10 ** ((mixedWetDb(ac.wetDb, wetOffsetDb) - s.txs[1]) / 20));
     const right = normalize(cross(listener.forward, listener.up));
     const state: ChainState = {
       level: s.stopping ? NaN : s.level * s.fadeIn,
@@ -779,7 +783,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       s.chain.setTap(i, {
         image: t.refl.image,
         delay: Math.max(0, (path - len) / SPEED_OF_SOUND_M_S),
-        gain: t.refl.gain * t.w,
+        // Through a solid (`setTransmission`), its reflections lose the mid-band loss as well: the taps
+        // leave the trunk before the occlusion gain, and under the hall's concrete slab they carried the
+        // rain into the hall at the level of the tiles' (-74.9 / -75.8 dB, where the slab's loss is 22 dB more).
+        gain: t.refl.gain * t.w * 10 ** (-s.txs[1] / 20),
         // Cheap taps pan left/right and take the 1/r loss in their gain (a PannerNode did both).
         pan: dot(scale(sub(t.refl.image, L), 1 / Math.max(path, 1e-3)), right),
         distanceGain: REF_DISTANCE / Math.max(path, REF_DISTANCE),

@@ -84,3 +84,31 @@ test('rain on faces: on wet ground the ground is heard right under the listener,
   const p = src.emitters[0].position;
   assert.ok(Math.abs(p.x - 2.5) < 1e-6 && Math.abs(p.z - 0.7) < 1e-6 && p.y < 0.1, JSON.stringify(p));
 });
+
+test('rain on faces: a face hidden behind a wall is ranked by what reaches the listener, so the roof above wins', () => {
+  // The roof slab of the first test, plus a wall x = 3 (y 0..5): the metal plate beyond it is hidden.
+  const walled: RayCast = (o, d, max) => {
+    const hit = cast(o, d, max);
+    if (Math.abs(d.x) > 1e-9) {
+      const t = (3 - o.x) / d.x;
+      const p = v3(o.x + d.x * t, o.y + d.y * t, o.z + d.z * t);
+      if (t > 1e-6 && t <= max && p.y >= 0 && p.y <= 5 && (!hit || t < hit.toi)) return { toi: t, point: p, normal: v3(-Math.sign(d.x), 0, 0), absorption: 0.05, id: 3 };
+    }
+    return hit;
+  };
+  const wood = withBody(defineMaterial({ name: 'wood', hardness: 0.55 }), { shape: 'plate', dim: 0.2, thickness: 0.022 });
+  const metal = withBody(defineMaterial({ name: 'metal', hardness: 1 }), { shape: 'sheet', dim: 4, thickness: 0.001 });
+  const faces: SoundFace[] = [
+    { label: 'roof', center: v3(0, 3.2, 0), normal: v3(0, 1, 0), u: v3(2, 0, 0), v: v3(0, 0, 2), material: wood, thickness: 0.2 },
+    { label: 'plate', center: v3(6, 0.05, 0), normal: v3(0, 1, 0), u: v3(2, 0, 0), v: v3(0, 0, 2), material: metal },
+  ];
+  const host: FaceHost = {
+    raycast: () => walled,
+    listener: () => v3(0, 1.6, 0),
+    loop: () => ({ alive: true, set: () => {}, move: () => {}, setGain: () => {}, setTransmission: () => {}, stop: () => {} }),
+  };
+  const src = createFaceSource(host, faces, { preset: 'rain-on-face', direction: v3(0, -1, 0), intensity: 0.6, maxVoices: 1 });
+  src.tick(0.1);
+  const by = (l: string) => src.emitters.find((e) => e.face.label === l)!;
+  assert.ok(by('roof').playing && !by('plate').playing, `roof ${by('roof').score} plate ${by('plate').score}`);
+});

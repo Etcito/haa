@@ -231,8 +231,14 @@ rain.stop(0.6);
   coloured by the room's reverb.
 - The preset receives `energy` (intensity), `flux`, `area`, the face material's `hardness` and the
   body's `shape`, `dim`, `thickness`. The 6 faces loudest at the listener play (estimated from
-  intensity, flux, area, hardness, far-side loss and distance); a playing face leaves only for one
-  3 dB louder, and faces fade in and out over 0.6 s.
+  intensity, flux, area, hardness, far-side loss and distance, and 25 dB lower when the ray from the
+  listener to the face's emitter is blocked: one ray per candidate, the 18 best by the open estimate,
+  re-cast when the listener or the emitter moves by 0.5 m); a playing face leaves only for one 3 dB
+  louder, and faces fade in and out over 0.6 s. Without the occlusion term the hall under a wooden or
+  concrete roof played six outdoor faces behind its walls instead of its roof (−87 dB).
+- A face heard through itself (`under`) feeds the room's reverb with what passes: the voice's send
+  loses the mid-band far-side loss as its direct sound does (engine.ts). Under the hall's concrete
+  slab the rain's reverb sat 14 dB above its direct sound (−60.9 dB wet, −74.9 dry).
 - `rain-on-face` is a bed under the footsteps and the impacts: built from the studio's rain presets
   (rain-city-2's dense noise-grain beds and patter, light-rain's big drops: of the studio presets the
   closest to the CC0 rain recordings), its drop density = intensity^1.3 · flux · min(area, 25 m²)/25
@@ -262,9 +268,6 @@ rain.stop(0.6);
   long-term spectrum 6.8 dB from the recordings' mean instead of 13.1). Tiles (refs 333509, 669487:
   centroid ~1.4 kHz) and concrete (street rain 93033, 470484, 470485, 527498: ~1.3 kHz) were already
   within the recordings' spread; no recording of rain on a wooden roof was found, wood stays as it was.
-- Known gap: the 6 playing faces are ranked by an estimate without occlusion, so inside the hall with
-  a wooden or concrete roof (plate / block far-side loss) six outdoor faces behind the walls outrank
-  the roof and the hall is nearly silent (−87 dB at tilt 0).
 - The same mechanism serves any source spread over the level's faces (hail, sand blown by the wind,
   sparks): a preset that reads `flux` and `area`.
 
