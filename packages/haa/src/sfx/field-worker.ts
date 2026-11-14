@@ -6,16 +6,16 @@ import { FieldWasm } from './field-wasm.ts';
 import type { Vec3 } from './acoustics.ts';
 
 export type FieldWorkerIn =
-  | { t: 'init'; module: WebAssembly.Module; geometry: SfxGeometry; grid: FieldGrid; focus: Vec3; slice?: number }
+  | { t: 'init'; module: WebAssembly.Module; geometry: SfxGeometry; grid: FieldGrid; focus: Vec3; slice?: number; packed?: Uint8Array; gen?: number }
   | { t: 'focus'; p: Vec3 }
   | { t: 'flood'; id: number; p: Vec3; max: number }
   | { t: 'aperture'; key: string; s: Vec3; l: Vec3 }
   | { t: 'geometry'; geometry: SfxGeometry; lo: Vec3; hi: Vec3 };
 
 export type FieldWorkerOut =
-  | { t: 'cells'; records: Float32Array; left: number; ms: number; casts: number; baked: number; bytes: number }
+  | { t: 'cells'; records: Float32Array; left: number; ms: number; casts: number; baked: number; bytes: number; gen: number }
   | { t: 'dirty'; lo: Vec3; hi: Vec3; count: number }
-  | { t: 'flood'; id: number; data: Float32Array; ms: number; reached: number }
+  | { t: 'flood'; id: number; data: Float32Array; ms: number; reached: number; gen: number }
   | { t: 'aperture'; key: string; aperture: number; point: Vec3; atListener: number; atSource: number; ms: number }
   | { t: 'error'; message: string };
 
@@ -24,6 +24,8 @@ let field: FieldWasm | null = null;
 let focus: Vec3 = { x: 0, y: 0, z: 0 };
 let slice = 200;
 let running = false;
+/** The bake this worker serves now (a pooled worker is re-initialised). */
+let gen = 0;
 
 function step(): void {
   if (!field) return;
@@ -32,7 +34,7 @@ function step(): void {
   const left = field.bake(slice, focus);
   const records = field.take();
   const st = field.stats();
-  scope.postMessage({ t: 'cells', records, left, ms: performance.now() - t0, casts: st.casts - c0, baked: st.baked, bytes: st.bytes }, [records.buffer]);
+  scope.postMessage({ t: 'cells', records, left, ms: performance.now() - t0, casts: st.casts - c0, baked: st.baked, bytes: st.bytes, gen }, [records.buffer]);
   if (left > 0) setTimeout(step, 0);
   else running = false;
 }
@@ -50,15 +52,18 @@ scope.onmessage = (e) => {
       field = new FieldWasm(m.module);
       field.setScene(m.geometry, false);
       field.setGrid(m.grid);
+      // A kept bake: only the cells it lacks are baked.
+      if (m.packed) field.unpack(m.packed);
       focus = m.focus;
       slice = m.slice ?? slice;
+      gen = m.gen ?? 0;
       kick();
     } else if (m.t === 'flood' && field) {
       // The flood runs here, between bake slices: the main thread only copies its result.
       const t0 = performance.now();
       const reached = field.flood(m.p, m.max);
       const data = field.floodExport();
-      scope.postMessage({ t: 'flood', id: m.id, data, ms: performance.now() - t0, reached }, [data.buffer]);
+      scope.postMessage({ t: 'flood', id: m.id, data, ms: performance.now() - t0, reached, gen }, [data.buffer]);
     } else if (m.t === 'aperture' && field) {
       // The opening between two spaces (~100-150 rays along the path): here, not on the main thread.
       const t0 = performance.now();

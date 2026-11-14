@@ -710,16 +710,17 @@ wide part of a large source is spread over all speakers, not its own stereo; the
 translation reaches the sound one lookahead later (43 ms); the diffuse field is shared per worker
 (its direction is a per-voice bias at the FDN input, not a per-voice pan).
 
-## Acoustic field (branch `field`, behind `acoustics.field`, off by default)
+## Acoustic field (`acoustics.field`; on by default in the studio)
 
 A baked sparse voxel field instead of rays per sound event, behind
 `createSfxEngine({ acoustics: { field } })` (`src/sfx/field.ts`, `field-wasm.ts`, `field-worker.ts`,
-crate `crates/haa-field` on top of the `compute` branch's `crates/haa-trace` geometry). Without the
-option, or where the field has no cells yet, the voices use the rays. It feeds the same per-voice
-state as the rays (direct path, diffuse field, taps), so the mix thread spatialises it unchanged:
-reverb level, decay step, direction (`rdir`), pre-delay, the 4 taps at their image directions, the
-occlusion bands and the apparent direction through the path's first corner. In the studio the
-panel's Field toggle builds it on first use (1 m cells, `?fieldCell=2` for 2 m).
+crate `crates/haa-field` on top of `crates/haa-trace`'s geometry and tracer). Without the option, or
+where the field has no cells yet around the source or the listener, the voices use the rays. It
+feeds the same per-voice state as the rays (direct path, diffuse field, taps), so the mix thread
+spatialises it unchanged: reverb level, decay step, direction (`rdir`), pre-delay, the 4 taps at
+their image directions, the occlusion bands and the apparent direction through the path's first
+corner. The studio builds it when the 3D scene opens (panel toggle "Field", on; `?field=0` starts on
+the rays; 1 m cells, `?fieldCell=2` for 2 m).
 
 ### What the yellow lines are (the owner's question)
 
@@ -734,89 +735,126 @@ cell, the cubes' faces included, so they follow the clutter.)
 
 - **Grid.** Coarse cells over the level (the studio: x -32..64, y 0..6, z -20..68), in 4 x 4 x 4
   bricks allocated only where cells are baked. A fine level (0.5 m, 12 x 4 x 12 m) follows the
-  listener: re-baked in a second worker after 2 m or 3 s, from the boxes within 26 m plus the moving
-  bodies (half extent ≥ 0.15 m: crates, not pebbles) and occupancy points; it replaces the previous
-  one once fully baked.
-- **Per cell (Rust).** Solid test; 64 Fibonacci directions cast once each, giving order-1 spherical
-  harmonics of the obstacle distance and the openness, and up to 6 **reflecting planes** (per surface
-  and orientation the nearest hit: normal, offset, absorption); a 64-ray, 6-bounce trace for the
-  decay per bounce and the mean free path, from which RT60 (0.1-8.5 s), absorption, escape share;
-  26 link bits to the neighbours (the flood's graph).
-  Order 1 is enough: order 2 cut the per-direction distance error only from 5.9 to 4.9 m RMS
-  (openness 0.24 to 0.21) in a room with a door and cubes, and the runtime reads only the mean and the
-  first-order vector; the reflections come from the planes.
+  listener: re-baked after 2 m or 3 s from the static level within 26 m (kept since the last
+  `invalidate`) plus the moving bodies (`movingGeometry`: half extent ≥ 0.15 m, crates, not pebbles)
+  and occupancy points, in one of two pooled worker + instance slots; it replaces the previous one
+  once fully baked.
+- **Per cell (Rust).** Solid test; 64 Fibonacci directions for up to 6 **reflecting planes** (per
+  surface and orientation the nearest hit); a 48-ray, 6-bounce trace from the centre (haa-trace
+  `trace_listener`) and next-event estimation back to the centre (`voice_reverb`, the per-voice rays'
+  estimator): the **diffuse field a sound made there returns there** (energy re the direct sound at
+  2 m), where it arrives from, its onset; decay per bounce and mean free path, hence RT60 (0.1-8.5 s),
+  absorption, escape share; 26 link bits to the neighbours (the flood's graph). The bake counts
+  orders ≥ 2 arriving 10 ms or more after the direct sound: with the source on the listener the
+  floor's first bounce at 1.5 m height arrives at 8.7 ms and the ground-wall corner paths of a cell
+  near a wall at 4-9 ms, while in play the source stands 1.5 m or more away and those paths belong to
+  the direct sound and the taps (they made the doorway, the shed door and 4 m outside 4-7 dB too
+  wet).
+- **Storage.** A cell is 60 bytes: u16-quantised scalars (RT60, free path, absorption, escape,
+  energy in dB, direction, onset), the planes as octahedral i8 normals, cm distances and u8
+  absorption, the links as a u32. `pack()` / `unpack()` give 58 bytes per air cell and 5 per solid
+  one. The coarse bake is kept in IndexedDB (`haa-field-bakes`, key: FNV-1a of the level's boxes and
+  triangles, the grid and the format) when complete and after each re-bake, and handed to the worker
+  on the next visit, which bakes only the cells it lacks.
+- **Reads.** Trilinear over the 8 cells around a point, only over those linked to the nearest one: a
+  wall thinner than a cell (the 0.3 m walls, a triangle shell) has air cells on both sides. Energy
+  and RT60 are interpolated in log.
 - **Workers.** Each level's worker bakes (200-400 cells per slice, nearest first), floods (Dijkstra
   through the links from the listener's cells, 40 m reach, when the listener changes cell; the main
   thread only copies the result in) and measures openings on request. `invalidate(lo, hi)` re-bakes a
   box after a static change: the studio calls it when the hall's roof material changes.
-- **Per voice (main thread, wasm).** Trilinear probes at the source and the listener; the path from
-  the flood, string-pulled into straight legs (excess, first corner).
-  - *Opening between two spaces* (when the probes differ: decay ratio > 1.4 or open shares 0.15
-    apart): the worker scans the path for the narrowest free cross-section (a vertical chord every
-    0.25 m, then 4 horizontal chords and the vertical one at the 3 lowest points and at the corners),
-    cached per pair of coarse cells. An opening is narrower than half the cross-section at both ends
-    and under 16 m².
-  - *Diffuse field:* Sabine per probe, 16π·(2 m)²/A with A = 0.161·V/RT60 and V = 3.375·mfp³,
-    calibrated to the rays (−3.5 dB). One space: each probe's field excited by the share of the other
-    end's directions that stay enclosed, averaged (a source a step outside a door barely excites the
-    hall). Two spaces: the source's room through the opening, A_open/(2π r²) at the listener r from it,
-    plus the listener's room excited through it from the source, from the opening's side. Pre-delay
-    1.5 free paths.
+- **Per voice (main thread, wasm).** Reads at the source and the listener; the path from the flood,
+  string-pulled into straight legs (excess, first corner).
+  - *Opening between two spaces* (when the reads differ: decay ratio > 1.4 or open shares 0.15
+    apart): the worker scans the path for the narrowest free cross-section, cached per pair of coarse
+    cells. An opening is under 16 m² and narrower than half the wider end (a listener standing in the
+    door still has one).
+  - *Diffuse field, one space:* √(E_s·E_l). With one diffuse field per space a point's own field is
+    k·c² (c its coupling to the field, the same both ways by reciprocity) and the field of a source
+    at s heard at l is k·c_s·c_l. Direction and onset: the listener's cell's (the rays take them from
+    the listener's trace too). RT60: the two ends' weighted by their energy.
+  - *Diffuse field, two spaces:* the source's room radiates through the opening of area A as a
+    Lambertian aperture, E_s·A/(4π r²) at the listener r from it, plus the listener's room excited
+    through it, E_l·A/(4π r²) from the source; from the opening's side; each room's own decay
+    weighted by its share.
   - *Early reflections:* the stored planes of the source's cell mirror the source; the listener must
     be on the air side and two exact rays must see the bounce point; the 4 shortest are kept.
+- **First calls.** The engine compiles a wasm function at its first call; `FieldWasm.warmUp()` runs
+  every export once on a tiny scene when the field is made.
 - **Occupancy input.** `field.occupy(points)` (any renderer's depth, or SDF samples) becomes 0.5 m
-  boxes in the next fine bake, aging out after 8 s. The studio's depth capture stays off by default
-  (it measured no gain where every object has a collider). RAA's world volume is an SDF: a bake there
-  would sample it at the cell centres, sphere-trace the 64 distances and step the links, with no
-  triangle rays and no depth buffer.
+  boxes in the next fine bake, aging out after 8 s. RAA's world volume is an SDF: a bake there would
+  sample it at the cell centres, sphere-trace the probes and step the links.
 - **Debug view.** "Field cells": blue enclosed, green open, brighter for a longer decay; the fine
   level as smaller points.
 
-### Measured (Chrome; studio scene; 1 m cells; own click 1.5 m ahead unless noted; late = 50 ms-2 s, dB re the dry click at 2 m)
+### Decay of a room heard through its door
 
-| case                          | rays: late, T20          | field: late, T20          |
-|-------------------------------|--------------------------|---------------------------|
-| hall centre                   | +5.8 dB, 3.59 s          | +6.6 dB, 3.08 s           |
-| 1 m inside the door           | −1.3 dB, 1.96 s          | 0.0 dB, 1.82 s            |
-| in the doorway                | −10.2 dB, 1.35 s         | −6.1 dB, 1.10 s           |
-| 4 m outside                   | −20.1 dB, 0.46 s         | −16.2 dB, 0.64 s          |
-| shed centre                   | +6.1 dB, 1.07 s          | +3.8 dB (L 6.5, R 1.0), 0.93 s |
-| shed door                     | −10.0 dB, 0.88 s         | −5.7 dB, 0.34 s           |
-| hall source, hall centre      | +9.4 dB, 3.61 s          | +6.0 dB, 2.91 s           |
-| hall source, 4 m outside      | −4.0 (L −0.4, R −7.6), 4.79 s | −5.4 (L −2.3, R −8.6), 3.05 s |
+Coupled rooms decay with two slopes: the early one mixes both rooms, the late one is the slower
+room's own decay. The field a reverberant hall leaks through its door decays at the hall's rate; the
+open space outside (0.46 s) cannot lengthen it, so outside the door the late decay is at most the
+hall's own (3.6 s with the rays inside it). The field gives 3.31 s. The rays' 4.79 s is longer than
+the hall itself and so cannot be physical: their per-voice estimate weights the listener's rays that
+went in through the door and found the source, the ones that stayed in the hall longest, and its
+mean free path includes the long leg through the door.
 
-| big buildings                  | rays: late, T20, early (3-50 ms) | field: late, T20, early |
-|--------------------------------|----------------------------------|-------------------------|
-| empty, centre                  | −1.9 dB, 8.03 s, −16.6 dB        | +0.8 dB, 7.35 s, −15.1 dB |
-| empty, near the door           | −1.1 dB, 8.03 s, −17.9 dB        | +1.3 dB, 6.79 s, −13.1 dB |
-| with cubes, centre             | −0.5 dB, 7.45 s, −8.1 dB         | +1.1 dB, 6.23 s, −6.4 dB  |
-| with cubes, near the door      | +0.4 dB, 6.74 s, −6.1 dB         | +0.8 dB, 5.21 s, −6.3 dB  |
+### Measured (Chrome; studio scene; 1 m cells; late = 50 ms-2 s, dB re the dry click at 2 m, L/R)
 
-- The cubes now add 8.7 / 6.8 dB of early energy in the field (rays 8.5 / 11.8) and shorten its decay
-  15 / 23 % (rays 7 / 16 %).
-- Continuity (pink noise, largest 100 ms step): behind the free wall 2.1 dB (rays 2.4), walking out
-  of the hall 1.3 dB (rays 1.3).
-- Main thread, 10 voices, walking at 2-2.5 m/s: the engine's update 0.40-0.44 ms per frame with the
-  field (rays 2.3 ms). Longest single stretch of field work: 0.75 ms (the fine level's re-bake
-  request); the first calls after load reached 1.6 ms (JIT). The flood takes 3.5 ms in the worker, the
-  copy back 0.24 ms; a probe 2 µs, a path 0.04-0.11 ms, a voice's taps 0.09-0.35 ms.
-- Bake: 1 m grid 50 688 cells in 8.2 s of worker time (12.0 M casts), 12.2 MB with the planes; fine
-  level 4 608 cells in about 40 ms per re-bake (cropped scene), 0.83 MB. The 2 m grid (1.4 s, 0.84 MB
-  before the planes) left the 4 m shed 11 dB too dry.
-- Rain: a field probe (2.0 µs) costs what a Rapier ray costs (2.05 µs): the faces' exposure and
-  occlusion rays were left as they are.
+Own click 1.5 m ahead on the floor unless noted; "hall source" a click at the hall centre, 1 m up.
+
+| case                          | rays: late, T20            | field: late, T20           |
+|-------------------------------|----------------------------|----------------------------|
+| hall centre                   | +5.7/+5.9, 3.59 s          | +10.3/+10.7, 3.28 s        |
+| hall centre, click 1 m up     | +9.4/+9.5, 3.48 s          | +10.4/+10.8, 3.22 s        |
+| 1 m inside the door           | −1.4/−1.1, 1.96 s          | −0.6/−0.2, 1.85 s          |
+| in the doorway                | −10.5/−9.9, 1.35 s         | −8.4/−7.0, 1.25 s          |
+| 4 m outside                   | −20.5/−19.8, 0.46 s        | −18.1/−19.3, 0.51 s        |
+| shed centre                   | +6.0/+6.2, 1.07 s          | +5.4/+5.7, 0.89 s          |
+| shed door                     | −9.1/−10.9, 0.88 s         | −11.9/−13.2, 0.50 s        |
+| hall source, hall centre      | +9.6/+9.2, 3.61 s          | +10.6/+11.1, 3.24 s        |
+| hall source, 1 m inside door  | +9.7/+8.1, 3.74 s          | +7.1/+7.1, 2.76 s          |
+| hall source, doorway          | +6.6/+3.0, 3.80 s          | +6.0/+4.4, 2.80 s          |
+| hall source, 4 m outside      | −0.4/−7.6, 4.79 s          | +2.3/−3.4, 3.31 s          |
+| vault centre (triangles)      | +7.0/+7.7, 2.41 s          | +11.4/+12.0, 1.89 s        |
+| vault door                    | −2.7/−3.3, 2.11 s          | −6.6/−5.8, 1.03 s          |
+| 4 m outside the vault         | −18.5/−22.1, 0.46 s        | −19.2/−23.7, 0.22 s        |
+
+| big buildings                  | rays: late, T20, early (3-50 ms) | field: late, T20, early     |
+|--------------------------------|----------------------------------|-----------------------------|
+| empty, centre                  | −2.1/−1.7, 8.03 s, −16.6 dB      | +4.4/+3.9, 8.01 s, −16.5 dB |
+| empty, near the door           | −1.0/−1.1, 8.03 s, −17.9 dB      | +0.7/0.0, 6.70 s, −6.9 dB   |
+| with cubes, centre             | −0.4/−0.5, 7.45 s, −8.1 dB       | +6.1/+4.8, 7.05 s, −3.6 dB  |
+| with cubes, near the door      | +0.7/+0.1, 6.74 s, −6.1 dB       | −2.1/−2.0, 5.43 s, −7.3 dB  |
+
+- The rays' own click on the floor reads 3.7 dB under the same click 1 m up in the hall (+5.7 vs
+  +9.4): their next-event estimate gives the floor's bounce points a Lambert factor toward a source
+  lying in the floor's plane of almost 0 and never doubles the source over the floor. The field
+  reads the same for both (+10.3 / +10.4), so its 4-6 dB over the rays in the hall, the vault and the
+  big buildings is that floor click.
+- Near doors a run reads the fine level or the coarse one depending on where the listener walked
+  before: the door rows move by up to 1.5 dB between runs (the doorway −6.9/−5.7 in another run).
+- Continuity (pink noise, largest 100 ms step): behind the free wall 2.3-2.5 dB (rays 2.4), walking
+  out of the hall 1.3 dB (rays 1.3-1.4). The engine's update with 10 voices: 0.09-0.19 ms (rays
+  0.55-0.62).
+- Main thread, a 60 m walk at 4 m/s, 60 frames/s, 10 sources looked up in turn (747 frames): field
+  work 0.13-0.16 ms per frame on average, 99th percentile 0.36-0.49 ms, worst frame 1.1-1.3 ms (1.6-1.8 ms before:
+  the first calls' compilation, then a new instance, worker and BVH plus a walk of every collider at
+  each fine re-bake).
+- Bake: 50 688 cells in 10.5 s of worker time (13.5 M casts), 4.06 MB per instance (12.2 MB before);
+  packed 2.93 MB in IndexedDB; the next visit has the whole field 0.2-0.75 s after the scene opens,
+  with no ray cast. Fine level: 4 608 cells, 0.28 MB, about 0.7 s of worker time per re-bake (at a
+  4 m/s run it is re-asked before it finishes, and the coarse level serves).
+- Triangles: the vault is one 104-triangle trimesh; the field reads its planes, its decay and its
+  door without boxes (`a_room_made_of_triangles_is_a_room` checks a 12-triangle room, its planes and
+  a read next to the zero-thickness shell).
 
 ### Where the field is still worse
 
-- A source in the hall heard in the hall: 3-4 dB under the rays (+6.0 vs +9.4 at the centre) while
-  the listener's own click matches (+6.6 vs +5.8): the probes do not see where the source stands in
-  its room the way the rays' next-event estimate does.
-- Doorway, shed door and 4 m outside: 4 dB wetter than the rays (−6.1 vs −10.2, −5.7 vs −10.0,
-  −16.2 vs −20.1). The shed centre is 2.3 dB drier and lopsided (L 6.5, R 1.0: the openness direction
-  of a cell next to the door).
-- The hall heard 4 m outside decays in 3.05 s (the hall's own decay; the rays give 3.6 s inside and
-  4.8 s through the door, from their long paths through it).
-- 12 MB for the 1 m grid; 8 s until the whole scene is baked (nearest first; the rays answer meanwhile).
+- Doorways, 2-4 dB: the hall doorway 2-4 dB wetter than the rays, the shed door and the vault door
+  2-4 dB drier. A point in a door blends a loud room and the quiet outside within one cell.
+- Near an opening the decay is short: the vault door 1.03 s (rays 2.11), the hall source 1 m inside
+  the door 2.76 s (rays 3.74), the big building with cubes near its door 5.43 s (rays 6.74): a cell's
+  own 6-bounce trace loses the rays that leave through the door.
+- The vault's own decay is 22 % under the rays (1.89 vs 2.41 s).
 
 ### Mix thread, second pass (calibration, 16 speakers, geometry off the main thread, GPU debris)
 

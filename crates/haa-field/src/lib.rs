@@ -1,59 +1,133 @@
 //! haa-field: a baked, sparse acoustic field of the level (docs/physics-sound.md, "Acoustic field").
 //!
 //! Instead of casting rays for every sound event, the level is probed once on a coarse voxel grid
-//! (1-2 m cells), nearest to the listener first, in the background:
-//! - per air cell, order-2 real spherical harmonics (9 coefficients) of the distance to the nearest
-//!   obstacle per direction (early reflections: delay and direction of the walls around) and of the
-//!   openness per direction (1 where a ray escapes to the sky: where the room is open, where rain
-//!   comes from), plus scalars from a short bounce trace (reverb time, mean free path, volume,
-//!   absorption, escape share) and the 26 neighbour links that a straight segment can cross;
-//! - a propagation field flooded from the listener's cell through the links (Dijkstra): every cell
-//!   knows how far sound travels to it around the obstacles. A source then reads its occlusion and
-//!   the direction it arrives from with one lookup, the path string-pulled into a few corners.
+//! (1-2 m cells), nearest to the listener first, in the background. Per air cell:
+//! - the diffuse field a sound made there returns to that point, traced like the per-voice rays do
+//!   (a 48-ray, 6-bounce trace from the cell and next-event estimation back to it): its energy, its
+//!   arrival direction and its pre-delay; the decay per bounce and the mean free path, hence RT60;
+//!   absorption and escape share;
+//! - up to 6 reflecting planes (the nearest distinct surfaces 64 probe rays hit) for the early
+//!   reflections;
+//! - the 26 neighbour links a straight segment can cross (the flood's graph).
 //!
-//! Geometry and ray casts come from haa-trace (oriented boxes, triangles, a BVH). RAA's world is an
-//! SDF: a bake could sample the SDF at the cell centres (solid test), sphere-trace it for the
-//! distances, and step it for the links, without any ray against triangles.
+//! A propagation field flooded from the listener's cell through the links (Dijkstra) gives every cell
+//! how far sound travels to it around the obstacles; a source reads its path, string-pulled into a few
+//! corners, and the narrowest opening along it.
+//!
+//! Cells are stored quantised (about 56 bytes each). Geometry and ray casts come from haa-trace
+//! (oriented boxes, triangles, a BVH). RAA's world is an SDF: a bake could sample the SDF at the cell
+//! centres (solid test), sphere-trace it for the probes, and step it for the links.
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
 
-use haa_trace::trace::{self, ListenerTrace};
+use haa_trace::trace::{self, ListenerTrace, ReverbOptions};
 use haa_trace::{Scene, V3, v3};
 
-/// Spherical-harmonic coefficients per quantity: order 1. Order 2 cut the per-direction distance error
-/// only from 5.9 to 4.9 m RMS (openness 0.24 to 0.21) in a room with a door and cubes, and the
-/// runtime reads only the first-order vector (the enclosed side) and the mean: the reflections come
-/// from stored planes, not from the harmonics.
-pub const SH: usize = 4;
-/// Reflecting planes stored per cell (the nearest distinct surfaces seen by the 64 probes).
-pub const PLANES: usize = 6;
-/// Probe directions per cell.
+/// Probe directions per cell (planes).
 pub const DIRS: usize = 64;
-/// Distances are clamped here (m): farther walls are "far".
-pub const FAR: f64 = 30.0;
+/// Rays and bounces of the per-cell trace.
+pub const TRACE_RAYS: usize = 48;
+pub const TRACE_BOUNCES: usize = 6;
 /// A ray that hits nothing within this (m) has escaped.
 pub const ESCAPE: f64 = 60.0;
+/// Reflecting planes stored per cell.
+pub const PLANES: usize = 6;
 const BRICK: usize = 4;
-/// Floats per exported cell record: index, state, dist SH, open SH, 5 scalars, 2 edge halves, plane count, planes.
-pub const RECORD: usize = 2 + SH + SH + 5 + 2 + 1 + PLANES * 5;
+/// Floats per exported cell record: index, state, rt60, mfp, absorption, escape, energy, dir xyz,
+/// predelay, 2 edge halves, plane count, planes (normal xyz, distance, absorption).
+pub const RECORD: usize = 14 + PLANES * 5;
 
+/// A reflecting plane, quantised: octahedral normal (toward the air), distance from the cell centre
+/// (cm), absorption (/255).
+#[derive(Clone, Copy, Default)]
+pub struct Plane {
+    pub oct: [i8; 2],
+    pub dist_cm: u16,
+    pub alpha: u8,
+}
+
+/// One cell, quantised.
 #[derive(Clone, Copy, Default)]
 pub struct Cell {
     /// 0 not baked, 1 air, 2 solid.
     pub state: u8,
-    pub dist: [f32; SH],
-    pub open: [f32; SH],
-    pub rt60: f32,
-    pub mfp: f32,
-    pub volume: f32,
-    pub absorption: f32,
-    pub escape: f32,
+    pub nplanes: u8,
     /// Bit k: the segment to neighbour k (`OFFSETS`) is clear.
     pub edges: u32,
-    /// Reflecting planes: unit normal (toward the cell), offset dot(n, point on plane), absorption.
-    pub planes: [[f32; 5]; PLANES],
-    pub nplanes: u8,
+    /// rt60 (0-8.5 s), mfp (0-60 m), absorption, escape, energy (dB -80..+40), dir x y z (-1..1), predelay (0-0.25 s).
+    q: [u16; 9],
+    pub planes: [Plane; PLANES],
+}
+
+const Q_RANGES: [(f64, f64); 9] = [(0.0, 8.5), (0.0, 60.0), (0.0, 1.0), (0.0, 1.0), (-80.0, 40.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (0.0, 0.25)];
+
+fn quant(v: f64, (lo, hi): (f64, f64)) -> u16 {
+    (((v - lo) / (hi - lo)).clamp(0.0, 1.0) * 65535.0).round() as u16
+}
+fn dequant(q: u16, (lo, hi): (f64, f64)) -> f64 {
+    lo + (hi - lo) * f64::from(q) / 65535.0
+}
+
+/// Octahedral encoding of a unit vector into two i8.
+pub fn oct_encode(n: V3) -> [i8; 2] {
+    let l1 = n.x.abs() + n.y.abs() + n.z.abs();
+    let (mut x, mut y) = (n.x / l1, n.y / l1);
+    if n.z < 0.0 {
+        let (ox, oy) = (x, y);
+        x = (1.0 - oy.abs()) * ox.signum();
+        y = (1.0 - ox.abs()) * oy.signum();
+    }
+    [(x * 127.0).round() as i8, (y * 127.0).round() as i8]
+}
+
+pub fn oct_decode(o: [i8; 2]) -> V3 {
+    let (mut x, mut y) = (f64::from(o[0]) / 127.0, f64::from(o[1]) / 127.0);
+    let z = 1.0 - x.abs() - y.abs();
+    if z < 0.0 {
+        let (ox, oy) = (x, y);
+        x = (1.0 - oy.abs()) * ox.signum();
+        y = (1.0 - ox.abs()) * oy.signum();
+    }
+    v3(x, y, z).normalize()
+}
+
+impl Cell {
+    pub fn rt60(&self) -> f64 {
+        dequant(self.q[0], Q_RANGES[0])
+    }
+    pub fn mfp(&self) -> f64 {
+        dequant(self.q[1], Q_RANGES[1])
+    }
+    pub fn absorption(&self) -> f64 {
+        dequant(self.q[2], Q_RANGES[2])
+    }
+    pub fn escape(&self) -> f64 {
+        dequant(self.q[3], Q_RANGES[3])
+    }
+    /// Diffuse energy of a sound made here, back here, relative to the direct sound at 2 m (dB).
+    pub fn energy_db(&self) -> f64 {
+        dequant(self.q[4], Q_RANGES[4])
+    }
+    pub fn dir(&self) -> V3 {
+        v3(dequant(self.q[5], Q_RANGES[5]), dequant(self.q[6], Q_RANGES[6]), dequant(self.q[7], Q_RANGES[7]))
+    }
+    pub fn predelay(&self) -> f64 {
+        dequant(self.q[8], Q_RANGES[8])
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn set(&mut self, rt60: f64, mfp: f64, absorption: f64, escape: f64, energy_db: f64, dir: V3, predelay: f64) {
+        let v = [rt60, mfp, absorption, escape, energy_db, dir.x, dir.y, dir.z, predelay];
+        for k in 0..9 {
+            self.q[k] = quant(v[k], Q_RANGES[k]);
+        }
+    }
+    /// Plane `j`: normal toward the air and offset dot(n, point on the plane), for a cell centred at `c`.
+    pub fn plane(&self, j: usize, c: V3) -> (V3, f64, f64) {
+        let p = self.planes[j];
+        let n = oct_decode(p.oct);
+        (n, n.dot(c) - f64::from(p.dist_cm) / 100.0, f64::from(p.alpha) / 255.0)
+    }
 }
 
 /// The 26 neighbours of a cell.
@@ -79,6 +153,12 @@ pub const OFFSETS: [(i32, i32, i32); 26] = {
     out
 };
 
+/// Index in `OFFSETS` of a neighbour offset (each component -1, 0 or 1, not all 0).
+pub fn offset_index(d: [i32; 3]) -> usize {
+    let k = ((d[0] + 1) * 9 + (d[1] + 1) * 3 + (d[2] + 1)) as usize;
+    if k > 13 { k - 1 } else { k }
+}
+
 /// Reverb time from the energy kept per bounce and the mean free path, 0.1-8.5 s.
 pub fn rt60(decay: f64, mfp: f64) -> f64 {
     if !(decay > 0.0) {
@@ -89,17 +169,6 @@ pub fn rt60(decay: f64, mfp: f64) -> f64 {
         return 8.5;
     }
     (60.0 * mfp / (343.0 * db)).clamp(0.1, 8.5)
-}
-
-/// Real spherical harmonics of order 0 and 1 at a unit direction (Y00, Y1-1 ∝ y, Y10 ∝ z, Y11 ∝ x).
-pub fn sh9(d: V3) -> [f64; SH] {
-    [0.282_095, 0.488_603 * d.y, 0.488_603 * d.z, 0.488_603 * d.x]
-}
-
-/// Evaluate the stored SH coefficients in a direction (order 1).
-pub fn sh_eval(c: &[f32; SH], d: V3, _order: usize) -> f64 {
-    let y = sh9(d);
-    (0..SH).map(|k| f64::from(c[k]) * y[k]).sum()
 }
 
 #[derive(Clone, Copy)]
@@ -132,7 +201,7 @@ impl Grid {
         let c = self.coords(idx);
         self.origin + v3((c[0] as f64 + 0.5) * self.cell, (c[1] as f64 + 0.5) * self.cell, (c[2] as f64 + 0.5) * self.cell)
     }
-    /// The cell whose lower corner of the 8 surrounding centres is below `p` (for trilinear lookups).
+    /// The lower corner of the 8 cell centres around `p`, and the fractions (trilinear lookups).
     pub fn base(&self, p: V3) -> ([i64; 3], [f64; 3]) {
         let f = |v: f64, o: f64| (v - o) / self.cell - 0.5;
         let r = [f(p.x, self.origin.x), f(p.y, self.origin.y), f(p.z, self.origin.z)];
@@ -141,17 +210,17 @@ impl Grid {
     }
 }
 
-/// Room scalars and SH read at a point (trilinear over the baked air cells around it).
+/// What a point reads (trilinear over the baked air cells around it).
 #[derive(Clone, Copy, Default)]
 pub struct Sample {
     pub weight: f64,
-    pub dist: [f32; SH],
-    pub open: [f32; SH],
     pub rt60: f64,
     pub mfp: f64,
-    pub volume: f64,
     pub absorption: f64,
     pub escape: f64,
+    pub energy_db: f64,
+    pub dir: V3,
+    pub predelay: f64,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -197,12 +266,12 @@ pub struct Field {
     pub grid: Grid,
     bricks: HashMap<usize, Box<[Cell; BRICK * BRICK * BRICK]>>,
     dirs: Vec<V3>,
-    basis: Vec<[f64; SH]>,
     queue: Vec<u32>,
     queued_focus: Option<V3>,
     pub baked_new: Vec<u32>,
     pub baked: usize,
     trace: ListenerTrace,
+    arrivals: Vec<(f64, f64)>,
     flood_dist: Vec<f32>,
     flood_parent: Vec<i32>,
     pub flood_reached: usize,
@@ -212,19 +281,17 @@ pub struct Field {
 
 impl Field {
     pub fn new(scene: Scene, grid: Grid) -> Field {
-        let dirs = trace::sphere_directions(DIRS);
-        let basis = dirs.iter().map(|&d| sh9(d)).collect();
         Field {
             scene,
             grid,
             bricks: HashMap::new(),
-            dirs,
-            basis,
+            dirs: trace::sphere_directions(DIRS),
             queue: Vec::new(),
             queued_focus: None,
             baked_new: Vec::new(),
             baked: 0,
             trace: ListenerTrace::default(),
+            arrivals: Vec::new(),
             flood_dist: Vec::new(),
             flood_parent: Vec::new(),
             flood_reached: 0,
@@ -264,7 +331,8 @@ impl Field {
         self.bricks.len()
     }
 
-    /// Probe one cell: solid test, 64 distances and escapes, a 64 x 4 bounce trace, 26 links.
+    /// Probe one cell: solid test; 64 plane probes; a 48 x 6 trace and its next-event estimate back to
+    /// the centre (the diffuse field of a sound made here); 26 links.
     pub fn bake_cell(&mut self, idx: usize) -> Cell {
         let c = self.grid.centre(idx);
         let mut cell = Cell::default();
@@ -275,64 +343,49 @@ impl Field {
             return cell;
         }
         cell.state = 1;
-        let w = 4.0 * core::f64::consts::PI / DIRS as f64;
-        let mut dist = [0.0f64; SH];
-        let mut open = [0.0f64; SH];
         // Reflecting planes: per surface (id) and orientation, the nearest hit.
-        let mut planes: Vec<(f64, V3, f64, f64)> = Vec::new();
+        let mut planes: Vec<(f64, V3, f64)> = Vec::new();
         let mut keys: Vec<(u32, i32, i32, i32)> = Vec::new();
         for i in 0..DIRS {
             let d = self.dirs[i];
-            let hit = self.scene.cast(c, d, ESCAPE);
-            let (r, o) = match hit {
-                Some(h) => (h.toi.min(FAR), 0.0),
-                None => (FAR, 1.0),
-            };
-            for k in 0..SH {
-                dist[k] += w * r * self.basis[i][k];
-                open[k] += w * o * self.basis[i][k];
+            let Some(h) = self.scene.cast(c, d, 30.0) else { continue };
+            if h.toi <= 0.05 {
+                continue;
             }
-            if let Some(h) = hit
-                && h.toi > 0.05
-                && h.toi < FAR
-            {
-                let mut n = h.normal.normalize();
-                if n.dot(c - h.point) < 0.0 {
-                    n = -n;
+            let mut n = h.normal.normalize();
+            if n.dot(c - h.point) < 0.0 {
+                n = -n;
+            }
+            let key = (h.id, (n.x * 4.0).round() as i32, (n.y * 4.0).round() as i32, (n.z * 4.0).round() as i32);
+            let dist = n.dot(c - h.point);
+            match keys.iter().position(|k| *k == key) {
+                Some(j) => {
+                    if dist < planes[j].0 {
+                        planes[j] = (dist, n, h.absorption);
+                    }
                 }
-                let key = (h.id, (n.x * 4.0).round() as i32, (n.y * 4.0).round() as i32, (n.z * 4.0).round() as i32);
-                let plane = (h.toi, n, n.dot(h.point), h.absorption);
-                match keys.iter().position(|k| *k == key) {
-                    Some(j) => {
-                        if h.toi < planes[j].0 {
-                            planes[j] = plane;
-                        }
-                    }
-                    None => {
-                        keys.push(key);
-                        planes.push(plane);
-                    }
+                None => {
+                    keys.push(key);
+                    planes.push((dist, n, h.absorption));
                 }
             }
         }
         planes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
         for (j, pl) in planes.iter().take(PLANES).enumerate() {
-            cell.planes[j] = [pl.1.x as f32, pl.1.y as f32, pl.1.z as f32, pl.2 as f32, pl.3 as f32];
+            cell.planes[j] = Plane { oct: oct_encode(pl.1), dist_cm: (pl.0 * 100.0).clamp(0.0, 65535.0) as u16, alpha: (pl.2 * 255.0).round().clamp(0.0, 255.0) as u8 };
             cell.nplanes = (j + 1) as u8;
         }
-        for k in 0..SH {
-            cell.dist[k] = dist[k] as f32;
-            cell.open[k] = open[k] as f32;
-        }
-        trace::trace_listener(&mut self.scene, &mut self.trace, c, 64, 6, ESCAPE, 0.35);
+        trace::trace_listener(&mut self.scene, &mut self.trace, c, TRACE_RAYS, TRACE_BOUNCES, ESCAPE, 0.35);
         let sp = self.trace.space;
-        // haa-trace clamps its reverb time at 4.5 s; the large buildings ring longer (the bank goes
-        // to 8 s), so the decay is recomputed here from the energy kept per bounce.
-        cell.rt60 = rt60(sp.decay_per_bounce, sp.mean_free_path) as f32;
-        cell.mfp = sp.mean_free_path as f32;
-        cell.volume = sp.volume as f32;
-        cell.absorption = sp.absorption as f32;
-        cell.escape = sp.escape as f32;
+        // The source sits on the listener here; in play it stands 1.5 m or more away. The first
+        // bounces (the floor at 8.7 ms from 1.5 m up) and the paths under 3.4 m (a corner next to the
+        // cell) are then part of the direct sound and the taps: orders >= 2, 10 ms on (they made the
+        // doorway and 4 m outside 4-7 dB too wet).
+        let o = ReverbOptions { stride: 1, max_order: 99, reference: 2.0, max_decay: 0.985, min_delay: 0.01, first_share: 0.0 };
+        let vr = trace::voice_reverb(&mut self.scene, &self.trace, c, &o, &mut self.arrivals);
+        let energy_db = if vr.energy > 0.0 { 10.0 * vr.energy.log10() } else { -80.0 };
+        // haa-trace clamps its reverb time at 4.5 s; the large buildings ring longer.
+        cell.set(rt60(sp.decay_per_bounce, sp.mean_free_path), sp.mean_free_path, sp.absorption, sp.escape, energy_db, vr.direction, vr.predelay);
         let ci = self.grid.coords(idx);
         for (k, o) in OFFSETS.iter().enumerate() {
             if self.grid.index([ci[0] + o.0 as i64, ci[1] + o.1 as i64, ci[2] + o.2 as i64]).is_none() {
@@ -395,43 +448,61 @@ impl Field {
         n
     }
 
-    /// Trilinear read over the baked air cells around `p` (solid and unbaked cells left out).
+    /// Trilinear read over the baked air cells around `p` (solid and unbaked cells left out), and
+    /// only over those linked to the nearest one: a wall thinner than a cell (a 0.3 m wall, a
+    /// triangle shell) has air cells on both sides, and the room behind it must not leak in.
     pub fn sample(&self, p: V3) -> Sample {
         let (b, f) = self.grid.base(p);
         let mut s = Sample::default();
-        for corner in 0..8 {
+        let mut ln_rt = 0.0;
+        let mut corners: [(f64, Option<&Cell>); 8] = [(0.0, None); 8];
+        let mut near: Option<(usize, f64)> = None;
+        for (corner, slot) in corners.iter_mut().enumerate() {
             let o = [corner & 1, (corner >> 1) & 1, (corner >> 2) & 1];
             let wgt = (0..3).map(|a| if o[a] == 1 { f[a] } else { 1.0 - f[a] }).product::<f64>();
-            if wgt <= 0.0 {
-                continue;
-            }
             let Some(idx) = self.grid.index([b[0] + o[0] as i64, b[1] + o[1] as i64, b[2] + o[2] as i64]) else { continue };
             let Some(c) = self.cell(idx) else { continue };
             if c.state != 1 {
                 continue;
             }
-            s.weight += wgt;
-            for k in 0..SH {
-                s.dist[k] += (wgt * f64::from(c.dist[k])) as f32;
-                s.open[k] += (wgt * f64::from(c.open[k])) as f32;
+            *slot = (wgt, Some(c));
+            if near.is_none_or(|n| wgt > n.1) {
+                near = Some((corner, wgt));
             }
-            s.rt60 += wgt * f64::from(c.rt60).ln();
-            s.mfp += wgt * f64::from(c.mfp);
-            s.volume += wgt * f64::from(c.volume);
-            s.absorption += wgt * f64::from(c.absorption);
-            s.escape += wgt * f64::from(c.escape);
+        }
+        let Some((n, _)) = near else { return s };
+        let edges = corners[n].1.map_or(0, |c| c.edges);
+        let on = [n & 1, (n >> 1) & 1, (n >> 2) & 1];
+        for (corner, &(wgt, c)) in corners.iter().enumerate() {
+            let Some(c) = c else { continue };
+            if wgt <= 0.0 {
+                continue;
+            }
+            if corner != n {
+                let o = [corner & 1, (corner >> 1) & 1, (corner >> 2) & 1];
+                let d = [o[0] as i32 - on[0] as i32, o[1] as i32 - on[1] as i32, o[2] as i32 - on[2] as i32];
+                if edges & (1 << offset_index(d)) == 0 {
+                    continue;
+                }
+            }
+            s.weight += wgt;
+            ln_rt += wgt * c.rt60().max(0.05).ln();
+            s.mfp += wgt * c.mfp();
+            s.absorption += wgt * c.absorption();
+            s.escape += wgt * c.escape();
+            s.energy_db += wgt * c.energy_db();
+            s.dir = s.dir + c.dir() * wgt;
+            s.predelay += wgt * c.predelay();
         }
         if s.weight > 0.0 {
             let k = 1.0 / s.weight;
-            for i in 0..SH {
-                s.dist[i] = (f64::from(s.dist[i]) * k) as f32;
-                s.open[i] = (f64::from(s.open[i]) * k) as f32;
-            }
-            s.rt60 = (s.rt60 * k).exp();
+            s.rt60 = (ln_rt * k).exp();
             s.mfp *= k;
-            s.volume *= k;
             s.absorption *= k;
             s.escape *= k;
+            s.energy_db *= k;
+            s.dir = s.dir * k;
+            s.predelay *= k;
         }
         s
     }
@@ -460,7 +531,7 @@ impl Field {
         out
     }
 
-    /// Flood from the listener: shortest distance through the links to every baked air cell.
+    /// Flood from the listener: shortest distance through the links to every baked air cell within `max`.
     pub fn flood(&mut self, l: V3, max: f64) -> usize {
         let n = self.grid.len();
         self.flood_dist.clear();
@@ -479,8 +550,6 @@ impl Field {
             if d > self.flood_dist[i] {
                 continue;
             }
-            // Beyond the reach no source is heard through the field: stop there (a full flood of the
-            // 50 000 cells of a 1 m grid took 41 ms on the main thread).
             if f64::from(d) > max {
                 break;
             }
@@ -509,8 +578,8 @@ impl Field {
     }
 
     /// The path from the listener to a source through the flooded field, string-pulled into
-    /// straight legs (each leg checked by one ray), its excess over the straight line and its first
-    /// corner (where the sound arrives from).
+    /// straight legs (each leg checked by one ray), its excess, its first corner and, on request, the
+    /// narrowest opening along it.
     pub fn path(&mut self, s: V3, l: V3, want_aperture: bool) -> PathResult {
         let direct = (s - l).length();
         let mut r = PathResult { via: s, length: direct, lattice: direct, ..Default::default() };
@@ -533,7 +602,6 @@ impl Field {
             }
         }
         let Some((start, total)) = best else { return r };
-        // Points from the source back to the listener.
         self.path_pts.clear();
         self.path_pts.push(s);
         let mut i = start as i32;
@@ -545,7 +613,6 @@ impl Field {
         }
         self.path_pts.push(l);
         self.path_pts.reverse();
-        // String-pull from the listener: keep the farthest point the current corner sees.
         let pts = std::mem::take(&mut self.path_pts);
         let mut pulled = std::mem::take(&mut self.pulled);
         pulled.clear();
@@ -559,7 +626,6 @@ impl Field {
             if !self.clear(cur, pts[j]) {
                 let corner = pts[j - 1];
                 if (corner - cur).length() < 1e-9 {
-                    // Not even the next lattice point is visible from here: take it anyway.
                     len += (pts[j] - cur).length();
                     cur = pts[j];
                     j += 1;
@@ -592,10 +658,8 @@ impl Field {
         r
     }
 
-    /// Free cross-section at `p`: the narrowest of 4 horizontal chords through it (0, 45, 90, 135
-    /// degrees) times the vertical chord; 10 casts of at most 10 m. In a doorway the chord along the
-    /// door's plane is the door's width; across a room, the room's.
-    fn section(&mut self, p: V3, _d: V3) -> f64 {
+    /// Free cross-section at `p`: the narrowest of 4 horizontal chords through it times the vertical chord.
+    fn section(&mut self, p: V3) -> f64 {
         let mut reach = |dir: V3| self.scene.cast(p, dir, 10.0).map_or(10.0, |h| h.toi);
         let h = reach(v3(0.0, 1.0, 0.0)) + reach(v3(0.0, -1.0, 0.0));
         let mut w = f64::INFINITY;
@@ -607,10 +671,8 @@ impl Field {
         w * h
     }
 
-    /// The narrowest cross-section along a polyline, and at its two ends. A wall with a door is
-    /// 0.2-0.4 m thick, so the line is scanned every 0.25 m with the vertical chord only (2 casts:
-    /// a lintel lowers it), then the full section (10 casts) is taken at the 3 lowest points and at
-    /// the corners of the polyline (the edges the path bends around).
+    /// The narrowest cross-section along a polyline: the vertical chord every 0.25 m (a lintel lowers
+    /// it), then the full section at the 3 lowest points and at the corners; and at the two ends.
     pub fn aperture(&mut self, pts: &[V3]) -> Aperture {
         let mut ap = Aperture { area: f64::INFINITY, ..Default::default() };
         if pts.len() < 2 {
@@ -636,22 +698,22 @@ impl Field {
         let mut probe: Vec<V3> = scan.iter().take(3).map(|x| x.1).collect();
         probe.extend_from_slice(&pts[1..pts.len() - 1]);
         for p in probe {
-            let a = self.section(p, v3(1.0, 0.0, 0.0));
+            let a = self.section(p);
             if a < ap.area {
                 ap.area = a;
                 ap.point = p;
             }
         }
         let n = pts.len();
-        ap.at_listener = self.section(pts[0], v3(1.0, 0.0, 0.0));
-        ap.at_source = self.section(pts[n - 1], v3(1.0, 0.0, 0.0));
+        ap.at_listener = self.section(pts[0]);
+        ap.at_source = self.section(pts[n - 1]);
         ap
     }
 
-    /// The reflecting planes of the air cell nearest `p` among the 8 around it.
-    pub fn planes_at(&self, p: V3) -> Option<&Cell> {
+    /// The air cell nearest `p` among the 8 around it, with its centre.
+    pub fn nearest(&self, p: V3) -> Option<(&Cell, V3)> {
         let (b, _) = self.grid.base(p);
-        let mut best: Option<(f64, &Cell)> = None;
+        let mut best: Option<(f64, &Cell, V3)> = None;
         for corner in 0..8 {
             let o = [corner & 1, (corner >> 1) & 1, (corner >> 2) & 1];
             let Some(idx) = self.grid.index([b[0] + o[0] as i64, b[1] + o[1] as i64, b[2] + o[2] as i64]) else { continue };
@@ -659,12 +721,13 @@ impl Field {
             if c.state != 1 {
                 continue;
             }
-            let d = (self.grid.centre(idx) - p).length();
+            let centre = self.grid.centre(idx);
+            let d = (centre - p).length();
             if best.is_none_or(|x| d < x.0) {
-                best = Some((d, c));
+                best = Some((d, c, centre));
             }
         }
-        best.map(|x| x.1)
+        best.map(|x| (x.1, x.2))
     }
 
     /// The flood as flat arrays (distance, parent as f32) for another instance of the same grid.
@@ -685,49 +748,94 @@ impl Field {
         self.flood_parent.extend(data[n..2 * n].iter().map(|&p| p as i32));
     }
 
-    /// Flooded distance at a cell (debug).
     pub fn flood_at(&self, idx: usize) -> f32 {
         self.flood_dist.get(idx).copied().unwrap_or(f32::INFINITY)
     }
 
     pub fn record(&self, idx: usize, out: &mut Vec<f32>) {
         let Some(c) = self.cell(idx) else { return };
-        out.push(idx as f32);
-        out.push(f32::from(c.state));
-        out.extend_from_slice(&c.dist);
-        out.extend_from_slice(&c.open);
-        out.extend_from_slice(&[c.rt60, c.mfp, c.volume, c.absorption, c.escape]);
+        let d = c.dir();
+        out.extend_from_slice(&[idx as f32, f32::from(c.state), c.rt60() as f32, c.mfp() as f32, c.absorption() as f32, c.escape() as f32, c.energy_db() as f32, d.x as f32, d.y as f32, d.z as f32, c.predelay() as f32]);
         out.push((c.edges & 0xffff) as f32);
         out.push((c.edges >> 16) as f32);
         out.push(f32::from(c.nplanes));
-        for pl in &c.planes {
-            out.extend_from_slice(pl);
+        for p in &c.planes {
+            let n = oct_decode(p.oct);
+            out.extend_from_slice(&[n.x as f32, n.y as f32, n.z as f32, f32::from(p.dist_cm) / 100.0, f32::from(p.alpha) / 255.0]);
         }
     }
 
     pub fn ingest(&mut self, r: &[f32]) {
         for rec in r.chunks_exact(RECORD) {
             let mut c = Cell { state: rec[1] as u8, ..Default::default() };
-            let mut k = 2;
-            c.dist.copy_from_slice(&rec[k..k + SH]);
-            k += SH;
-            c.open.copy_from_slice(&rec[k..k + SH]);
-            k += SH;
-            c.rt60 = rec[k];
-            c.mfp = rec[k + 1];
-            c.volume = rec[k + 2];
-            c.absorption = rec[k + 3];
-            c.escape = rec[k + 4];
-            k += 5;
-            c.edges = (rec[k] as u32) | ((rec[k + 1] as u32) << 16);
-            k += 2;
-            c.nplanes = rec[k] as u8;
-            k += 1;
+            let f = |i: usize| f64::from(rec[i]);
+            c.set(f(2), f(3), f(4), f(5), f(6), v3(f(7), f(8), f(9)), f(10));
+            c.edges = (rec[11] as u32) | ((rec[12] as u32) << 16);
+            c.nplanes = rec[13] as u8;
             for j in 0..PLANES {
-                c.planes[j].copy_from_slice(&rec[k + j * 5..k + j * 5 + 5]);
+                let k = 14 + j * 5;
+                c.planes[j] = Plane { oct: oct_encode(v3(f(k), f(k + 1), f(k + 2))), dist_cm: (f(k + 3) * 100.0).round().clamp(0.0, 65535.0) as u16, alpha: (f(k + 4) * 255.0).round() as u8 };
             }
             self.set_cell(rec[0] as usize, c);
         }
+    }
+
+    /// Every baked cell as bytes (to persist a bake, or hand it to another instance of the grid):
+    /// index u32, state u8, and for air nplanes u8, edges u32, 9 u16, 6 planes of 5 bytes (little endian).
+    pub fn pack(&self, out: &mut Vec<u8>) {
+        out.clear();
+        for i in 0..self.grid.len() {
+            let Some(c) = self.cell(i) else { continue };
+            out.extend_from_slice(&(i as u32).to_le_bytes());
+            out.push(c.state);
+            if c.state != 1 {
+                continue;
+            }
+            out.push(c.nplanes);
+            out.extend_from_slice(&c.edges.to_le_bytes());
+            for q in c.q {
+                out.extend_from_slice(&q.to_le_bytes());
+            }
+            for p in &c.planes {
+                out.extend_from_slice(&[p.oct[0] as u8, p.oct[1] as u8]);
+                out.extend_from_slice(&p.dist_cm.to_le_bytes());
+                out.push(p.alpha);
+            }
+        }
+    }
+
+    /// Cells from ; returns how many (stops at the first malformed one).
+    pub fn unpack(&mut self, b: &[u8]) -> usize {
+        let mut k = 0;
+        let mut n = 0;
+        let u16at = |b: &[u8], k: usize| u16::from_le_bytes([b[k], b[k + 1]]);
+        while k + 5 <= b.len() {
+            let idx = u32::from_le_bytes([b[k], b[k + 1], b[k + 2], b[k + 3]]) as usize;
+            let mut c = Cell { state: b[k + 4], ..Default::default() };
+            k += 5;
+            if idx >= self.grid.len() {
+                break;
+            }
+            if c.state == 1 {
+                if k + 53 > b.len() {
+                    break;
+                }
+                c.nplanes = b[k];
+                c.edges = u32::from_le_bytes([b[k + 1], b[k + 2], b[k + 3], b[k + 4]]);
+                k += 5;
+                for q in 0..9 {
+                    c.q[q] = u16at(b, k);
+                    k += 2;
+                }
+                for p in 0..PLANES {
+                    c.planes[p] = Plane { oct: [b[k] as i8, b[k + 1] as i8], dist_cm: u16at(b, k + 2), alpha: b[k + 4] };
+                    k += 5;
+                }
+            }
+            self.set_cell(idx, c);
+            n += 1;
+        }
+        n
     }
 }
 
@@ -745,13 +853,153 @@ mod abi {
         tris: Vec<f32>,
         out: Vec<f64>,
         records: Vec<f32>,
+        bytes: Vec<u8>,
     }
 
     thread_local! {
-        static STATE: RefCell<State> = RefCell::new(State { field: None, input: Vec::new(), boxes: Vec::new(), tris: Vec::new(), out: vec![0.0; 64], records: Vec::new() });
+        static STATE: RefCell<State> = RefCell::new(State { field: None, input: Vec::new(), boxes: Vec::new(), tris: Vec::new(), out: vec![0.0; 64], records: Vec::new(), bytes: Vec::new() });
     }
 
-    /// The flood (distance then parent, one f32 each per cell) into `field_records`; returns the floats.
+    fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
+        STATE.with(|s| f(&mut s.borrow_mut()))
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_alloc(floats: u32) -> u32 {
+        with(|s| {
+            s.input.clear();
+            s.input.resize(floats as usize, 0.0);
+            s.input.as_mut_ptr() as u32
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_out() -> u32 {
+        with(|s| s.out.as_mut_ptr() as u32)
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_records() -> u32 {
+        with(|s| s.records.as_ptr() as u32)
+    }
+
+    /// Scene from the scratch area; `rebuild` 0 only stores it for the next `field_grid`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_scene(n_boxes: u32, n_tris: u32, rebuild: u32) {
+        with(|s| {
+            let nb = n_boxes as usize * haa_trace::geom::BOX_STRIDE;
+            let nt = n_tris as usize * haa_trace::geom::TRI_STRIDE;
+            s.boxes = s.input[..nb.min(s.input.len())].to_vec();
+            s.tris = s.input[nb.min(s.input.len())..(nb + nt).min(s.input.len())].to_vec();
+            if rebuild != 0
+                && let Some(f) = s.field.as_mut()
+            {
+                f.scene = Scene::new(&s.boxes, &s.tris);
+            }
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_grid(ox: f64, oy: f64, oz: f64, cell: f64, nx: u32, ny: u32, nz: u32) {
+        with(|s| {
+            let scene = Scene::new(&s.boxes, &s.tris);
+            s.field = Some(Field::new(scene, Grid { origin: v3(ox, oy, oz), cell, n: [nx as usize, ny as usize, nz as usize] }));
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_bake(budget: u32, fx: f64, fy: f64, fz: f64) -> u32 {
+        with(|s| s.field.as_mut().map_or(0, |f| f.bake(budget as usize, v3(fx, fy, fz)) as u32))
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_take() -> u32 {
+        with(|s| {
+            let State { field, records, .. } = s;
+            records.clear();
+            let Some(f) = field.as_mut() else { return 0 };
+            let list = std::mem::take(&mut f.baked_new);
+            for &i in &list {
+                f.record(i as usize, records);
+            }
+            (records.len() / RECORD) as u32
+        })
+    }
+
+    /// Pack every baked cell into the byte area; returns its length ( points at it).
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_pack() -> u32 {
+        with(|s| {
+            let State { field, bytes, .. } = s;
+            let Some(f) = field.as_ref() else { return 0 };
+            f.pack(bytes);
+            bytes.len() as u32
+        })
+    }
+
+    /// A byte area of  bytes (for ).
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_alloc_bytes(n: u32) -> u32 {
+        with(|s| {
+            s.bytes.clear();
+            s.bytes.resize(n as usize, 0);
+            s.bytes.as_mut_ptr() as u32
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_bytes() -> u32 {
+        with(|s| s.bytes.as_ptr() as u32)
+    }
+
+    /// Cells from the byte area ( of the same grid); returns how many.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_unpack(n: u32) -> u32 {
+        with(|s| {
+            let State { field, bytes, .. } = s;
+            let Some(f) = field.as_mut() else { return 0 };
+            let end = (n as usize).min(bytes.len());
+            f.unpack(&bytes[..end]) as u32
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_ingest(n: u32) {
+        with(|s| {
+            let State { field, input, .. } = s;
+            if let Some(f) = field.as_mut() {
+                let end = (n as usize * RECORD).min(input.len());
+                f.ingest(&input[..end]);
+            }
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_dirty(lx: f64, ly: f64, lz: f64, hx: f64, hy: f64, hz: f64) -> u32 {
+        with(|s| s.field.as_mut().map_or(0, |f| f.dirty(v3(lx, ly, lz), v3(hx, hy, hz)) as u32))
+    }
+
+    /// out = [weight, rt60, mfp, absorption, escape, energy dB, dir x y z, predelay].
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_sample(x: f64, y: f64, z: f64) {
+        with(|s| {
+            let State { field, out, .. } = s;
+            let Some(f) = field.as_ref() else { return };
+            let p = f.sample(v3(x, y, z));
+            out[..10].copy_from_slice(&[p.weight, p.rt60, p.mfp, p.absorption, p.escape, p.energy_db, p.dir.x, p.dir.y, p.dir.z, p.predelay]);
+        })
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_clear(ax: f64, ay: f64, az: f64, bx: f64, by: f64, bz: f64) -> u32 {
+        with(|s| s.field.as_mut().map_or(1, |f| u32::from(f.clear(v3(ax, ay, az), v3(bx, by, bz)))))
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn field_flood(x: f64, y: f64, z: f64, max: f64) -> u32 {
+        with(|s| s.field.as_mut().map_or(0, |f| f.flood(v3(x, y, z), max) as u32))
+    }
+
     #[unsafe(no_mangle)]
     pub extern "C" fn field_flood_export() -> u32 {
         with(|s| {
@@ -762,7 +1010,6 @@ mod abi {
         })
     }
 
-    /// A flood computed elsewhere (the worker), from the scratch area.
     #[unsafe(no_mangle)]
     pub extern "C" fn field_flood_import(floats: u32) {
         with(|s| {
@@ -781,134 +1028,13 @@ mod abi {
             let State { field, out, .. } = s;
             out[0] = 0.0;
             let Some(f) = field.as_ref() else { return };
-            let Some(c) = f.planes_at(v3(x, y, z)) else { return };
+            let Some((c, centre)) = f.nearest(v3(x, y, z)) else { return };
             out[0] = f64::from(c.nplanes);
             for j in 0..c.nplanes as usize {
-                for k in 0..5 {
-                    out[1 + j * 5 + k] = f64::from(c.planes[j][k]);
-                }
+                let (n, offset, alpha) = c.plane(j, centre);
+                out[1 + j * 5..1 + j * 5 + 5].copy_from_slice(&[n.x, n.y, n.z, offset, alpha]);
             }
         })
-    }
-
-    fn with<R>(f: impl FnOnce(&mut State) -> R) -> R {
-        STATE.with(|s| f(&mut s.borrow_mut()))
-    }
-
-    /// Scratch area of `floats` f32 (scene records or cell records); valid until the next call.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_alloc(floats: u32) -> u32 {
-        with(|s| {
-            s.input.clear();
-            s.input.resize(floats as usize, 0.0);
-            s.input.as_mut_ptr() as u32
-        })
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_out() -> u32 {
-        with(|s| s.out.as_mut_ptr() as u32)
-    }
-
-    /// Pointer to the records written by the last `field_take` / `field_debug`.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_records() -> u32 {
-        with(|s| s.records.as_ptr() as u32)
-    }
-
-    /// Scene from the scratch area (haa-trace box and triangle records). `rebuild` 0 only stores it
-    /// for the next `field_grid` (one BVH build instead of two for a new level).
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_scene(n_boxes: u32, n_tris: u32, rebuild: u32) {
-        with(|s| {
-            let nb = n_boxes as usize * haa_trace::geom::BOX_STRIDE;
-            let nt = n_tris as usize * haa_trace::geom::TRI_STRIDE;
-            s.boxes = s.input[..nb.min(s.input.len())].to_vec();
-            s.tris = s.input[nb.min(s.input.len())..(nb + nt).min(s.input.len())].to_vec();
-            if rebuild != 0
-                && let Some(f) = s.field.as_mut()
-            {
-                f.scene = Scene::new(&s.boxes, &s.tris);
-            }
-        })
-    }
-
-    /// The grid (after `field_scene`): origin, cell size, cell counts. Forgets every baked cell.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_grid(ox: f64, oy: f64, oz: f64, cell: f64, nx: u32, ny: u32, nz: u32) {
-        with(|s| {
-            let scene = Scene::new(&s.boxes, &s.tris);
-            s.field = Some(Field::new(scene, Grid { origin: v3(ox, oy, oz), cell, n: [nx as usize, ny as usize, nz as usize] }));
-        })
-    }
-
-    /// Bake up to `budget` cells nearest to the focus; returns the cells left.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_bake(budget: u32, fx: f64, fy: f64, fz: f64) -> u32 {
-        with(|s| s.field.as_mut().map_or(0, |f| f.bake(budget as usize, v3(fx, fy, fz)) as u32))
-    }
-
-    /// Records of the cells baked since the last call (`RECORD` floats each); returns their count.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_take() -> u32 {
-        with(|s| {
-            let State { field, records, .. } = s;
-            records.clear();
-            let Some(f) = field.as_mut() else { return 0 };
-            let list = std::mem::take(&mut f.baked_new);
-            for &i in &list {
-                f.record(i as usize, records);
-            }
-            (records.len() / RECORD) as u32
-        })
-    }
-
-    /// Cell records from the scratch area (a copy baked elsewhere).
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_ingest(n: u32) {
-        with(|s| {
-            let State { field, input, .. } = s;
-            if let Some(f) = field.as_mut() {
-                let end = (n as usize * RECORD).min(input.len());
-                f.ingest(&input[..end]);
-            }
-        })
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_dirty(lx: f64, ly: f64, lz: f64, hx: f64, hy: f64, hz: f64) -> u32 {
-        with(|s| s.field.as_mut().map_or(0, |f| f.dirty(v3(lx, ly, lz), v3(hx, hy, hz)) as u32))
-    }
-
-    /// out = [weight, rt60, mfp, volume, absorption, escape, dist sh, open sh] (SH coefficients each).
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_sample(x: f64, y: f64, z: f64) {
-        with(|s| {
-            let State { field, out, .. } = s;
-            let Some(f) = field.as_ref() else { return };
-            let p = f.sample(v3(x, y, z));
-            out[0] = p.weight;
-            out[1] = p.rt60;
-            out[2] = p.mfp;
-            out[3] = p.volume;
-            out[4] = p.absorption;
-            out[5] = p.escape;
-            for k in 0..SH {
-                out[6 + k] = f64::from(p.dist[k]);
-                out[6 + SH + k] = f64::from(p.open[k]);
-            }
-        })
-    }
-
-    /// 1 when the segment a-b crosses no geometry (one ray; the bounce points of the reflections).
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_clear(ax: f64, ay: f64, az: f64, bx: f64, by: f64, bz: f64) -> u32 {
-        with(|s| s.field.as_mut().map_or(1, |f| u32::from(f.clear(v3(ax, ay, az), v3(bx, by, bz)))))
-    }
-
-    #[unsafe(no_mangle)]
-    pub extern "C" fn field_flood(x: f64, y: f64, z: f64, max: f64) -> u32 {
-        with(|s| s.field.as_mut().map_or(0, |f| f.flood(v3(x, y, z), max) as u32))
     }
 
     /// out = [found, visible, lattice, length, excess, via x, y, z, corners, aperture area, its point x y z, section at listener, at source].
@@ -918,25 +1044,15 @@ mod abi {
             let State { field, out, .. } = s;
             let Some(f) = field.as_mut() else { return };
             let r = f.path(v3(sx, sy, sz), v3(lx, ly, lz), want_aperture != 0);
-            out[0] = f64::from(u8::from(r.found));
-            out[1] = f64::from(u8::from(r.visible));
-            out[2] = r.lattice;
-            out[3] = r.length;
-            out[4] = r.excess;
-            out[5] = r.via.x;
-            out[6] = r.via.y;
-            out[7] = r.via.z;
-            out[8] = r.corners as f64;
-            out[9] = r.aperture.area;
-            out[10] = r.aperture.point.x;
-            out[11] = r.aperture.point.y;
-            out[12] = r.aperture.point.z;
-            out[13] = r.aperture.at_listener;
-            out[14] = r.aperture.at_source;
+            let a = r.aperture;
+            out[..15].copy_from_slice(&[
+                f64::from(u8::from(r.found)), f64::from(u8::from(r.visible)), r.lattice, r.length, r.excess,
+                r.via.x, r.via.y, r.via.z, r.corners as f64, a.area, a.point.x, a.point.y, a.point.z, a.at_listener, a.at_source,
+            ]);
         })
     }
 
-    /// Debug: per baked air cell [x, y, z, escape, rt60, flooded distance, up openness, dist mean]; returns the count.
+    /// Debug: per baked air cell [x, y, z, escape, rt60, flooded distance, energy dB, plane count]; returns the count.
     #[unsafe(no_mangle)]
     pub extern "C" fn field_debug() -> u32 {
         with(|s| {
@@ -950,8 +1066,7 @@ mod abi {
                     continue;
                 }
                 let p = f.grid.centre(i);
-                let up = sh_eval(&c.open, v3(0.0, 1.0, 0.0), 2);
-                records.extend_from_slice(&[p.x as f32, p.y as f32, p.z as f32, c.escape, c.rt60, f.flood_at(i), up as f32, f32::from(c.nplanes)]);
+                records.extend_from_slice(&[p.x as f32, p.y as f32, p.z as f32, c.escape() as f32, c.rt60() as f32, f.flood_at(i), c.energy_db() as f32, f32::from(c.nplanes)]);
                 n += 1;
             }
             n
@@ -964,11 +1079,7 @@ mod abi {
         with(|s| {
             let State { field, out, .. } = s;
             let Some(f) = field.as_ref() else { return };
-            out[0] = f.baked as f64;
-            out[1] = f.bricks() as f64;
-            out[2] = f.bytes() as f64;
-            out[3] = f.flood_reached as f64;
-            out[4] = f.scene.casts as f64;
+            out[..5].copy_from_slice(&[f.baked as f64, f.bricks() as f64, f.bytes() as f64, f.flood_reached as f64, f.scene.casts as f64]);
         })
     }
 }
@@ -977,18 +1088,21 @@ mod abi {
 mod tests {
     use super::*;
 
+    fn boxed(b: &mut Vec<f32>, c: [f32; 3], h: [f32; 3], id: f32) {
+        b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.05, id]);
+    }
+
     /// A 10 x 10 x 4 m box room (walls 0.3 m), a 2 m door in its +x wall, open ground y < 0.
     fn room() -> Scene {
         let mut b: Vec<f32> = Vec::new();
-        let mut boxed = |c: [f32; 3], h: [f32; 3], id: f32| b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.05, id]);
-        boxed([0.0, -0.5, 0.0], [40.0, 0.5, 40.0], 0.0);
-        boxed([0.0, 4.15, 0.0], [5.3, 0.15, 5.3], 1.0);
-        boxed([-5.15, 2.0, 0.0], [0.15, 2.0, 5.3], 2.0);
-        boxed([0.0, 2.0, -5.15], [5.3, 2.0, 0.15], 3.0);
-        boxed([0.0, 2.0, 5.15], [5.3, 2.0, 0.15], 4.0);
-        boxed([5.15, 2.0, -3.0], [0.15, 2.0, 2.0], 5.0);
-        boxed([5.15, 2.0, 3.0], [0.15, 2.0, 2.0], 6.0);
-        boxed([5.15, 3.0, 0.0], [0.15, 1.0, 1.0], 7.0);
+        boxed(&mut b, [0.0, -0.5, 0.0], [40.0, 0.5, 40.0], 0.0);
+        boxed(&mut b, [0.0, 4.15, 0.0], [5.3, 0.15, 5.3], 1.0);
+        boxed(&mut b, [-5.15, 2.0, 0.0], [0.15, 2.0, 5.3], 2.0);
+        boxed(&mut b, [0.0, 2.0, -5.15], [5.3, 2.0, 0.15], 3.0);
+        boxed(&mut b, [0.0, 2.0, 5.15], [5.3, 2.0, 0.15], 4.0);
+        boxed(&mut b, [5.15, 2.0, -3.0], [0.15, 2.0, 2.0], 5.0);
+        boxed(&mut b, [5.15, 2.0, 3.0], [0.15, 2.0, 2.0], 6.0);
+        boxed(&mut b, [5.15, 3.0, 0.0], [0.15, 1.0, 1.0], 7.0);
         Scene::new(&b, &[])
     }
 
@@ -997,25 +1111,64 @@ mod tests {
         let grid = Grid { origin: v3(-8.0, 0.0, -8.0), cell: 1.0, n: [20, 4, 16] };
         let mut f = Field::new(room(), grid);
         while f.bake(500, v3(0.0, 1.5, 0.0)) > 0 {}
-        // Inside: enclosed, a long decay; outside: open sky.
         let inside = f.sample(v3(0.0, 1.5, 0.0));
         let outside = f.sample(v3(9.0, 1.5, 0.0));
         assert!(inside.weight > 0.9 && inside.escape < 0.1, "inside escape {}", inside.escape);
         assert!(outside.escape > 0.3, "outside escape {}", outside.escape);
         assert!(inside.rt60 > outside.rt60 * 2.0, "rt60 {} vs {}", inside.rt60, outside.rt60);
-        // The wall at -x (x = -5) is among the stored planes of the centre cell.
-        let cell = f.planes_at(v3(0.0, 1.5, 0.0)).unwrap();
-        let wall = (0..cell.nplanes as usize).map(|j| cell.planes[j]).find(|p| p[0] > 0.9);
-        assert!(wall.is_some_and(|p| (f64::from(p[3]) + 5.0).abs() < 0.05), "planes {:?}", &cell.planes[..cell.nplanes as usize]);
-        // A source inside behind the +x wall, the listener outside off the door: the sound goes
-        // around through the door, a few metres longer than the straight line.
+        // The traced diffuse field is much stronger inside than outside.
+        assert!(inside.energy_db > outside.energy_db + 10.0, "energy {} vs {}", inside.energy_db, outside.energy_db);
+        // The wall at -x (x = -5) is among the stored planes of the centre cell (within the quantisation).
+        let (cell, centre) = f.nearest(v3(0.0, 1.5, 0.0)).unwrap();
+        let wall = (0..cell.nplanes as usize).map(|j| cell.plane(j, centre)).find(|p| p.0.x > 0.9);
+        assert!(wall.is_some_and(|p| (p.1 + 5.0).abs() < 0.05), "no -x wall plane");
+        // A packed bake read back into a fresh field gives the same samples.
+        let mut bytes = Vec::new();
+        f.pack(&mut bytes);
+        let mut g = Field::new(room(), grid);
+        assert_eq!(g.unpack(&bytes), f.baked);
+        let again = g.sample(v3(0.0, 1.5, 0.0));
+        assert!((again.energy_db - inside.energy_db).abs() < 1e-9 && (again.rt60 - inside.rt60).abs() < 1e-9);
         let l = v3(8.0, 1.5, -4.0);
         f.flood(l, 100.0);
         let p = f.path(v3(3.0, 1.5, -3.5), l, true);
         assert!(p.found && !p.visible, "found {} visible {}", p.found, p.visible);
         assert!(p.excess > 0.5 && p.excess < 6.0, "excess {}", p.excess);
         assert!(p.via.z > -1.6 && p.via.z < 1.6, "arrives through the door: via {:?}", (p.via.x, p.via.y, p.via.z));
-        // The narrowest section on the way is the 2 x 3 m door.
         assert!(p.aperture.area > 3.0 && p.aperture.area < 9.0 && (p.aperture.point.x - 5.15).abs() < 1.0, "aperture {} at {:?}", p.aperture.area, (p.aperture.point.x, p.aperture.point.z));
+    }
+
+    #[test]
+    fn a_room_made_of_triangles_is_a_room() {
+        // A closed 8 x 3 x 6 m room of 12 triangles (no boxes but the ground under it).
+        let (lo, hi) = ([-4.0f32, 0.0, -3.0], [4.0f32, 3.0, 3.0]);
+        let c = |i: usize| [if i & 1 == 0 { lo[0] } else { hi[0] }, if i & 2 == 0 { lo[1] } else { hi[1] }, if i & 4 == 0 { lo[2] } else { hi[2] }];
+        let quads = [[0, 1, 3, 2], [4, 6, 7, 5], [0, 4, 5, 1], [2, 3, 7, 6], [0, 2, 6, 4], [1, 5, 7, 3]];
+        let mut t: Vec<f32> = Vec::new();
+        for (id, q) in quads.iter().enumerate() {
+            for tri in [[q[0], q[1], q[2]], [q[0], q[2], q[3]]] {
+                for v in tri {
+                    t.extend_from_slice(&c(v));
+                }
+                t.extend_from_slice(&[0.05, id as f32]);
+            }
+        }
+        let grid = Grid { origin: v3(-5.0, 0.0, -4.0), cell: 1.0, n: [10, 3, 8] };
+        let mut f = Field::new(Scene::new(&[], &t), grid);
+        while f.bake(500, v3(0.0, 1.5, 0.0)) > 0 {}
+        let s = f.sample(v3(0.0, 1.5, 0.0));
+        assert!(s.weight > 0.9 && s.escape < 0.05 && s.rt60 > 1.0, "escape {} rt60 {}", s.escape, s.rt60);
+        // 6 walls seen from the middle: the planes are the triangles' (the +x wall 4 m away).
+        let (cell, centre) = f.nearest(v3(0.0, 1.5, 0.0)).unwrap();
+        assert!(cell.nplanes >= 5, "planes {}", cell.nplanes);
+        let px = (0..cell.nplanes as usize).map(|j| cell.plane(j, centre)).find(|p| p.0.x < -0.9);
+        assert!(px.is_some_and(|p| (p.1 + 4.0).abs() < 0.1), "no +x wall plane");
+        // The shell has no thickness: air cells on both sides. Next to the wall inside, the open
+        // cells outside (half a cell away) must not leak into the read.
+        for (k, o) in OFFSETS.iter().enumerate() {
+            assert_eq!(offset_index([o.0, o.1, o.2]), k);
+        }
+        let wall = f.sample(v3(-3.9, 1.5, 0.3));
+        assert!(wall.escape < 0.05 && wall.rt60 > 1.0, "next to the shell: escape {} rt60 {}", wall.escape, wall.rt60);
     }
 }

@@ -9,12 +9,10 @@ import { v3 } from './acoustics.ts';
 export const BOX_STRIDE = 12;
 /** Floats per triangle: three vertices (9), absorption, surface id. */
 export const TRI_STRIDE = 11;
-/** Spherical-harmonic coefficients per quantity (order 1: Y00, Y1-1 ∝ y, Y10 ∝ z, Y11 ∝ x). */
-export const FIELD_SH = 4;
 /** Reflecting planes stored per cell. */
 export const FIELD_PLANES = 6;
 /** Floats per baked cell record (crates/haa-field `RECORD`). */
-export const FIELD_RECORD = 2 + FIELD_SH + FIELD_SH + 5 + 2 + 1 + FIELD_PLANES * 5;
+export const FIELD_RECORD = 14 + FIELD_PLANES * 5;
 
 /** The static level as the field reads it: oriented boxes and triangles with their Sabine α. */
 export interface SfxGeometry {
@@ -107,17 +105,24 @@ interface FieldExports {
   field_flood_import(floats: number): void;
   field_debug(): number;
   field_stats(): void;
+  field_pack(): number;
+  field_alloc_bytes(n: number): number;
+  field_bytes(): number;
+  field_unpack(n: number): number;
 }
 
 export interface FieldSample {
   weight: number;
   rt60: number;
   mfp: number;
-  volume: number;
   absorption: number;
   escape: number;
-  dist: Float64Array;
-  open: Float64Array;
+  /** The traced diffuse field of a sound made here, back here, relative to the direct sound at 2 m (dB). */
+  energyDb: number;
+  /** Where that field arrives from (energy-weighted mean direction; its length is how directional). */
+  dir: Vec3;
+  /** Its onset after the direct sound (s). */
+  predelay: number;
 }
 
 export interface FieldPath {
@@ -192,8 +197,8 @@ export class FieldWasm {
 
   sample(p: Vec3): FieldSample {
     this.x.field_sample(p.x, p.y, p.z);
-    const o = this.out(6 + 2 * FIELD_SH);
-    return { weight: o[0], rt60: o[1], mfp: o[2], volume: o[3], absorption: o[4], escape: o[5], dist: o.slice(6, 6 + FIELD_SH), open: o.slice(6 + FIELD_SH, 6 + 2 * FIELD_SH) };
+    const o = this.out(10);
+    return { weight: o[0], rt60: o[1], mfp: o[2], absorption: o[3], escape: o[4], energyDb: o[5], dir: v3(o[6], o[7], o[8]), predelay: o[9] };
   }
 
   /** One ray: true when the segment crosses no geometry. */
@@ -240,7 +245,45 @@ export class FieldWasm {
     this.x.field_flood_import(data.length);
   }
 
-  /** Per baked air cell: x, y, z, escape, rt60, flooded distance, up openness, plane count. */
+  /** Every baked cell, packed (about 58 bytes an air cell, 5 a solid one): to persist or hand over. */
+  pack(): Uint8Array {
+    const n = this.x.field_pack();
+    return new Uint8Array(this.x.memory.buffer, this.x.field_bytes(), n).slice();
+  }
+
+  /** Cells from `pack` of the same grid; returns how many. */
+  unpack(bytes: Uint8Array): number {
+    const ptr = this.x.field_alloc_bytes(bytes.length);
+    new Uint8Array(this.x.memory.buffer, ptr, bytes.length).set(bytes);
+    return this.x.field_unpack(bytes.length);
+  }
+
+  /**
+   * Run every lookup once on a tiny scene: the engine compiles a wasm function on its first call
+   * (lazily), which made the first lookups of a session take up to 1.6 ms. Call before `setScene`.
+   */
+  warmUp(): void {
+    const box = new Float32Array([0, -0.5, 0, 4, 0.5, 4, 0, 0, 0, 1, 0.1, 1, 2, 1, 0, 0.2, 1, 2, 0, 0, 0, 1, 0.1, 2]);
+    this.setScene({ boxes: box, triangles: new Float32Array(0) }, false);
+    this.setGrid({ origin: v3(-1.5, 0, -1.5), cell: 1, n: [3, 2, 3] });
+    while (this.bake(64, v3(0, 1, 0)) > 0);
+    const recs = this.take();
+    this.ingest(recs);
+    this.unpack(this.pack());
+    const l = v3(-1, 1, 0);
+    this.flood(l, 10);
+    this.floodImport(this.floodExport());
+    this.path(v3(3, 1, 0), l, true);
+    this.path(v3(0, 1, 1), l, false);
+    this.sample(l);
+    this.planes(l);
+    this.clear(l, v3(3, 1, 0));
+    this.dirty(v3(-1, 0, -1), v3(1, 1, 1));
+    this.debug();
+    this.stats();
+  }
+
+  /** Per baked air cell: x, y, z, escape, rt60, flooded distance, energy (dB), plane count. */
   debug(): Float32Array {
     const n = this.x.field_debug();
     return new Float32Array(this.x.memory.buffer, this.x.field_records(), n * 8).slice();
@@ -251,17 +294,4 @@ export class FieldWasm {
     const o = this.out(5);
     return { baked: o[0], bricks: o[1], bytes: o[2], reached: o[3], casts: o[4] };
   }
-}
-
-/** Real spherical harmonics of order 0 and 1 (same basis as the Rust side). */
-export function sh4(d: Vec3): number[] {
-  return [0.282095, 0.488603 * d.y, 0.488603 * d.z, 0.488603 * d.x];
-}
-
-/** Evaluate stored SH coefficients in a direction. */
-export function shEval(c: ArrayLike<number>, d: Vec3): number {
-  const y = sh4(d);
-  let s = 0;
-  for (let k = 0; k < FIELD_SH; k++) s += c[k] * y[k];
-  return s;
 }
