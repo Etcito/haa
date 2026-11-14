@@ -1,0 +1,253 @@
+{
+  "haa": 1,
+  "id": "guitar-acoustic-real-strum",
+  "title": "Acoustic guitar (body + split strings) · strummed Em C G D",
+  "inputs": [],
+  "master": 1,
+  "graph": {
+    "duration": 14.8,
+    "loop": false,
+    "mode": "timeline",
+    "performance": null,
+    "nodes": [
+      {
+        "id": "strings",
+        "type": "pluck",
+        "x": 40,
+        "y": 160,
+        "label": "Strings",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 6,
+          "release": 0.12,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.08,
+          "pickHardness": 0.7,
+          "stiffness": 0.08,
+          "body": 0.0,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.2,
+          "detune": 1.2,
+          "pickNoise": 0.35,
+          "attackBend": 0.06,
+          "bodySize": 1,
+          "voices": 6,
+          "releaseDepth": 24,
+          "split": true,
+          "fastDecay": 0.3,
+          "clickFreq": 2500,
+          "thump": 0.6,
+          "variation": 0.2,
+          "sympathetic": 0.4,
+          "score": "[{\"start\":0.3,\"duration\":0.6,\"midi\":40,\"level\":0.962},{\"start\":0.312,\"duration\":0.588,\"midi\":47,\"level\":0.974},{\"start\":0.324,\"duration\":0.576,\"midi\":52,\"level\":0.98},{\"start\":0.336,\"duration\":0.564,\"midi\":55,\"level\":0.994},{\"start\":0.348,\"duration\":0.552,\"midi\":59,\"level\":0.974},{\"start\":0.36,\"duration\":0.54,\"midi\":64,\"level\":0.992},{\"start\":0.9,\"duration\":0.3,\"midi\":40,\"level\":0.767},{\"start\":0.912,\"duration\":0.288,\"midi\":47,\"level\":0.805},{\"start\":0.924,\"duration\":0.276,\"midi\":52,\"level\":0.845},{\"start\":0.936,\"duration\":0.264,\"midi\":55,\"level\":0.82},{\"start\":0.948,\"duration\":0.252,\"midi\":59,\"level\":0.842},{\"start\":0.96,\"duration\":0.24,\"midi\":64,\"level\":0.775},{\"start\":1.2,\"duration\":0.6,\"midi\":64,\"level\":0.417},{\"start\":1.208,\"duration\":0.592,\"midi\":59,\"level\":0.407},{\"start\":1.216,\"duration\":0.584,\"midi\":55,\"level\":0.42},{\"start\":1.224,\"duration\":0.576,\"midi\":52,\"level\":0.421},{\"start\":1.8,\"duration\":0.3,\"midi\":64,\"level\":0.433},{\"start\":1.808,\"duration\":0.292,\"midi\":59,\"level\":0.442},{\"start\":1.816,\"duration\":0.284,\"midi\":55,\"level\":0.445},{\"start\":1.824,\"duration\":0.276,\"midi\":52,\"level\":0.476},{\"start\":2.1,\"duration\":0.3,\"midi\":40,\"level\":0.781},{\"start\":2.112,\"duration\":0.288,\"midi\":47,\"level\":0.733},{\"start\":2.124,\"duration\":0.276,\"midi\":52,\"level\":0.784},{\"start\":2.136,\"duration\":0.264,\"midi\":55,\"level\":0.731},{\"start\":2.148,\"duration\":0.252,\"midi\":59,\"level\":0.769},{\"start\":2.16,\"duration\":0.24,\"midi\":64,\"level\":0.73},{\"start\":2.4,\"duration\":0.3,\"midi\":64,\"level\":0.36},{\"start\":2.408,\"duration\":0.292,\"midi\":59,\"level\":0.395},{\"start\":2.416,\"duration\":0.284,\"midi\":55,\"level\":0.368},{\"start\":2.424,\"duration\":0.276,\"midi\":52,\"level\":0.369},{\"start\":2.7,\"duration\":0.6,\"midi\":48,\"level\":0.998},{\"start\":2.712,\"duration\":0.588,\"midi\":52,\"level\":0.987},{\"start\":2.724,\"duration\":0.576,\"midi\":55,\"level\":0.929},{\"start\":2.736,\"duration\":0.564,\"midi\":60,\"level\":0.996},{\"start\":2.748,\"duration\":0.552,\"midi\":64,\"level\":0.954},{\"start\":3.3,\"duration\":0.3,\"midi\":48,\"level\":0.823},{\"start\":3.312,\"duration\":0.288,\"midi\":52,\"level\":0.782},{\"start\":3.324,\"duration\":0.276,\"midi\":55,\"level\":0.845},{\"start\":3.336,\"duration\":0.264,\"midi\":60,\"level\":0.824},{\"start\":3.348,\"duration\":0.252,\"midi\":64,\"level\":0.847},{\"start\":3.6,\"duration\":0.6,\"midi\":64,\"level\":0.435},{\"start\":3.608,\"duration\":0.592,\"midi\":60,\"level\":0.409},{\"start\":3.616,\"duration\":0.584,\"midi\":55,\"level\":0.412},{\"start\":3.624,\"duration\":0.576,\"midi\":52,\"level\":0.403},{\"start\":4.2,\"duration\":0.3,\"midi\":64,\"level\":0.439},{\"start\":4.208,\"duration\":0.292,\"midi\":60,\"level\":0.435},{\"start\":4.216,\"duration\":0.284,\"midi\":55,\"level\":0.446},{\"start\":4.224,\"duration\":0.276,\"midi\":52,\"level\":0.461},{\"start\":4.5,\"duration\":0.3,\"midi\":48,\"level\":0.72},{\"start\":4.512,\"duration\":0.288,\"midi\":52,\"level\":0.774},{\"start\":4.524,\"duration\":0.276,\"midi\":55,\"level\":0.747},{\"start\":4.536,\"duration\":0.264,\"midi\":60,\"level\":0.745},{\"start\":4.548,\"duration\":0.252,\"midi\":64,\"level\":0.785},{\"start\":4.8,\"duration\":0.3,\"midi\":64,\"level\":0.379},{\"start\":4.808,\"duration\":0.292,\"midi\":60,\"level\":0.373},{\"start\":4.816,\"duration\":0.284,\"midi\":55,\"level\":0.379},{\"start\":4.824,\"duration\":0.276,\"midi\":52,\"level\":0.388},{\"start\":5.1,\"duration\":0.6,\"midi\":43,\"level\":0.906},{\"start\":5.112,\"duration\":0.588,\"midi\":47,\"level\":0.998},{\"start\":5.124,\"duration\":0.576,\"midi\":50,\"level\":0.902},{\"start\":5.136,\"duration\":0.564,\"midi\":55,\"level\":0.975},{\"start\":5.148,\"duration\":0.552,\"midi\":59,\"level\":0.984},{\"start\":5.16,\"duration\":0.54,\"midi\":67,\"level\":0.902},{\"start\":5.7,\"duration\":0.3,\"midi\":43,\"level\":0.832},{\"start\":5.712,\"duration\":0.288,\"midi\":47,\"level\":0.796},{\"start\":5.724,\"duration\":0.276,\"midi\":50,\"level\":0.814},{\"start\":5.736,\"duration\":0.264,\"midi\":55,\"level\":0.766},{\"start\":5.748,\"duration\":0.252,\"midi\":59,\"level\":0.769},{\"start\":5.76,\"duration\":0.24,\"midi\":67,\"level\":0.78},{\"start\":6.0,\"duration\":0.6,\"midi\":67,\"level\":0.438},{\"start\":6.008,\"duration\":0.592,\"midi\":59,\"level\":0.405},{\"start\":6.016,\"duration\":0.584,\"midi\":55,\"level\":0.429},{\"start\":6.024,\"duration\":0.576,\"midi\":50,\"level\":0.437},{\"start\":6.6,\"duration\":0.3,\"midi\":67,\"level\":0.477},{\"start\":6.608,\"duration\":0.292,\"midi\":59,\"level\":0.449},{\"start\":6.616,\"duration\":0.284,\"midi\":55,\"level\":0.449},{\"start\":6.624,\"duration\":0.276,\"midi\":50,\"level\":0.457},{\"start\":6.9,\"duration\":0.3,\"midi\":43,\"level\":0.782},{\"start\":6.912,\"duration\":0.288,\"midi\":47,\"level\":0.729},{\"start\":6.924,\"duration\":0.276,\"midi\":50,\"level\":0.78},{\"start\":6.936,\"duration\":0.264,\"midi\":55,\"level\":0.784},{\"start\":6.948,\"duration\":0.252,\"midi\":59,\"level\":0.789},{\"start\":6.96,\"duration\":0.24,\"midi\":67,\"level\":0.723},{\"start\":7.2,\"duration\":0.3,\"midi\":67,\"level\":0.398},{\"start\":7.208,\"duration\":0.292,\"midi\":59,\"level\":0.364},{\"start\":7.216,\"duration\":0.284,\"midi\":55,\"level\":0.374},{\"start\":7.224,\"duration\":0.276,\"midi\":50,\"level\":0.384},{\"start\":7.5,\"duration\":0.6,\"midi\":50,\"level\":0.992},{\"start\":7.512,\"duration\":0.588,\"midi\":57,\"level\":0.934},{\"start\":7.524,\"duration\":0.576,\"midi\":62,\"level\":0.992},{\"start\":7.536,\"duration\":0.564,\"midi\":66,\"level\":0.955},{\"start\":8.1,\"duration\":0.3,\"midi\":50,\"level\":0.792},{\"start\":8.112,\"duration\":0.288,\"midi\":57,\"level\":0.792},{\"start\":8.124,\"duration\":0.276,\"midi\":62,\"level\":0.78},{\"start\":8.136,\"duration\":0.264,\"midi\":66,\"level\":0.772},{\"start\":8.4,\"duration\":0.6,\"midi\":66,\"level\":0.403},{\"start\":8.408,\"duration\":0.592,\"midi\":62,\"level\":0.426},{\"start\":8.416,\"duration\":0.584,\"midi\":57,\"level\":0.44},{\"start\":8.424,\"duration\":0.576,\"midi\":50,\"level\":0.403},{\"start\":9.0,\"duration\":0.3,\"midi\":66,\"level\":0.434},{\"start\":9.008,\"duration\":0.292,\"midi\":62,\"level\":0.479},{\"start\":9.016,\"duration\":0.284,\"midi\":57,\"level\":0.458},{\"start\":9.024,\"duration\":0.276,\"midi\":50,\"level\":0.451},{\"start\":9.3,\"duration\":0.3,\"midi\":50,\"level\":0.739},{\"start\":9.312,\"duration\":0.288,\"midi\":57,\"level\":0.768},{\"start\":9.324,\"duration\":0.276,\"midi\":62,\"level\":0.786},{\"start\":9.336,\"duration\":0.264,\"midi\":66,\"level\":0.756},{\"start\":9.6,\"duration\":0.3,\"midi\":66,\"level\":0.377},{\"start\":9.608,\"duration\":0.292,\"midi\":62,\"level\":0.362},{\"start\":9.616,\"duration\":0.284,\"midi\":57,\"level\":0.397},{\"start\":9.624,\"duration\":0.276,\"midi\":50,\"level\":0.361},{\"start\":9.9,\"duration\":4.2,\"midi\":40,\"level\":0.949},{\"start\":9.912,\"duration\":4.188,\"midi\":47,\"level\":0.984},{\"start\":9.924,\"duration\":4.176,\"midi\":52,\"level\":0.913},{\"start\":9.936,\"duration\":4.164,\"midi\":55,\"level\":0.973},{\"start\":9.948,\"duration\":4.152,\"midi\":59,\"level\":0.995},{\"start\":9.96,\"duration\":4.14,\"midi\":64,\"level\":0.963}]"
+        }
+      },
+      {
+        "id": "airSide",
+        "type": "pan",
+        "x": 300,
+        "y": 60,
+        "label": "Air side (strings)",
+        "params": {
+          "pan": -1.0
+        }
+      },
+      {
+        "id": "bridgeSide",
+        "type": "pan",
+        "x": 300,
+        "y": 260,
+        "label": "Bridge side (drives the body)",
+        "params": {
+          "pan": 1.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "x": 540,
+        "y": 260,
+        "label": "Guitar body",
+        "params": {
+          "modes": "",
+          "size": 1.0,
+          "decay": 1.0,
+          "low": 2.0,
+          "wood": 0.6,
+          "woodFreq": 2800,
+          "woodWidth": 2.0,
+          "woodDecay": 0.025,
+          "direct": 0.15,
+          "gain": 2.0
+        }
+      },
+      {
+        "id": "bodyMic",
+        "type": "filter",
+        "x": 780,
+        "y": 260,
+        "label": "Body mic",
+        "params": {
+          "cutoff": 700,
+          "resonance": 0.5,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "stringMic",
+        "type": "filter",
+        "x": 540,
+        "y": 60,
+        "label": "String mic",
+        "params": {
+          "cutoff": 70,
+          "resonance": 0.5,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "presence",
+        "type": "equalizer",
+        "x": 780,
+        "y": 60,
+        "label": "String mic presence",
+        "params": {
+          "low": 0,
+          "mid": 0,
+          "high": 3,
+          "frequency": 2500
+        }
+      },
+      {
+        "id": "bodyLevel",
+        "type": "gain",
+        "x": 1020,
+        "y": 260,
+        "label": "Body mic level",
+        "params": {
+          "gain": 2.0
+        }
+      },
+      {
+        "id": "stringLevel",
+        "type": "gain",
+        "x": 1020,
+        "y": 60,
+        "label": "String mic level",
+        "params": {
+          "gain": 1.2
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 1260,
+        "y": 160,
+        "label": "Room",
+        "params": {
+          "size": 0.35,
+          "damping": 0.5,
+          "mix": 0.14,
+          "width": 0.8,
+          "distance": 0.1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1500,
+        "y": 160,
+        "label": "Out",
+        "params": {
+          "gain": 1.0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c0",
+        "from": "strings",
+        "to": "bridgeSide",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c1",
+        "from": "bridgeSide",
+        "to": "body",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "bodyMic",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "bodyMic",
+        "to": "bodyLevel",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "bodyLevel",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "strings",
+        "to": "airSide",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c6",
+        "from": "airSide",
+        "to": "stringMic",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "stringMic",
+        "to": "presence",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c8",
+        "from": "presence",
+        "to": "stringLevel",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "stringLevel",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c10",
+        "from": "room",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  }
+}

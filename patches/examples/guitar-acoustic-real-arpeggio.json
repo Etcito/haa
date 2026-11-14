@@ -1,0 +1,253 @@
+{
+  "haa": 1,
+  "id": "guitar-acoustic-real-arpeggio",
+  "title": "Acoustic guitar (body + split strings) · fingerpicked arpeggio Am F C G",
+  "inputs": [],
+  "master": 1,
+  "graph": {
+    "duration": 13.74,
+    "loop": false,
+    "mode": "timeline",
+    "performance": null,
+    "nodes": [
+      {
+        "id": "strings",
+        "type": "pluck",
+        "x": 40,
+        "y": 160,
+        "label": "Strings",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 6,
+          "release": 0.12,
+          "damping": 0.4,
+          "brightness": 0.7,
+          "pickPosition": 0.08,
+          "pickHardness": 0.7,
+          "stiffness": 0.08,
+          "body": 0.0,
+          "pickup": "none",
+          "gain": 1.3,
+          "velocity": 0.85,
+          "decayTilt": 0.45,
+          "dampingFreq": 3000,
+          "polarization": 0.2,
+          "detune": 1.2,
+          "pickNoise": 0.35,
+          "attackBend": 0.06,
+          "bodySize": 1,
+          "voices": 6,
+          "releaseDepth": 24,
+          "split": true,
+          "fastDecay": 0.3,
+          "clickFreq": 2500,
+          "thump": 0.6,
+          "variation": 0.2,
+          "sympathetic": 0.4,
+          "score": "[{\"start\":0.3,\"duration\":0.9,\"midi\":45,\"level\":0.921},{\"start\":0.4664,\"duration\":0.5,\"midi\":57,\"level\":0.656},{\"start\":0.62,\"duration\":0.5,\"midi\":60,\"level\":0.728},{\"start\":0.7992,\"duration\":0.5,\"midi\":64,\"level\":0.597},{\"start\":0.94,\"duration\":0.9,\"midi\":52,\"level\":0.93},{\"start\":1.132,\"duration\":0.5,\"midi\":60,\"level\":0.735},{\"start\":1.26,\"duration\":0.5,\"midi\":57,\"level\":0.553},{\"start\":1.4648,\"duration\":0.5,\"midi\":60,\"level\":0.641},{\"start\":1.58,\"duration\":0.9,\"midi\":45,\"level\":0.946},{\"start\":1.7464,\"duration\":0.5,\"midi\":57,\"level\":0.651},{\"start\":1.9,\"duration\":0.5,\"midi\":60,\"level\":0.734},{\"start\":2.0792,\"duration\":0.5,\"midi\":64,\"level\":0.557},{\"start\":2.22,\"duration\":0.9,\"midi\":52,\"level\":0.91},{\"start\":2.412,\"duration\":0.5,\"midi\":60,\"level\":0.695},{\"start\":2.54,\"duration\":0.5,\"midi\":57,\"level\":0.578},{\"start\":2.7448,\"duration\":0.5,\"midi\":60,\"level\":0.647},{\"start\":2.86,\"duration\":0.9,\"midi\":41,\"level\":0.875},{\"start\":3.0264,\"duration\":0.5,\"midi\":57,\"level\":0.628},{\"start\":3.18,\"duration\":0.5,\"midi\":60,\"level\":0.697},{\"start\":3.3592,\"duration\":0.5,\"midi\":65,\"level\":0.596},{\"start\":3.5,\"duration\":0.9,\"midi\":48,\"level\":0.932},{\"start\":3.692,\"duration\":0.5,\"midi\":60,\"level\":0.69},{\"start\":3.82,\"duration\":0.5,\"midi\":57,\"level\":0.59},{\"start\":4.0248,\"duration\":0.5,\"midi\":60,\"level\":0.624},{\"start\":4.14,\"duration\":0.9,\"midi\":41,\"level\":0.921},{\"start\":4.3064,\"duration\":0.5,\"midi\":57,\"level\":0.623},{\"start\":4.46,\"duration\":0.5,\"midi\":60,\"level\":0.681},{\"start\":4.6392,\"duration\":0.5,\"midi\":65,\"level\":0.594},{\"start\":4.78,\"duration\":0.9,\"midi\":48,\"level\":0.89},{\"start\":4.972,\"duration\":0.5,\"midi\":60,\"level\":0.694},{\"start\":5.1,\"duration\":0.5,\"midi\":57,\"level\":0.599},{\"start\":5.3048,\"duration\":0.5,\"midi\":60,\"level\":0.663},{\"start\":5.42,\"duration\":0.9,\"midi\":48,\"level\":0.896},{\"start\":5.5864,\"duration\":0.5,\"midi\":55,\"level\":0.668},{\"start\":5.74,\"duration\":0.5,\"midi\":60,\"level\":0.713},{\"start\":5.9192,\"duration\":0.5,\"midi\":64,\"level\":0.585},{\"start\":6.06,\"duration\":0.9,\"midi\":55,\"level\":0.89},{\"start\":6.252,\"duration\":0.5,\"midi\":60,\"level\":0.737},{\"start\":6.38,\"duration\":0.5,\"midi\":55,\"level\":0.585},{\"start\":6.5848,\"duration\":0.5,\"midi\":60,\"level\":0.668},{\"start\":6.7,\"duration\":0.9,\"midi\":48,\"level\":0.942},{\"start\":6.8664,\"duration\":0.5,\"midi\":55,\"level\":0.632},{\"start\":7.02,\"duration\":0.5,\"midi\":60,\"level\":0.702},{\"start\":7.1992,\"duration\":0.5,\"midi\":64,\"level\":0.56},{\"start\":7.34,\"duration\":0.9,\"midi\":55,\"level\":0.885},{\"start\":7.532,\"duration\":0.5,\"midi\":60,\"level\":0.685},{\"start\":7.66,\"duration\":0.5,\"midi\":55,\"level\":0.566},{\"start\":7.8648,\"duration\":0.5,\"midi\":60,\"level\":0.649},{\"start\":7.98,\"duration\":0.9,\"midi\":43,\"level\":0.874},{\"start\":8.1464,\"duration\":0.5,\"midi\":55,\"level\":0.653},{\"start\":8.3,\"duration\":0.5,\"midi\":59,\"level\":0.701},{\"start\":8.4792,\"duration\":0.5,\"midi\":67,\"level\":0.567},{\"start\":8.62,\"duration\":0.9,\"midi\":47,\"level\":0.936},{\"start\":8.812,\"duration\":0.5,\"midi\":59,\"level\":0.709},{\"start\":8.94,\"duration\":0.5,\"midi\":55,\"level\":0.567},{\"start\":9.1448,\"duration\":0.5,\"midi\":59,\"level\":0.642},{\"start\":9.26,\"duration\":0.9,\"midi\":43,\"level\":0.928},{\"start\":9.4264,\"duration\":0.5,\"midi\":55,\"level\":0.619},{\"start\":9.58,\"duration\":0.5,\"midi\":59,\"level\":0.739},{\"start\":9.7592,\"duration\":0.5,\"midi\":67,\"level\":0.553},{\"start\":9.9,\"duration\":0.9,\"midi\":47,\"level\":0.931},{\"start\":10.092,\"duration\":0.5,\"midi\":59,\"level\":0.731},{\"start\":10.22,\"duration\":0.5,\"midi\":55,\"level\":0.553},{\"start\":10.4248,\"duration\":0.5,\"midi\":59,\"level\":0.659},{\"start\":10.54,\"duration\":2.5,\"midi\":45,\"level\":0.9},{\"start\":10.56,\"duration\":2.5,\"midi\":52,\"level\":0.6},{\"start\":10.58,\"duration\":2.5,\"midi\":57,\"level\":0.6},{\"start\":10.6,\"duration\":2.5,\"midi\":60,\"level\":0.6},{\"start\":10.62,\"duration\":2.5,\"midi\":64,\"level\":0.6}]"
+        }
+      },
+      {
+        "id": "airSide",
+        "type": "pan",
+        "x": 300,
+        "y": 60,
+        "label": "Air side (strings)",
+        "params": {
+          "pan": -1.0
+        }
+      },
+      {
+        "id": "bridgeSide",
+        "type": "pan",
+        "x": 300,
+        "y": 260,
+        "label": "Bridge side (drives the body)",
+        "params": {
+          "pan": 1.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "x": 540,
+        "y": 260,
+        "label": "Guitar body",
+        "params": {
+          "modes": "",
+          "size": 1.0,
+          "decay": 1.0,
+          "low": 2.0,
+          "wood": 0.6,
+          "woodFreq": 2800,
+          "woodWidth": 2.0,
+          "woodDecay": 0.025,
+          "direct": 0.15,
+          "gain": 2.0
+        }
+      },
+      {
+        "id": "bodyMic",
+        "type": "filter",
+        "x": 780,
+        "y": 260,
+        "label": "Body mic",
+        "params": {
+          "cutoff": 700,
+          "resonance": 0.5,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "stringMic",
+        "type": "filter",
+        "x": 540,
+        "y": 60,
+        "label": "String mic",
+        "params": {
+          "cutoff": 70,
+          "resonance": 0.5,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "presence",
+        "type": "equalizer",
+        "x": 780,
+        "y": 60,
+        "label": "String mic presence",
+        "params": {
+          "low": 0,
+          "mid": 0,
+          "high": 3,
+          "frequency": 2500
+        }
+      },
+      {
+        "id": "bodyLevel",
+        "type": "gain",
+        "x": 1020,
+        "y": 260,
+        "label": "Body mic level",
+        "params": {
+          "gain": 2.0
+        }
+      },
+      {
+        "id": "stringLevel",
+        "type": "gain",
+        "x": 1020,
+        "y": 60,
+        "label": "String mic level",
+        "params": {
+          "gain": 1.2
+        }
+      },
+      {
+        "id": "room",
+        "type": "space",
+        "x": 1260,
+        "y": 160,
+        "label": "Room",
+        "params": {
+          "size": 0.35,
+          "damping": 0.5,
+          "mix": 0.14,
+          "width": 0.8,
+          "distance": 0.1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 1500,
+        "y": 160,
+        "label": "Out",
+        "params": {
+          "gain": 1.0
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c0",
+        "from": "strings",
+        "to": "bridgeSide",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c1",
+        "from": "bridgeSide",
+        "to": "body",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "bodyMic",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "bodyMic",
+        "to": "bodyLevel",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "bodyLevel",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "strings",
+        "to": "airSide",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c6",
+        "from": "airSide",
+        "to": "stringMic",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c7",
+        "from": "stringMic",
+        "to": "presence",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c8",
+        "from": "presence",
+        "to": "stringLevel",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c9",
+        "from": "stringLevel",
+        "to": "room",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c10",
+        "from": "room",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  }
+}

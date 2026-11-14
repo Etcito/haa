@@ -46,6 +46,23 @@
 //! `brightness` is added to the node's `brightness` for that note (-1..1, default 0) and `decay`
 //! multiplies the node's `decay` (0.05..20, default 1), so measured per-note tone and sustain ride
 //! on the values a fit tunes for the whole node.
+//!
+//! Acoustic realism, measured on a two-microphone acoustic-guitar recording (all off by default,
+//! so a patch that does not set them renders exactly as before):
+//! - `fastDecay`: the polarization perpendicular to the top drains into the body in a few hundred
+//!   ms (on the body microphone a thumb note stays within 2 dB for ~100 ms, falls ~20 dB by 250 ms,
+//!   then rings on), while the parallel one keeps the long tail: this sets the first one's T60.
+//! - `split`: the left output is the air side (mostly the parallel polarization, plus the click),
+//!   the right output the bridge side (mostly the perpendicular polarization, plus the knock), so a
+//!   `body` node can be driven by the bridge while a string microphone hears the air side.
+//! - `thump`: the finger's knock, a raised-cosine pulse (2 ms hard, up to 10 ms soft) outside the
+//!   loop; a `body` turns it into the low thump of each stroke. `clickFreq`: the click's high-pass.
+//! - `releaseDepth`: a release damps by this many dB at the release T60, then the string rings on
+//!   (the measured notes drop ~20 dB when the finger touches them, not to silence); 120 = for good.
+//! - `sympathetic`: six open strings (E2 A2 D3 G3 B3 E4) driven by the bridge signal ring on at the
+//!   played notes' shared partials after the played string is damped.
+//! - `variation`: each pluck draws a small pitch (up to 6 cents), brightness, level (2 dB) and pick
+//!   position offset, so repeated notes are never identical; no random number is drawn at 0.
 
 use crate::catalog::{Category, NodeTypeDef, ParamDef, ParamKind, Scale};
 use crate::dsp::biquad::{Biquad, BiquadKind};
@@ -83,6 +100,18 @@ const BODY_SIZE: usize = 24;
 const SCORE: usize = 25;
 const VOICES: usize = 26;
 const DAMPING_FREQ: usize = 27;
+const THUMP: usize = 28;
+const CLICK_FREQ: usize = 29;
+const VARIATION: usize = 30;
+const SYMPATHETIC: usize = 31;
+const RELEASE_DEPTH: usize = 32;
+const FAST_DECAY: usize = 33;
+const SPLIT: usize = 34;
+/// Split outputs: the bridge (right) side is driven mostly by the polarization perpendicular to
+/// the top, the air (left) side hears mostly the parallel one; each hears the other at this share.
+const CROSS_TALK: f64 = 0.2;
+/// A `releaseDepth` at or above this damps the string for good (the behaviour before the param).
+const FULL_DAMP_DB: f64 = 120.0;
 /// Strings of a score-mode node.
 const MAX_VOICES: usize = 8;
 const MAX_SCORE_NOTES: usize = 4096;
@@ -124,7 +153,19 @@ const BEND_TAU: f64 = 0.08;
 /// corner (Hz); the burst lasts five time constants.
 const CLICK_TAU: f64 = 0.003;
 const CLICK_SOFT_TAU: f64 = 0.02;
-const CLICK_HZ: f64 = 1_000.0;
+/// Body knock: raised-cosine pulse length (s) of a hard and the extra of a soft pluck.
+const THUMP_HARD: f64 = 0.002;
+const THUMP_SOFT: f64 = 0.008;
+/// Per-note variation at `variation` 1: pitch (cents), brightness, level (dB), pick position (x).
+const VARY_CENTS: f64 = 6.0;
+const VARY_BRIGHT: f64 = 0.12;
+const VARY_DB: f64 = 2.0;
+const VARY_POSITION: f64 = 0.3;
+/// Sympathetic open strings (standard tuning E2 A2 D3 G3 B3 E4), their coupling to the bridge at
+/// `sympathetic` 1 and their longest T60 (s).
+const OPEN_STRINGS: [f64; 6] = [82.41, 110.0, 146.83, 196.0, 246.94, 329.63];
+const SYMPATHETIC_COUPLING: f64 = 0.004;
+const SYMPATHETIC_T60: f64 = 8.0;
 
 const fn number(
     key: &'static str,
@@ -222,6 +263,21 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             smooth: false,
         },
         number("dampingFreq", 150.0, 10_000.0, 4_000.0, 1.0, Scale::Log, "Hz", "Damping reference", "Référence d'amortissement", true),
+        number("thump", 0.0, 1.0, 0.0, 0.01, Scale::Lin, "", "Body knock", "Choc sur la caisse", true),
+        number("clickFreq", 200.0, 8_000.0, 1_000.0, 1.0, Scale::Log, "Hz", "Click tone (high-pass)", "Timbre du clic (passe-haut)", true),
+        number("variation", 0.0, 1.0, 0.0, 0.01, Scale::Lin, "", "Per-note variation", "Variation d'une note à l'autre", false),
+        number("sympathetic", 0.0, 1.0, 0.0, 0.01, Scale::Lin, "", "Sympathetic strings", "Cordes sympathiques", true),
+        number("releaseDepth", 6.0, FULL_DAMP_DB, FULL_DAMP_DB, 0.5, Scale::Lin, "dB", "Release depth (then rings on)", "Profondeur de l'étouffement (puis résonne)", false),
+        number("fastDecay", 0.0, 5.0, 0.0, 0.01, Scale::Lin, "s", "Bridge polarization T60 (0 = off)", "T60 de la polarisation vers la table (0 = off)", true),
+        ParamDef {
+            key: "split",
+            kind: ParamKind::Bool { default: false },
+            unit: "",
+            label_en: "Split outputs (left air, right bridge)",
+            label_fr: "Sorties séparées (gauche air, droite chevalet)",
+            modulatable: false,
+            smooth: false,
+        },
     ],
     create,
 };
@@ -476,10 +532,18 @@ struct StringVoice {
     level: f64,
     active: bool,
     /// The raw inputs of the last retune.
-    inputs: [f64; 10],
+    inputs: [f64; 11],
     /// Score mode: the playing note's brightness offset and decay factor.
     bright_offset: f64,
     decay_scale: f64,
+    /// Body knock: samples left, pulse length and level.
+    thump_left: usize,
+    thump_len: usize,
+    thump_level: f64,
+    /// Per-note variation drawn at the pluck: pitch (cents), brightness, level (gain), position (x).
+    vary: [f64; 4],
+    /// Samples of damping left after a release (`None` until the first released sample computes it).
+    damp_left: Option<usize>,
 }
 
 impl StringVoice {
@@ -508,16 +572,21 @@ impl StringVoice {
             until: 0.0,
             level: 0.0,
             active: true,
-            inputs: [f64::NAN; 10],
+            inputs: [f64::NAN; 11],
             bright_offset: 0.0,
             decay_scale: 1.0,
+            thump_left: 0,
+            thump_len: 0,
+            thump_level: 0.0,
+            vary: [0.0, 0.0, 1.0, 1.0],
+            damp_left: None,
         }
     }
 
     /// Retunes both polarizations for pitch `hz` (+ `vibrato` cents) and the playing params
     /// (each loop recomputes its coefficients only when its key changed).
     fn retune(&mut self, sample_rate: f64, p: &[f64], hz: f64, vibrato: f64) {
-        let bend = self.bend_amount * (-self.since_pluck / BEND_TAU).exp();
+        let bend = self.bend_amount * (-self.since_pluck / BEND_TAU).exp() + self.vary[0];
         // The raw inputs: unchanged (the common case, every sample of a held note) means no work.
         let inputs = [
             hz,
@@ -530,6 +599,7 @@ impl StringVoice {
             p[STIFFNESS],
             p[DETUNE],
             p[DAMPING_FREQ],
+            p[FAST_DECAY],
         ];
         if inputs == self.inputs {
             return;
@@ -552,7 +622,11 @@ impl StringVoice {
         let stiffness = p[STIFFNESS];
         let detune = 2f64.powf(p[DETUNE].clamp(0.0, 20.0) / 1200.0);
         let reference = p[DAMPING_FREQ];
-        self.strings[0].retune(sample_rate, [f, t60, damping, stiffness, reference]);
+        // fastDecay: the polarization that drives the top loses its energy into the body quickly
+        // (the attack's loud, short part); the other one keeps the long tail.
+        let fast = p[FAST_DECAY].clamp(0.0, 5.0);
+        let t60a = if fast > 0.0 && !self.released { t60.min(fast.max(0.02)) } else { t60 };
+        self.strings[0].retune(sample_rate, [f, t60a, damping, stiffness, reference]);
         let t60b = if self.released { t60 } else { t60 * POL_T60 };
         self.strings[1].retune(sample_rate, [f * detune, t60b, damping * POL_DAMPING, stiffness, reference]);
     }
@@ -565,7 +639,8 @@ impl StringVoice {
         let cap = self.excitation.len() / 2;
         let len = (self.strings[0].tuning.period.round() as usize).clamp(2, cap);
         let hardness = p[PICK_HARDNESS].clamp(0.0, 1.0);
-        let beta = p[PICK_POSITION].clamp(0.02, 0.5);
+        let beta = (p[PICK_POSITION] * self.vary[3]).clamp(0.02, 0.5);
+        let amplitude = amplitude * self.vary[2];
         let apex = beta.max(1.0 / len as f64);
 
         // Soft triangular displacement (zero mean) blended with a noise burst.
@@ -597,7 +672,7 @@ impl StringVoice {
         let vb = p[VELOCITY_BRIGHTNESS].clamp(0.0, 1.0);
         let mute = p[MUTE].clamp(0.0, 1.0);
         let opening = (1.0 - vb + vb * velocity) * (1.0 - 0.6 * mute);
-        let brightness = (p[BRIGHTNESS] + self.bright_offset).clamp(0.0, 1.0);
+        let brightness = (p[BRIGHTNESS] + self.bright_offset + self.vary[1]).clamp(0.0, 1.0);
         let cutoff = (150.0 * 2f64.powf(brightness * 7.0) * opening).clamp(40.0, 0.45 * sample_rate);
         let pole = (-TAU * cutoff / sample_rate).exp();
         let (mut s1, mut s2, mut peak) = (0.0f64, 0.0f64, 0.0f64);
@@ -627,6 +702,29 @@ impl StringVoice {
             self.click_env = 1.0;
             self.click_level = click * velocity * (0.3 + 0.7 * hardness);
         }
+        let thump = p[THUMP].clamp(0.0, 1.0);
+        if thump > 0.0 && amplitude > 0.0 {
+            self.thump_len = (((THUMP_HARD + THUMP_SOFT * (1.0 - hardness)) * sample_rate) as usize).max(2);
+            self.thump_left = self.thump_len;
+            self.thump_level = thump * velocity;
+        }
+    }
+
+    /// Draws this pluck's variation (pitch, brightness, level, position). At `amount` 0 nothing is
+    /// drawn, so a patch without variation keeps its exact sound.
+    fn draw_variation(&mut self, amount: f64, rng: &mut Rng) {
+        let amount = amount.clamp(0.0, 1.0);
+        if amount <= 0.0 {
+            self.vary = [0.0, 0.0, 1.0, 1.0];
+            return;
+        }
+        let mut u = || rng.next_f64() * 2.0 - 1.0;
+        self.vary = [
+            amount * VARY_CENTS * u(),
+            amount * VARY_BRIGHT * u(),
+            10f64.powf(amount * VARY_DB * u() / 20.0),
+            1.0 + amount * VARY_POSITION * u(),
+        ];
     }
 
     /// Lets the string go: the sustain falls to `release`.
@@ -634,17 +732,36 @@ impl StringVoice {
         if self.held {
             self.held = false;
             self.released = true;
+            self.damp_left = None;
             self.retune_count = 0;
         }
     }
 
     /// One sample of this string: the pickup's raw view (before the coil) plus the click.
-    fn tick(&mut self, sample_rate: f64, p: &[f64], vibrato: f64, kind: usize, rng: &mut Rng) -> f64 {
+    /// Returns (air, bridge): the same signal unless `split`, then the air side has both
+    /// polarizations and the click, the bridge side mostly the perpendicular one and the knock.
+    fn tick(&mut self, sample_rate: f64, p: &[f64], vibrato: f64, kind: usize, rng: &mut Rng) -> (f64, f64) {
         if !self.active {
-            return 0.0;
+            return (0.0, 0.0);
         }
         let dt = 1.0 / sample_rate;
         self.since_pluck += dt;
+        // A partial release: the damping lasts as long as `releaseDepth` dB take at the release
+        // T60, then the string rings on with its free decay (a finger touching it only briefly).
+        if self.released {
+            let depth = p[RELEASE_DEPTH];
+            if depth < FULL_DAMP_DB {
+                let left = *self.damp_left.get_or_insert_with(|| {
+                    (p[RELEASE].clamp(0.01, 5.0) * depth.max(0.0) / 60.0 * sample_rate) as usize
+                });
+                if left == 0 {
+                    self.released = false;
+                    self.retune_count = 0;
+                } else {
+                    self.damp_left = Some(left - 1);
+                }
+            }
+        }
         // A moving pitch (vibrato, attack bend) retunes every RETUNE_EVERY samples; static params
         // are compared every sample and retune only on a change.
         let moving = vibrato != 0.0 || self.since_pluck < 6.0 * BEND_TAU;
@@ -670,25 +787,46 @@ impl StringVoice {
         let ya = self.strings[0].tick(input * (1.0 - split), choke);
         let yb = self.strings[1].tick(input * split, choke);
         let position = p[PICKUP_POSITION].clamp(0.04, 0.5);
-        let mut out = self.strings[0].pickup(kind, ya, position) + self.strings[1].pickup(kind, yb, position);
+        let pa = self.strings[0].pickup(kind, ya, position);
+        let pb = self.strings[1].pickup(kind, yb, position);
+        let split_out = p[SPLIT] > 0.5;
+        // Split: each side hears mostly one polarization (the other at CROSS_TALK).
+        let mut out = if split_out { CROSS_TALK * pa + pb } else { pa + pb };
+        let mut bridge = pa + CROSS_TALK * pb;
 
         // Pick click: decaying high-passed noise, outside the string loop.
         if self.click_left > 0 {
             self.click_left -= 1;
             let noise = rng.next_f64() * 2.0 - 1.0;
-            let a = (-TAU * CLICK_HZ / sample_rate).exp();
+            let a = (-TAU * p[CLICK_FREQ].clamp(200.0, 8_000.0) / sample_rate).exp();
             let (x1, y1) = self.click_hp;
             let hp = a * (y1 + noise - x1);
             self.click_hp = (noise, hp);
-            out += 0.5 * self.click_level * self.click_env * hp;
+            let click = 0.5 * self.click_level * self.click_env * hp;
+            out += click;
+            if !split_out {
+                bridge += click;
+            }
             self.click_env *= self.click_decay;
         }
 
+        // Body knock: a raised-cosine pulse outside the loop (a `body` node turns it into a thump).
+        if self.thump_left > 0 {
+            let k = (self.thump_len - self.thump_left) as f64 + 0.5;
+            let s = (core::f64::consts::PI * k / self.thump_len as f64).sin();
+            let knock = self.thump_level * s * s;
+            bridge += knock;
+            if !split_out {
+                out += knock;
+            }
+            self.thump_left -= 1;
+        }
+
         self.level = (ya.abs() + yb.abs()).max(self.level * IDLE_DECAY);
-        if self.level < IDLE_LEVEL && self.exc_pos >= self.exc_len && self.click_left == 0 {
+        if self.level < IDLE_LEVEL && self.exc_pos >= self.exc_len && self.click_left == 0 && self.thump_left == 0 {
             self.clear();
         }
-        out
+        if split_out { (out, bridge) } else { (out, out) }
     }
 
     fn clear(&mut self) {
@@ -700,6 +838,7 @@ impl StringVoice {
         self.choke_left = 0;
         self.click_left = 0;
         self.click_hp = (0.0, 0.0);
+        self.thump_left = 0;
         self.level = 0.0;
         self.active = false;
     }
@@ -749,6 +888,17 @@ fn parse_score(text: &str) -> Vec<ScoreNote> {
     notes
 }
 
+/// Coil (magnetic pickups), the built-in body modes and the DC blocker on one output side.
+fn finish(raw: f64, kind: usize, body_mix: f64, coil: &mut Biquad, body: &mut [Biquad; 6], dc: &mut DcBlocker) -> f64 {
+    let pickup = if kind == 1 || kind == 2 { coil.process(raw) } else { raw };
+    let mut resonance = 0.0;
+    for (filter, (_, _, weight)) in body.iter_mut().zip(BODY_MODES) {
+        resonance += weight * filter.process(pickup);
+    }
+    let mixed = pickup * (1.0 - 0.6 * body_mix) + body_mix * BODY_GAIN * resonance;
+    dc.process(mixed)
+}
+
 struct Pluck {
     sample_rate: f64,
     voices: Vec<StringVoice>,
@@ -763,7 +913,13 @@ struct Pluck {
     body: [Biquad; 6],
     body_size: f64,
     dc: DcBlocker,
+    /// The bridge (right) side's coil, body and DC state when `split`.
+    coil_r: Biquad,
+    body_r: [Biquad; 6],
+    dc_r: DcBlocker,
     vibrato_phase: f64,
+    /// Open strings ringing in sympathy with the played ones (driven by the bridge signal).
+    open_strings: Vec<StringLoop>,
 }
 
 impl Pluck {
@@ -784,7 +940,11 @@ impl Pluck {
             body: [Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new()],
             body_size: 0.0,
             dc: DcBlocker::new(sample_rate),
+            coil_r: Biquad::new(),
+            body_r: [Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new(), Biquad::new()],
+            dc_r: DcBlocker::new(sample_rate),
             vibrato_phase: 0.0,
+            open_strings: Vec::new(),
         };
         node.set_body_size(1.0);
         node.set_pickup(0);
@@ -801,6 +961,9 @@ impl Pluck {
         for (filter, (f, q, _)) in self.body.iter_mut().zip(BODY_MODES) {
             filter.set(BiquadKind::Bandpass, (f / size).min(top), q, 0.0, self.sample_rate);
         }
+        for (filter, (f, q, _)) in self.body_r.iter_mut().zip(BODY_MODES) {
+            filter.set(BiquadKind::Bandpass, (f / size).min(top), q, 0.0, self.sample_rate);
+        }
     }
 
     fn set_pickup(&mut self, kind: usize) {
@@ -808,12 +971,33 @@ impl Pluck {
             return;
         }
         self.pickup_kind = kind;
-        match kind {
-            1 => self.coil.set(BiquadKind::Lowpass, 5_200.0, 1.8, 0.0, self.sample_rate),
-            2 => self.coil.set(BiquadKind::Lowpass, 3_100.0, 1.25, 0.0, self.sample_rate),
-            _ => self.coil = Biquad::new(),
+        let sr = self.sample_rate;
+        for coil in [&mut self.coil, &mut self.coil_r] {
+            match kind {
+                1 => coil.set(BiquadKind::Lowpass, 5_200.0, 1.8, 0.0, sr),
+                2 => coil.set(BiquadKind::Lowpass, 3_100.0, 1.25, 0.0, sr),
+                _ => *coil = Biquad::new(),
+            }
+            coil.reset();
         }
-        self.coil.reset();
+    }
+
+    /// The open strings driven by the bridge signal `bridge`: their summed vibration. Each is one
+    /// polarization with twice the node's sustain (at most SYMPATHETIC_T60) and its high damping.
+    fn sympathy(&mut self, bridge: f64, amount: f64, p: &[f64]) -> f64 {
+        let sr = self.sample_rate;
+        if self.open_strings.is_empty() {
+            self.open_strings = OPEN_STRINGS.iter().map(|_| StringLoop::new(sr)).collect();
+        }
+        let t60 = (2.0 * p[DECAY]).clamp(0.5, SYMPATHETIC_T60);
+        let damping = p[DAMPING].clamp(0.0, 1.0);
+        let input = SYMPATHETIC_COUPLING * amount * bridge;
+        let mut out = 0.0;
+        for (string, hz) in self.open_strings.iter_mut().zip(OPEN_STRINGS) {
+            string.retune(sr, [hz, t60 * (110.0 / hz).powf(0.3), damping, 0.0, p[DAMPING_FREQ]]);
+            out += string.tick(input, 1.0);
+        }
+        out
     }
 
     /// Gate mode: the single string follows `frequency`, `gate` and `autoStrike`.
@@ -830,6 +1014,7 @@ impl Pluck {
         }
         if rising || auto {
             let level = if rising { gate.min(1.0) } else { 1.0 };
+            voice.draw_variation(p[VARIATION], &mut self.rng);
             voice.retune(sr, p, voice.hz, 0.0);
             voice.excite(sr, p[VELOCITY].clamp(0.0, 1.0) * level, p, &mut self.rng);
             voice.retune(sr, p, voice.hz, 0.0);
@@ -875,6 +1060,7 @@ impl Pluck {
             voice.since_pluck = 0.0;
             voice.bright_offset = note.brightness;
             voice.decay_scale = note.decay;
+            voice.draw_variation(p[VARIATION], &mut self.rng);
             voice.retune(sr, p, voice.hz, 0.0);
             voice.excite(sr, p[VELOCITY].clamp(0.0, 1.0) * note.level, p, &mut self.rng);
             voice.retune(sr, p, voice.hz, 0.0);
@@ -898,26 +1084,31 @@ impl Node for Pluck {
         self.vibrato_phase = (self.vibrato_phase + p[VIBRATO_RATE].clamp(0.5, 12.0) / sr).fract();
         let vibrato = p[VIBRATO_DEPTH].clamp(0.0, 100.0) * (TAU * self.vibrato_phase).sin();
         let kind = self.pickup_kind;
-        let mut raw = 0.0;
+        let (mut raw, mut raw_r) = (0.0, 0.0);
         for voice in &mut self.voices {
-            raw += voice.tick(sr, p, vibrato, kind, &mut self.rng);
+            let (air, bridge) = voice.tick(sr, p, vibrato, kind, &mut self.rng);
+            raw += air;
+            raw_r += bridge;
         }
-        let pickup = if kind == 1 || kind == 2 { self.coil.process(raw) } else { raw };
-
+        let sympathetic = p[SYMPATHETIC].clamp(0.0, 1.0);
+        if sympathetic > 0.0 {
+            let ring = self.sympathy(raw_r, sympathetic, p);
+            raw += ring;
+            raw_r += ring;
+        }
         let body_mix = p[BODY].clamp(0.0, 1.0);
-        let mut resonance = 0.0;
-        for (filter, (_, _, weight)) in self.body.iter_mut().zip(BODY_MODES) {
-            resonance += weight * filter.process(pickup);
-        }
-        let mixed = pickup * (1.0 - 0.6 * body_mix) + body_mix * BODY_GAIN * resonance;
-        let out = self.dc.process(mixed) * p[GAIN].clamp(0.0, 2.0) * OUT_SCALE;
-        let out = if out.is_finite() {
-            out.clamp(-2.0, 2.0)
+        let gain = p[GAIN].clamp(0.0, 2.0) * OUT_SCALE;
+        let out = finish(raw, kind, body_mix, &mut self.coil, &mut self.body, &mut self.dc) * gain;
+        let out_r = if p[SPLIT] > 0.5 {
+            finish(raw_r, kind, body_mix, &mut self.coil_r, &mut self.body_r, &mut self.dc_r) * gain
         } else {
-            self.reset();
-            0.0
+            out
         };
-        NodeOut { l: out, r: out, value: 0.0 }
+        if !(out.is_finite() && out_r.is_finite()) {
+            self.reset();
+            return NodeOut { l: 0.0, r: 0.0, value: 0.0 };
+        }
+        NodeOut { l: out.clamp(-2.0, 2.0), r: out_r.clamp(-2.0, 2.0), value: 0.0 }
     }
 
     fn configure(&mut self, init: &NodeInit<'_>) {
@@ -942,10 +1133,15 @@ impl Node for Pluck {
             voice.retune_count = 0;
         }
         self.coil.reset();
-        for filter in &mut self.body {
+        self.coil_r.reset();
+        for filter in self.body.iter_mut().chain(self.body_r.iter_mut()) {
             filter.reset();
         }
         self.dc.reset();
+        self.dc_r.reset();
+        for string in &mut self.open_strings {
+            string.reset();
+        }
         self.started = false;
         self.gate_prev = 0.0;
         self.vibrato_phase = 0.0;
