@@ -1,0 +1,514 @@
+{
+  "haa": 1,
+  "id": "footstep-concrete",
+  "title": "Footstep on concrete",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0.001,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0.001,
+      "curve": "lin"
+    },
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0.001,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 0.35,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "x": 10,
+        "y": 0,
+        "label": "energy",
+        "compact": true,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "x": 10,
+        "y": 40,
+        "label": "size",
+        "compact": true,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-speed",
+        "type": "input",
+        "x": 10,
+        "y": 80,
+        "label": "speed",
+        "compact": true,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "gesture",
+        "type": "curve",
+        "x": 0,
+        "y": 0,
+        "label": "Step gesture",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.02,
+            1
+          ],
+          [
+            0.04,
+            0.5
+          ],
+          [
+            0.08,
+            0.18
+          ],
+          [
+            0.12,
+            0.35
+          ],
+          [
+            0.18,
+            0.12
+          ],
+          [
+            0.3,
+            0.02
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "click-env",
+        "type": "response",
+        "x": 0,
+        "y": 0,
+        "label": "Heel click envelope",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0,
+          "release": 0.006,
+          "delay": 0,
+          "shape": 1.0,
+          "gain": 1,
+          "sensitivity": 0.02
+        }
+      },
+      {
+        "id": "scuff-env",
+        "type": "response",
+        "x": 0,
+        "y": 0,
+        "label": "Sole scuff envelope",
+        "compact": true,
+        "params": {
+          "input": 0,
+          "mode": "follow",
+          "attack": 0,
+          "release": 0.05,
+          "delay": 0,
+          "shape": 0.6,
+          "gain": 0.9,
+          "sensitivity": 0.03
+        }
+      },
+      {
+        "id": "click",
+        "type": "grain",
+        "x": 0,
+        "y": 0,
+        "label": "Heel click",
+        "compact": true,
+        "params": {
+          "wave": "filtered-noise",
+          "frequency": 3600,
+          "resonance": 2.0,
+          "rate": 0,
+          "attack": 0.00015,
+          "decay": 0.004,
+          "spread": 6,
+          "jitter": 0,
+          "variation": 0,
+          "glide": -0.2,
+          "delay": 0.006,
+          "width": 0.05,
+          "level": 1.0
+        }
+      },
+      {
+        "id": "click-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Click tone",
+        "compact": true,
+        "params": {
+          "cutoff": 4200,
+          "resonance": 1.4,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "click-gain",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Click level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "scuff",
+        "type": "grain",
+        "x": 0,
+        "y": 0,
+        "label": "Sole scuff",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1400,
+          "resonance": 0.8,
+          "rate": 220,
+          "attack": 0.0002,
+          "decay": 0.0025,
+          "spread": 8,
+          "jitter": 1,
+          "variation": 0.8,
+          "glide": 0.1,
+          "delay": 0.0,
+          "width": 0.15,
+          "level": 0.6
+        }
+      },
+      {
+        "id": "scuff-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Scuff band",
+        "compact": true,
+        "params": {
+          "cutoff": 2200,
+          "resonance": 1.0,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "scuff-gain",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Scuff level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "thud",
+        "type": "noise",
+        "x": 0,
+        "y": 0,
+        "label": "Heel thud source",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.4,
+          "width": 0
+        }
+      },
+      {
+        "id": "thud-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Heel thud band",
+        "compact": true,
+        "params": {
+          "cutoff": 220,
+          "resonance": 1.1,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "thud-gain",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Heel thud level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "mix",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Concrete mix",
+        "compact": true,
+        "params": {
+          "gain": 1.2
+        }
+      },
+      {
+        "id": "level",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Energy level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "output-node",
+        "type": "output",
+        "x": 0,
+        "y": 0,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.95
+        }
+      },
+      {
+        "id": "m-energy-level",
+        "type": "map",
+        "x": 0,
+        "y": 0,
+        "label": "energy -> level",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0,
+            0.03
+          ],
+          [
+            0.1,
+            0.06
+          ],
+          [
+            0.9,
+            1.0
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "g-click",
+        "from": "gesture",
+        "to": "click-env",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "g-scuff",
+        "from": "gesture",
+        "to": "scuff-env",
+        "target": "input",
+        "amount": 1
+      },
+      {
+        "id": "click-env-gain",
+        "from": "click-env",
+        "to": "click-gain",
+        "target": "gain",
+        "amount": 1.7
+      },
+      {
+        "id": "click-env-thud",
+        "from": "click-env",
+        "to": "thud-gain",
+        "target": "gain",
+        "amount": 1.2
+      },
+      {
+        "id": "scuff-env-gain",
+        "from": "scuff-env",
+        "to": "scuff-gain",
+        "target": "gain",
+        "amount": 1.3
+      },
+      {
+        "id": "click-filt-in",
+        "from": "click",
+        "to": "click-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "click-filt-out",
+        "from": "click-filt",
+        "to": "click-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "scuff-filt-in",
+        "from": "scuff",
+        "to": "scuff-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "scuff-filt-out",
+        "from": "scuff-filt",
+        "to": "scuff-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "thud-filt-in",
+        "from": "thud",
+        "to": "thud-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "thud-filt-out",
+        "from": "thud-filt",
+        "to": "thud-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "click-mix",
+        "from": "click-gain",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "scuff-mix",
+        "from": "scuff-gain",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "thud-mix",
+        "from": "thud-gain",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "mix-level",
+        "from": "mix",
+        "to": "level",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "level-output",
+        "from": "level",
+        "to": "output-node",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-in",
+        "from": "in-energy",
+        "to": "m-energy-level",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-level",
+        "from": "m-energy-level",
+        "to": "level",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "e-size-thudf",
+        "from": "in-size",
+        "to": "thud-filt",
+        "target": "cutoff",
+        "amount": -120
+      },
+      {
+        "id": "e-size-clickdecay",
+        "from": "in-size",
+        "to": "click",
+        "target": "decay",
+        "amount": 0.003
+      },
+      {
+        "id": "e-speed-clickattack",
+        "from": "in-speed",
+        "to": "click",
+        "target": "attack",
+        "amount": -5e-05
+      },
+      {
+        "id": "e-speed-scuffrate",
+        "from": "in-speed",
+        "to": "scuff",
+        "target": "rate",
+        "amount": 140
+      }
+    ],
+    "performance": null
+  },
+  "master": 0.65
+}

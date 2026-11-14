@@ -1,0 +1,254 @@
+{
+  "haa": 1,
+  "id": "roll-rumble",
+  "title": "Roll rumble",
+  "inputs": [
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0.2,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0.2,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0.2,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 3.0,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-speed",
+        "type": "input",
+        "x": 10,
+        "y": 0,
+        "label": "speed",
+        "compact": true,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "x": 10,
+        "y": 40,
+        "label": "size",
+        "compact": true,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "x": 10,
+        "y": 80,
+        "label": "hardness",
+        "compact": true,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "rumble",
+        "type": "grain",
+        "x": 0,
+        "y": 0,
+        "label": "Roll impacts",
+        "compact": true,
+        "params": {
+          "wave": "filtered-noise",
+          "frequency": 190,
+          "resonance": 1.0,
+          "rate": 1,
+          "attack": 0.0005,
+          "decay": 0.022,
+          "spread": 7,
+          "jitter": 0.15,
+          "variation": 0.5,
+          "glide": -0.15,
+          "delay": 0.0,
+          "width": 0.3,
+          "level": 1.0
+        }
+      },
+      {
+        "id": "surface-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Surface band",
+        "compact": true,
+        "params": {
+          "cutoff": 300,
+          "resonance": 1.0,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "mix",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Roll mix",
+        "compact": true,
+        "params": {
+          "gain": 1.9
+        }
+      },
+      {
+        "id": "level",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Speed level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "output-node",
+        "type": "output",
+        "x": 0,
+        "y": 0,
+        "label": "Roll output",
+        "compact": true,
+        "params": {
+          "gain": 0.9
+        }
+      },
+      {
+        "id": "m-speed-level",
+        "type": "map",
+        "x": 0,
+        "y": 0,
+        "label": "speed -> level",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.4
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0.06
+          ],
+          [
+            0.9,
+            1.0
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "rumble-filt-in",
+        "from": "rumble",
+        "to": "surface-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "filt-mix",
+        "from": "surface-filt",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "mix-level",
+        "from": "mix",
+        "to": "level",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "level-output",
+        "from": "level",
+        "to": "output-node",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "e-speed-rate",
+        "from": "in-speed",
+        "to": "rumble",
+        "target": "rate",
+        "amount": 230
+      },
+      {
+        "id": "e-speed-in",
+        "from": "in-speed",
+        "to": "m-speed-level",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-speed-level",
+        "from": "m-speed-level",
+        "to": "level",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "e-size-freq",
+        "from": "in-size",
+        "to": "rumble",
+        "target": "frequency",
+        "amount": -140
+      },
+      {
+        "id": "e-hard-filtf",
+        "from": "in-hardness",
+        "to": "surface-filt",
+        "target": "cutoff",
+        "amount": 2400
+      },
+      {
+        "id": "e-hard-filtres",
+        "from": "in-hardness",
+        "to": "surface-filt",
+        "target": "resonance",
+        "amount": 2.0
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
