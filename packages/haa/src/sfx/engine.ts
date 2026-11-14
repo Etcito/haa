@@ -178,6 +178,8 @@ export interface SfxStats {
   voiceCap: number;
   /** Mix thread: voice-blocks rendered, thinned (frozen while a worker was behind), voices silenced. */
   mix: MixStats | null;
+  /** The master limiter's gain reduction now (dB, <= 0): 0 while the mix stays under its -3 dBFS threshold. */
+  limiterDb: number;
 }
 
 export interface SfxVoiceAcoustics {
@@ -336,6 +338,19 @@ const CONTINUOUS_FADE_IN_S = 0.05;
 export function mixedWetDb(db: number, offset = WET_OFFSET_DB): number {
   return db + offset;
 }
+/**
+ * The mix's gain before the limiter (dB), so that the limiter only catches accidents. Measured at the
+ * physical Reverb setting with the round-4 weapon gains (pistol 0.29, SMG 0.275, shotgun 0.32), peaks
+ * at 0 dB here: outdoors a crate 2 m away -5.5 dBFS, the shots -5.5 to -8.8, a grenade 5 m away
+ * +4.6; in the hall the pistol -3.3, the shotgun +0.2, a grenade at 5 m +5.1, a one-second SMG burst
+ * +8 (twelve rounds into a 3 s reverb). At -12 dB the loudest of them, the SMG burst in the hall,
+ * peaks at -4.9 dBFS at most and the limiter never moves (its reduction read 0 dB in every take).
+ * The path is 32-bit float to the device (no quantisation, no dither before the output): the quietest
+ * sound, a footstep 10 m away outdoors, sits at -85 dBFS fast maximum: above even a 16-bit output's
+ * floor (-96 dBFS), far above a 24-bit one's.
+ * The listener turns the volume up by 12 dB.
+ */
+export const MIX_HEADROOM_DB = -12;
 /** The master ceiling's transfer curve: identity below 0.708 (-3 dBFS), then tanh-shaped toward 0.98. */
 function ceilingCurve(n = 4097): Float32Array<ArrayBuffer> {
   const knee = 0.708;
@@ -483,7 +498,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   limiter.attack.value = 0.002;
   limiter.release.value = 0.12;
   const master = ctx.createGain();
-  mix.connect(limiter);
+  // Headroom: the whole mix sits `MIX_HEADROOM_DB` under the voices' own calibration, so the loudest
+  // events (an SMG burst in the hall, a grenade 5 m away) stay under the limiter.
+  const headroom = ctx.createGain();
+  headroom.gain.value = 10 ** (MIX_HEADROOM_DB / 20);
+  mix.connect(headroom);
+  headroom.connect(limiter);
   // A ceiling after the compressor: its 2 ms attack let an explosion's transient through at +0.7 dBFS
   // (production build, 3.6 m away). Linear up to -3 dBFS, then a smooth knee that never reaches full
   // scale; native (WaveShaperNode, 2x oversampled), a fixed cost.
@@ -904,6 +924,14 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     // -74.9 dry): the slab let the rain into the room's reverb untouched.
     const send = Math.min(SEND_MAX, 10 ** ((mixedWetDb(ac.wetDb, wetOffsetDb) - s.txs[1]) / 20));
     const right = normalize(cross(listener.forward, listener.up));
+    // The reflected energy begins with the room's first reflection (Barron's model: from the direct
+    // sound on), not with the field's onset of its later paths: timed from that onset (25 ms after a
+    // ball 4 m away in the hall, 37 ms at 12 m in the large building) the first 50 ms held 2-3 dB less
+    // than the rooms' (C50 -7.6 dB for -5.2 in the hall).
+    let onset = ac.predelay;
+    for (const t of ac.taps) {
+      if (t && t.w > 0.05) onset = Math.min(onset, Math.max(0.002, (length(sub(L, t.refl.image)) - len) / SPEED_OF_SOUND_M_S));
+    }
     const state: ChainState = {
       level: s.stopping ? NaN : s.level * s.fadeIn,
       delay: len / SPEED_OF_SOUND_M_S,
@@ -915,7 +943,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       wide: Math.sqrt(spread) * Math.min(1, REF_DISTANCE / Math.max(len, REF_DISTANCE)),
       apparent: add(L, scale(dir, len)),
       send: ac.wetDb <= WET_FLOOR_DB + 1 ? 0 : send,
-      predelay: ac.predelay,
+      predelay: onset,
       sendHz: ac.sendHz,
       // Half the lateral component: a field arriving through a door on the left still reaches the
       // right ear (head shadow, room), 5-8 dB lower, not 25.
@@ -1460,6 +1488,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         lightVoices: busy.filter((s) => s.chain.quality.taps < TAPS_PER_VOICE || !s.chain.quality.hrtf).length,
         convolvers: reverb.running,
         mix: mixPool ? mixPool.mixStats() : null,
+        limiterDb: limiter.reduction,
         allowedConvolvers: reverb.allowedMask.filter(Boolean).length,
         orchestrator: orch ? orch.stats() : null,
         offThread,

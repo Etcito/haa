@@ -998,3 +998,57 @@ plywood. 4 kHz within 8 % of the air-limited estimate; 8 kHz 24-30 % above it.
 **Rolling bodies removed**: a slide or roll whose body was removed (an exploded grenade, a cleared
 pellet) never sent its end: the voice played on (7 roll and slide voices with no body in the scene).
 The Rapier adapter keeps the slide's materials and sends the end when a collider is gone.
+
+### The early part, 8 kHz, headroom, real references (echo3)
+
+**Early part** (haa-mix `Fdn::design_early`, `EARLY_TAPS`). In the mid band an FDN step's response
+builds up over its lines (5-35 ms): its first 50 ms held 17 % of its energy at 2.8 s and 6.5 % at
+8 s, for 22 and 8.3 % of an exponential decay from the send. 128 taps over the input's last 35 ms
+(16 per output, delays stratified, signs and source lines pseudo-random, low-passed at 2.5 kHz) fill,
+per 2.7 ms block, the gap between that exponential (fitted from 50 ms) and the response: now 22.5 and
+8.4 %. The send is read at the room's first reflection (the earliest tap; the field's onset of its later
+paths was 25 ms after a ball 4 m away in the hall), not 19 ms before the field's onset. When the low
+and high bands change, the step keeps its 500 Hz-1 kHz level (the shelves leaked 1.0-1.4 dB into it
+at a low band 1.6 times the mid's; corrected from the loop gains' steady-state energy).
+
+**8 kHz**: the init pass also measures the 4 and 8 kHz octaves' late decay and sets them for their
+air-limited targets: 1.46 s for 1.40 at 8 s, 1.22 for 1.19 at 4 s (24-30 % long before).
+
+**Physical setting, against Barron's revised theory** (the room's own volume and measured T20; the
+shed's source 2 m inside, the former 3 m test stood in its door):
+
+| room | T20 500/1k | DRR ours | DRR Barron | C50 500/1k ours | C50 Barron |
+|------|-----------|----------|------------|-----------------|------------|
+| shed 42 m3, 2 m | 0.67 / 0.74 | -12.4 | -12.7 | +1.8 / +0.7 | +2.6 |
+| hall 480 m3, 4 m | 3.09 / 2.81 | -15.7 | -14.6 | -6.7 / -6.0 | -5.1 |
+| building 6000 m3, 4 m | 6.30 / 5.40 | -6.4 | -6.8 | -6.0 / -5.0 | -4.4 |
+| building 6000 m3, 12 m | 6.49 / 5.53 | -16.4 | -16.3 | -10.4 / -9.4 | -8.4 |
+
+All within 1.5 dB (C50) and 1.1 dB (DRR): the Reverb default is 0 dB again (the scene's too).
+
+**Headroom** (`MIX_HEADROOM_DB` -12): with the round-4 weapon gains the loudest events, at 0 dB here,
+peak at +8 dBFS (a one-second SMG burst 2 m away in the hall), +5 (a grenade 5 m away), +0.2 (a
+shotgun round in the hall). At -12 dB every event stays under the limiter's -3 dBFS (largest -4.9,
+the SMG burst; its reduction read 0 dB in every take; peaks follow the gain linearly). The path is
+32-bit float to the device; the quietest sound (a footstep 10 m away outdoors) sits at -85 dBFS fast
+maximum. `stats().limiterDb` reads the limiter's reduction.
+
+**Real references** (OpenAIR, AIR 1.4, freesound CC0; local only, not distributed), measured with the
+same octave filters and metrics as our rooms:
+
+| space (reference) | T20 125 / 500 / 1k / 4k / 8k | 125/500 | 4k/500 | 8k/500 |
+|-------------------|------------------------------|---------|--------|--------|
+| R1 reactor hall (concrete) | 4.49 / 5.13 / 4.71 / 2.38 / 1.26 | 0.88 | 0.46 | 0.25 |
+| underground garage, balloon (freesound 568095) | 7.35 / 7.01 / 6.31 / 3.32 / 2.59 | 1.05 | 0.47 | 0.37 |
+| sports centre (York) | 5.49 / 6.61 / 6.17 / 3.99 / 2.09 | 0.83 | 0.60 | 0.32 |
+| Hamilton Mausoleum (stone) | 17.2 / 12.2 / 9.11 / 3.48 / 1.23 | 1.41 | 0.29 | 0.10 |
+| ours: building 6000 m3 | 8.84 / 6.49 / 5.53 / 2.57 / 1.64 | 1.36 | 0.40 | 0.25 |
+| ours: hall 480 m3 | 4.08 / 3.09 / 2.81 / 1.81 / 1.19 | 1.32 | 0.59 | 0.39 |
+| stairwell (York) | 0.78 / 1.04 / 0.95 / 0.85 / 0.67 | 0.75 | 0.82 | 0.64 |
+| typing room (Terry's) | 1.57 / 2.76 / 2.59 / 1.45 / 0.72 | 0.57 | 0.53 | 0.26 |
+| Maes Howe (stone, ~100 m3) | 0.73 / 0.52 / 0.52 / 0.39 / 0.34 | 1.40 | 0.75 | 0.65 |
+| ours: shed 42 m3 (plywood) | 0.49 / 0.67 / 0.74 / 0.68 / 0.53 | 0.73 | 1.01 | 0.79 |
+
+DRR against distance (AIR, binaural, a directional source so its level is not comparable, its slope
+is): Aula Carolina (~3.5 s) +5.0 dB at 2 m, -6.7 at 10 m (-16.7 dB per decade); lecture room (0.85 s)
++7.3 at 2.25 m, -7.2 at 10.2 m (-22 per decade); ours -21 per decade (building, 4 to 12 m).
