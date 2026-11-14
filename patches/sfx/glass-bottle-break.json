@@ -8,7 +8,7 @@
     { "name": "hardness", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.7, "smooth": 0.01, "curve": "lin" }
   ],
   "graph": {
-    "duration": 1.1,
+    "duration": 0.5,
     "loop": false,
     "mode": "timeline",
     "nodes": [
@@ -16,68 +16,66 @@
       { "id": "in-size", "type": "input", "x": 20, "y": 100, "label": "Size", "params": { "name": "size" } },
       { "id": "in-hardness", "type": "input", "x": 20, "y": 180, "label": "Hardness", "params": { "name": "hardness" } },
 
-      { "id": "map-level", "type": "map", "x": 220, "y": 20, "label": "Energy -> level", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.5, "outMax": 2.1 } },
-      { "id": "map-density", "type": "map", "x": 220, "y": 90, "label": "Energy -> debris density", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.35, "outMax": 1.0 } },
-      { "id": "map-res-freq", "type": "map", "x": 220, "y": 160, "label": "Size -> cavity mode", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 1700, "outMax": 550 } },
-      { "id": "map-decay", "type": "map", "x": 220, "y": 230, "label": "Size -> decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.14, "outMax": 0.6 } },
+      { "id": "map-level", "type": "map", "x": 220, "y": 20, "label": "Energy -> level", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0, "outMax": 2.0 }, "curve": [ [0, 0.00398], [0.1, 0.00692], [0.2, 0.01202], [0.3, 0.02089], [0.4, 0.03631], [0.5, 0.0631], [0.6, 0.1096], [0.7, 0.1905], [0.8, 0.331], [0.9, 0.5754], [1, 1.0] ] },
+      { "id": "map-res-freq", "type": "map", "x": 220, "y": 160, "label": "Size -> cavity mode", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 1620, "outMax": 470 } },
+      { "id": "map-res-decay", "type": "map", "x": 220, "y": 230, "label": "Size -> cavity ring", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.12, "outMax": 0.33 } },
+      { "id": "map-debris-decay", "type": "map", "x": 220, "y": 500, "label": "Size -> ping decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.006, "outMax": 0.026 } },
       { "id": "map-debris-freq", "type": "map", "x": 220, "y": 300, "label": "Size -> shard pitch", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 7200, "outMax": 3200 } },
       { "id": "map-hard-cutoff", "type": "map", "x": 220, "y": 370, "label": "Hardness -> crack HP", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 900, "outMax": 5200 } },
       { "id": "map-hard-color", "type": "map", "x": 220, "y": 440, "label": "Hardness -> resonator color", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.15, "outMax": 0.75 } },
+      { "id": "map-hard-resonance", "type": "map", "x": 220, "y": 560, "label": "Hardness -> ping resonance", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.9, "outMax": 3.75 } },
 
       { "id": "crack-curve", "type": "curve", "x": 420, "y": 20, "label": "Crack envelope", "params": { "amount": 1 }, "curve": [ [0, 0], [0.004, 1], [0.015, 0.3], [0.04, 0.05], [0.07, 0] ] },
       { "id": "debris-curve", "type": "curve", "x": 420, "y": 150, "label": "Debris burst", "params": { "amount": 0 }, "curve": [ [0, 1], [0.08, 0.4], [0.25, 0.08], [0.45, 0] ] },
-      { "id": "crack-noise", "type": "noise", "x": 420, "y": 90, "label": "Crack burst", "params": { "color": "white", "level": 0.6, "width": 0.3 } },
+      { "id": "crack-noise", "type": "noise", "x": 420, "y": 90, "label": "Crack burst", "params": { "color": "white", "level": 0.6, "width": 0 } },
       { "id": "crack-gain", "type": "gain", "x": 620, "y": 90, "label": "Crack shape", "params": { "gain": 0 } },
       { "id": "crack-filter", "type": "filter", "x": 800, "y": 90, "label": "Crack brightness", "params": { "cutoff": 3200, "resonance": 1.4, "mode": "bandpass" } },
 
-      { "id": "resonator", "type": "resonator", "x": 1000, "y": 90, "label": "Glass body modes", "params": { "frequency": 1000, "decay": 0.3, "color": 0.3, "mix": 0.55 } },
+      { "id": "resonator", "type": "resonator", "x": 1000, "y": 90, "label": "Glass body modes", "params": { "frequency": 80, "decay": 0.005, "color": 0.3, "mix": 0.5 } },
 
-      { "id": "debris-1", "type": "grain", "x": 420, "y": 220, "label": "Shard cloud A", "params": { "wave": "filtered-noise", "frequency": 40, "resonance": 2.0, "rate": 0, "attack": 0.0006, "decay": 0.1, "spread": 9, "jitter": 0.85, "variation": 0.65, "glide": -0.04, "delay": 0.0, "width": 0.7, "level": 0.5 } },
-      { "id": "debris-2", "type": "grain", "x": 420, "y": 300, "label": "Shard cloud B", "params": { "wave": "filtered-noise", "frequency": 40, "resonance": 1.7, "rate": 0, "attack": 0.0008, "decay": 0.16, "spread": 11, "jitter": 0.9, "variation": 0.7, "glide": -0.05, "delay": 0.015, "width": 0.75, "level": 0.4 } },
-      { "id": "debris-3", "type": "grain", "x": 420, "y": 380, "label": "Shard cloud C", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.001, "decay": 0.22, "spread": 7, "jitter": 0.75, "variation": 0.5, "glide": -0.03, "delay": 0.03, "width": 0.6, "level": 0.28 } },
+      { "id": "debris-1", "type": "grain", "x": 420, "y": 220, "label": "Shard ping cloud", "params": { "wave": "filtered-noise", "frequency": 40, "resonance": 0.25, "rate": 0, "attack": 0.0004, "decay": 0.02, "spread": 11, "jitter": 0.9, "variation": 0.6, "glide": -0.04, "delay": 0.0, "width": 0, "level": 0.6 } },
+      { "id": "debris-2", "type": "grain", "x": 420, "y": 300, "label": "Shard glint cloud", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.0006, "decay": 0.02, "spread": 7, "jitter": 0.8, "variation": 0.4, "glide": -0.03, "delay": 0.015, "width": 0, "level": 0.4 } },
 
       { "id": "mix-gain", "type": "gain", "x": 1200, "y": 150, "label": "Final mix", "params": { "gain": 0 } },
       { "id": "out", "type": "output", "x": 1400, "y": 150, "label": "Output", "params": { "gain": 0.9 } }
     ],
     "connections": [
       { "id": "c-in-level", "from": "in-energy", "to": "map-level", "target": "in", "amount": 1 },
-      { "id": "c-in-density", "from": "in-energy", "to": "map-density", "target": "in", "amount": 1 },
       { "id": "c-in-resfreq", "from": "in-size", "to": "map-res-freq", "target": "in", "amount": 1 },
-      { "id": "c-in-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
+      { "id": "c-in-resdecay", "from": "in-size", "to": "map-res-decay", "target": "in", "amount": 1 },
+      { "id": "c-in-debrisdecay", "from": "in-size", "to": "map-debris-decay", "target": "in", "amount": 1 },
       { "id": "c-in-debrisfreq", "from": "in-size", "to": "map-debris-freq", "target": "in", "amount": 1 },
       { "id": "c-in-hardcut", "from": "in-hardness", "to": "map-hard-cutoff", "target": "in", "amount": 1 },
       { "id": "c-in-hardcolor", "from": "in-hardness", "to": "map-hard-color", "target": "in", "amount": 1 },
+      { "id": "c-in-hardres", "from": "in-hardness", "to": "map-hard-resonance", "target": "in", "amount": 1 },
 
       { "id": "c-level", "from": "map-level", "to": "mix-gain", "target": "gain", "amount": 1 },
 
-      { "id": "c-density-curve", "from": "map-density", "to": "debris-curve", "target": "amount", "amount": 1 },
-      { "id": "c-rate-d1", "from": "debris-curve", "to": "debris-1", "target": "rate", "amount": 320 },
-      { "id": "c-rate-d2", "from": "debris-curve", "to": "debris-2", "target": "rate", "amount": 250 },
-      { "id": "c-rate-d3", "from": "debris-curve", "to": "debris-3", "target": "rate", "amount": 160 },
+      { "id": "c-density-curve", "from": "in-energy", "to": "debris-curve", "target": "amount", "amount": 1 },
+      { "id": "c-rate-d1", "from": "debris-curve", "to": "debris-1", "target": "rate", "amount": 260 },
+      { "id": "c-rate-d2", "from": "debris-curve", "to": "debris-2", "target": "rate", "amount": 130 },
 
       { "id": "c-resfreq", "from": "map-res-freq", "to": "resonator", "target": "frequency", "amount": 1 },
-      { "id": "c-decay-res", "from": "map-decay", "to": "resonator", "target": "decay", "amount": 1 },
-      { "id": "c-decay-d1", "from": "map-decay", "to": "debris-1", "target": "decay", "amount": 1 },
-      { "id": "c-decay-d2", "from": "map-decay", "to": "debris-2", "target": "decay", "amount": 1 },
-      { "id": "c-decay-d3", "from": "map-decay", "to": "debris-3", "target": "decay", "amount": 1 },
+      { "id": "c-resdecay", "from": "map-res-decay", "to": "resonator", "target": "decay", "amount": 1 },
+      { "id": "c-decay-d1", "from": "map-debris-decay", "to": "debris-1", "target": "decay", "amount": 1 },
+      { "id": "c-decay-d2", "from": "map-debris-decay", "to": "debris-2", "target": "decay", "amount": 1.3 },
 
       { "id": "c-debfreq-d1", "from": "map-debris-freq", "to": "debris-1", "target": "frequency", "amount": 1.0 },
-      { "id": "c-debfreq-d2", "from": "map-debris-freq", "to": "debris-2", "target": "frequency", "amount": 1.37 },
-      { "id": "c-debfreq-d3", "from": "map-debris-freq", "to": "debris-3", "target": "frequency", "amount": 1.9 },
+      { "id": "c-debfreq-d2", "from": "map-debris-freq", "to": "debris-2", "target": "frequency", "amount": 1.9 },
 
       { "id": "c-hardcut", "from": "map-hard-cutoff", "to": "crack-filter", "target": "cutoff", "amount": 1 },
       { "id": "c-hardcolor", "from": "map-hard-color", "to": "resonator", "target": "color", "amount": 1 },
+      { "id": "c-hardres", "from": "map-hard-resonance", "to": "debris-1", "target": "resonance", "amount": 1 },
 
       { "id": "c-crackenv", "from": "crack-curve", "to": "crack-gain", "target": "gain", "amount": 1.1 },
       { "id": "c-cracknoise", "from": "crack-noise", "to": "crack-gain", "target": "audio", "amount": 1 },
       { "id": "c-crackfilt", "from": "crack-gain", "to": "crack-filter", "target": "audio", "amount": 1 },
       { "id": "c-crackres", "from": "crack-gain", "to": "resonator", "target": "audio", "amount": 1 },
 
-      { "id": "c-res-mix", "from": "resonator", "to": "mix-gain", "target": "audio", "amount": 1 },
-      { "id": "c-crackclick-mix", "from": "crack-filter", "to": "mix-gain", "target": "audio", "amount": 0.3 },
+      { "id": "c-res-mix", "from": "resonator", "to": "mix-gain", "target": "audio", "amount": 1.9 },
+      { "id": "c-crackclick-mix", "from": "crack-filter", "to": "mix-gain", "target": "audio", "amount": 0.65 },
       { "id": "c-d1-mix", "from": "debris-1", "to": "mix-gain", "target": "audio", "amount": 1 },
       { "id": "c-d2-mix", "from": "debris-2", "to": "mix-gain", "target": "audio", "amount": 1 },
-      { "id": "c-d3-mix", "from": "debris-3", "to": "mix-gain", "target": "audio", "amount": 1 },
 
       { "id": "c-out", "from": "mix-gain", "to": "out", "target": "audio", "amount": 1 }
     ],

@@ -16,23 +16,26 @@
       { "id": "in-size", "type": "input", "label": "Size", "x": 20, "y": 120, "params": { "name": "size" } },
       { "id": "in-hardness", "type": "input", "label": "Hardness", "x": 20, "y": 220, "params": { "name": "hardness" } },
 
-      { "id": "map-freq", "type": "map", "label": "Size -> box fundamental", "x": 220, "y": 120, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 200, "outMax": 5 } },
-      { "id": "map-decay", "type": "map", "label": "Size -> ring decay", "x": 220, "y": 180, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.085, "outMax": 0.395 } },
-      { "id": "map-rattle-freq", "type": "map", "label": "Size -> rattle band", "x": 220, "y": 240, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 3390, "outMax": 1190 } },
+      { "id": "map-freq", "type": "map", "label": "Size -> box fundamental", "x": 220, "y": 120, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 340, "outMax": 5 } },
+      { "id": "map-decay", "type": "map", "label": "Size -> ring decay", "x": 220, "y": 180, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.045, "outMax": 0.495 } },
+      { "id": "map-rattle-freq", "type": "map", "label": "Size -> rattle band", "x": 220, "y": 240, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 2790, "outMax": 1190 } },
 
-      { "id": "map-cutoff-hardness", "type": "map", "label": "Hardness -> knock cutoff", "x": 220, "y": 20, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 590, "outMax": 5190 } },
+      { "id": "map-cutoff-hardness", "type": "map", "label": "Hardness -> knock cutoff", "x": 220, "y": 20, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 370, "outMax": 3190 } },
 
-      { "id": "map-level-energy", "type": "map", "label": "Energy -> knock level", "x": 220, "y": 320, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.08, "outMax": 0.95 } },
+      { "id": "map-level-energy", "type": "map", "label": "Energy -> level", "x": 220, "y": 320, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0, "outMax": 0.95 }, "curve": [ [0, 0.00398], [0.1, 0.00692], [0.2, 0.01202], [0.3, 0.02089], [0.4, 0.03631], [0.5, 0.0631], [0.6, 0.1096], [0.7, 0.1905], [0.8, 0.331], [0.9, 0.5754], [1, 1.0] ] },
+      { "id": "map-size-level", "type": "map", "label": "Size -> level factor", "x": 220, "y": 560, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.22, "outMax": 1.0 } },
       { "id": "map-color-energy", "type": "map", "label": "Energy -> ring color", "x": 220, "y": 380, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.5, "outMax": 0.78 } },
-      { "id": "map-rattle-energy", "type": "map", "label": "Energy -> rattle amount", "x": 220, "y": 440, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.0, "outMax": 0.5 } },
+      { "id": "map-rattle-energy", "type": "map", "label": "Energy -> rattle amount", "x": 220, "y": 440, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.0, "outMax": 0.4 } },
 
-      { "id": "knock", "type": "grain", "label": "Impact transient", "x": 460, "y": 20, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 0, "attack": 0.0006, "decay": 0.012, "spread": 0, "jitter": 0, "variation": 0.2, "glide": 0, "delay": 0, "width": 0.3, "level": 0 } },
-      { "id": "knock-filter", "type": "filter", "label": "Transient brightness", "x": 680, "y": 20, "params": { "cutoff": 10, "resonance": 0.9, "mode": "bandpass" } },
+      { "id": "level-mult", "type": "math", "label": "Energy x size -> level", "x": 320, "y": 500, "params": { "a": 0, "b": 0, "operation": "multiply", "edge0": 0, "edge1": 1 } },
+
+      { "id": "knock", "type": "grain", "label": "Impact transient", "x": 460, "y": 20, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 0, "attack": 0.0006, "decay": 0.012, "spread": 0, "jitter": 0, "variation": 0.2, "glide": 0, "delay": 0, "width": 0, "level": 0 } },
+      { "id": "knock-filter", "type": "filter", "label": "Transient brightness", "x": 680, "y": 20, "params": { "cutoff": 10, "resonance": 0.8, "mode": "bandpass" } },
 
       { "id": "body-resonator", "type": "resonator", "label": "Box body modes", "x": 900, "y": 20, "params": { "frequency": 80, "decay": 0.005, "color": 0.5, "mix": 0.92 } },
-      { "id": "lid-resonator", "type": "resonator", "label": "Lid / panel modes", "x": 900, "y": 160, "params": { "frequency": 80, "decay": 0.005, "color": 0.8, "mix": 0.3 } },
+      { "id": "lid-resonator", "type": "resonator", "label": "Lid / panel modes", "x": 900, "y": 160, "params": { "frequency": 150, "decay": 0.005, "color": 0.8, "mix": 0.3 } },
 
-      { "id": "rattle", "type": "grain", "label": "Loose slats rattle", "x": 460, "y": 320, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 45, "attack": 0.001, "decay": 0.006, "spread": 0, "jitter": 0.9, "variation": 0.7, "glide": 0, "delay": 0.05, "width": 0.5, "level": 0 } },
+      { "id": "rattle", "type": "grain", "label": "Loose slats rattle", "x": 460, "y": 320, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 45, "attack": 0.001, "decay": 0.006, "spread": 0, "jitter": 0.9, "variation": 0.7, "glide": 0, "delay": 0.05, "width": 0, "level": 0 } },
       { "id": "rattle-filter", "type": "filter", "label": "Rattle band", "x": 680, "y": 320, "params": { "cutoff": 10, "resonance": 0.8, "mode": "bandpass" } },
       { "id": "rattle-env", "type": "envelope", "label": "Rattle die-out", "x": 680, "y": 400, "params": { "attack": 0.002, "decay": 0.001, "sustain": 0, "hold": 0.02, "release": 0.05, "clock": "patch", "retrigger": 0 } },
       { "id": "rattle-gain", "type": "gain", "label": "Rattle envelope", "x": 900, "y": 320, "params": { "gain": 0 } },
@@ -44,12 +47,16 @@
       { "id": "e-size-freq", "from": "in-size", "to": "map-freq", "target": "in", "amount": 1 },
       { "id": "e-size-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
       { "id": "e-size-rattlefreq", "from": "in-size", "to": "map-rattle-freq", "target": "in", "amount": 1 },
+      { "id": "e-size-levelfactor", "from": "in-size", "to": "map-size-level", "target": "in", "amount": 1 },
       { "id": "e-hardness-cutoff", "from": "in-hardness", "to": "map-cutoff-hardness", "target": "in", "amount": 1 },
       { "id": "e-energy-level", "from": "in-energy", "to": "map-level-energy", "target": "in", "amount": 1 },
       { "id": "e-energy-color", "from": "in-energy", "to": "map-color-energy", "target": "in", "amount": 1 },
       { "id": "e-energy-rattle", "from": "in-energy", "to": "map-rattle-energy", "target": "in", "amount": 1 },
 
-      { "id": "e-level-knock", "from": "map-level-energy", "to": "knock", "target": "level", "amount": 1 },
+      { "id": "e-levelenergy-mult", "from": "map-level-energy", "to": "level-mult", "target": "a", "amount": 1 },
+      { "id": "e-levelsize-mult", "from": "map-size-level", "to": "level-mult", "target": "b", "amount": 1 },
+      { "id": "e-mult-knock", "from": "level-mult", "to": "knock", "target": "level", "amount": 1 },
+
       { "id": "e-cutoff-knockfilter", "from": "map-cutoff-hardness", "to": "knock-filter", "target": "cutoff", "amount": 1 },
       { "id": "e-knock-knockfilter", "from": "knock", "to": "knock-filter", "target": "audio", "amount": 1 },
 
@@ -58,14 +65,15 @@
       { "id": "e-color-body", "from": "map-color-energy", "to": "body-resonator", "target": "color", "amount": 1 },
       { "id": "e-knockfilter-body", "from": "knock-filter", "to": "body-resonator", "target": "audio", "amount": 1 },
 
-      { "id": "e-freq-lid", "from": "map-freq", "to": "lid-resonator", "target": "frequency", "amount": 2.4 },
-      { "id": "e-decay-lid", "from": "map-decay", "to": "lid-resonator", "target": "decay", "amount": 0.5 },
+      { "id": "e-freq-lid", "from": "map-freq", "to": "lid-resonator", "target": "frequency", "amount": 2.1 },
+      { "id": "e-decay-lid", "from": "map-decay", "to": "lid-resonator", "target": "decay", "amount": 0.45 },
       { "id": "e-knockfilter-lid", "from": "knock-filter", "to": "lid-resonator", "target": "audio", "amount": 0.6 },
 
-      { "id": "e-rattle-level", "from": "map-rattle-energy", "to": "rattle", "target": "level", "amount": 1 },
+      { "id": "e-rattle-level", "from": "level-mult", "to": "rattle", "target": "level", "amount": 0.6 },
+      { "id": "e-rattle-level-energy", "from": "map-rattle-energy", "to": "rattle", "target": "level", "amount": 0.15 },
       { "id": "e-rattlefreq-rattlefilter", "from": "map-rattle-freq", "to": "rattle-filter", "target": "cutoff", "amount": 1 },
       { "id": "e-rattle-rattlefilter", "from": "rattle", "to": "rattle-filter", "target": "audio", "amount": 1 },
-      { "id": "e-decay-rattleenv", "from": "map-decay", "to": "rattle-env", "target": "decay", "amount": 0.7 },
+      { "id": "e-decay-rattleenv", "from": "map-decay", "to": "rattle-env", "target": "decay", "amount": 0.3 },
       { "id": "e-rattleenv-rattlegain", "from": "rattle-env", "to": "rattle-gain", "target": "gain", "amount": 1.8 },
       { "id": "e-rattlefilter-rattlegain", "from": "rattle-filter", "to": "rattle-gain", "target": "audio", "amount": 1 },
 
