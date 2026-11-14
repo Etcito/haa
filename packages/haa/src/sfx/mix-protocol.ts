@@ -11,7 +11,7 @@
 // parameters come in batches from the main thread.
 
 export const MIX_PROCESSOR = 'haa-sfx-mixbus';
-export const MIX_BUSES = 10;
+export const MIX_BUSES = 16;
 /** f32 per voice parameter record (crates/haa-mix `p::LEN`); index 49 carries the priority. */
 export const MIX_PARAMS = 50;
 export const MIX_PRIORITY = 49;
@@ -24,12 +24,17 @@ export const P = {
   RDIR: 13, TAP_HZ: 16, WEIGHTS: 17, TAPS: 28, FOCUS: 48,
 } as const;
 
-/** The 10 virtual speakers (crates/haa-mix): a ring of 8 at ear level every 45 degrees (0 toward -z, 2 toward +x), then up and down. */
-export const MIX_SPEAKERS: ReadonlyArray<readonly [number, number, number]> = [
-  ...Array.from({ length: 8 }, (_, k) => [Math.sin((k * Math.PI) / 4), 0, -Math.cos((k * Math.PI) / 4)] as const),
-  [0, 1, 0] as const,
-  [0, -1, 0] as const,
-];
+/** The 16 virtual speakers (crates/haa-mix): a ring of 8 at ear level every 45 degrees (0 toward -z, 2 toward +x), 4 at +45 degrees of elevation and 4 at -45, between the ring's diagonals. */
+export const MIX_SPEAKERS: ReadonlyArray<readonly [number, number, number]> = (() => {
+  const out: Array<readonly [number, number, number]> = [];
+  for (let k = 0; k < 8; k++) out.push([Math.sin((k * Math.PI) / 4), 0, -Math.cos((k * Math.PI) / 4)] as const);
+  const e = Math.PI / 4;
+  for (const y of [1, -1]) for (let k = 0; k < 4; k++) {
+    const a = Math.PI / 4 + (k * Math.PI) / 2;
+    out.push([Math.sin(a) * Math.cos(e), y * Math.sin(e), -Math.cos(a) * Math.cos(e)] as const);
+  }
+  return out;
+})();
 
 export interface MixProcessorOptions {
   transport: 'sab' | 'port';

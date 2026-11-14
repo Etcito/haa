@@ -16,7 +16,7 @@
 
 use std::f32::consts::PI;
 
-pub const SPEAKERS: usize = 10;
+pub const SPEAKERS: usize = 16;
 /// Speakers of the ear-level ring (the FDN lines feed these).
 const RING: usize = 8;
 pub const BLOCK: usize = 128;
@@ -45,51 +45,72 @@ pub mod p {
     pub const LEN: usize = 50;
 }
 
-/// The 10 virtual speakers, fixed in the world: a ring of 8 at ear level every 45 degrees (index 0
-/// toward -z, 2 toward +x), then straight up and straight down.
+/// The 16 virtual speakers, fixed in the world: a ring of 8 at ear level every 45 degrees (index 0
+/// toward -z, 2 toward +x), 4 above at 45 degrees of elevation and 4 below, between the ring's
+/// diagonals. Measured offline against one HRTF per direction (72 directions): ILD error 1.4 dB,
+/// ITD 95 us, spectral (elevation) error 2.6 dB, against 3.0 dB, 117 us and 3.7 dB for the ring of 8
+/// with two poles; 16 static HRTF panners cost the audio thread 2.6 % of real time.
 fn speakers() -> [[f32; 3]; SPEAKERS] {
     let mut s = [[0.0; 3]; SPEAKERS];
     for (k, v) in s.iter_mut().take(RING).enumerate() {
         let a = k as f32 * PI / 4.0;
         *v = [a.sin(), 0.0, -a.cos()];
     }
-    s[8] = [0.0, 1.0, 0.0];
-    s[9] = [0.0, -1.0, 0.0];
+    let e = PI / 4.0;
+    for k in 0..4 {
+        let a = PI / 4.0 + k as f32 * PI / 2.0;
+        s[RING + k] = [a.sin() * e.cos(), e.sin(), -a.cos() * e.cos()];
+        s[RING + 4 + k] = [a.sin() * e.cos(), -e.sin(), -a.cos() * e.cos()];
+    }
     s
 }
 
-/// Speaker gains for a direction: pairwise constant-power panning between the two ring speakers
-/// around its azimuth (a source on a speaker lights that speaker alone, so a lateral sound keeps
-/// its full interaural cues), the poles by its elevation; `focus` < 1 blends toward all speakers
-/// (a large source). Unit energy.
-pub fn pan(_spk: &[[f32; 3]; SPEAKERS], d: [f32; 3], focus: f32) -> [f32; SPEAKERS] {
+fn det3(m: [[f32; 3]; 3]) -> f32 {
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
+}
+
+/// Speaker gains for a direction: VBAP over the 3 speakers nearest to it (the gains that rebuild the
+/// direction from those three, negatives clipped), so a source on a speaker lights that speaker
+/// alone and keeps its full interaural and spectral cues; `focus` < 1 blends toward all speakers (a
+/// large source). Unit energy.
+pub fn pan(spk: &[[f32; 3]; SPEAKERS], d: [f32; 3], focus: f32) -> [f32; SPEAKERS] {
     let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
     let mut g = [0.0f32; SPEAKERS];
     if l > 1e-6 {
-        let (x, y, z) = (d[0] / l, d[1] / l, d[2] / l);
-        let h = (x * x + z * z).sqrt();
-        let el = y.atan2(h);
-        let mut az = x.atan2(-z);
-        if az < 0.0 {
-            az += 2.0 * PI;
+        let u = [d[0] / l, d[1] / l, d[2] / l];
+        let mut near = [(f32::MIN, 0usize); 3];
+        for (i, sp) in spk.iter().enumerate() {
+            let c = sp[0] * u[0] + sp[1] * u[1] + sp[2] * u[2];
+            if c > near[2].0 {
+                near[2] = (c, i);
+                near.sort_by(|a, b| b.0.total_cmp(&a.0));
+            }
         }
-        let pos = az / (PI / 4.0);
-        let i = (pos.floor() as usize) % RING;
-        let f = pos - pos.floor();
-        let c = el.cos();
-        g[i] = (f * PI / 2.0).cos() * c;
-        g[(i + 1) % RING] = (f * PI / 2.0).sin() * c;
-        if el > 0.0 {
-            g[8] = el.sin();
+        let (a, b, c) = (spk[near[0].1], spk[near[1].1], spk[near[2].1]);
+        let m = [[a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]]];
+        let dm = det3(m);
+        if dm.abs() < 1e-6 {
+            g[near[0].1] = 1.0;
         } else {
-            g[9] = -el.sin();
+            for k in 0..3 {
+                let mut mk = m;
+                for (r, row) in mk.iter_mut().enumerate() {
+                    row[k] = u[r];
+                }
+                g[near[k].1] = (det3(mk) / dm).max(0.0);
+            }
         }
     }
     let focus = if l > 1e-6 { focus.clamp(0.0, 1.0) } else { 0.0 };
-    let u = 1.0 / (SPEAKERS as f32).sqrt();
+    let ud = 1.0 / (SPEAKERS as f32).sqrt();
     let mut e = 0.0;
+    let mut eg = 0.0;
+    for x in g.iter() {
+        eg += x * x;
+    }
+    let kg = if eg > 1e-12 { 1.0 / eg.sqrt() } else { 0.0 };
     for x in g.iter_mut() {
-        *x = focus * *x + (1.0 - focus) * u;
+        *x = focus * *x * kg + (1.0 - focus) * ud;
         e += *x * *x;
     }
     let k = 1.0 / e.max(1e-9).sqrt();
@@ -148,11 +169,13 @@ impl Voice {
     }
 }
 
-/// Line lengths at 48 kHz (12-36 ms, primes): a dense onset, as the rendered responses had.
-const FDN_LEN_48K: [usize; 8] = [557, 709, 853, 1031, 1201, 1361, 1523, 1709];
-/// A diffuse field spread over the 10 HRTF speakers reaches each ear at about half the power a
-/// stereo response did (measured: the late energy 2.5-4 dB under the convolver bank): +3 dB.
-const DIFFUSE_GAIN: f32 = 1.41;
+/// Line lengths at 48 kHz (5-35 ms, primes): the first echo 5 ms after the send, as the rendered
+/// responses start (2.8-7.4 ms; with 12 ms lines the onset was hollow).
+const FDN_LEN_48K: [usize; 8] = [241, 409, 593, 787, 991, 1213, 1433, 1667];
+/// The FDN feeds the 8 ring speakers; through their HRTF panners a diffuse field of unit total power
+/// reaches each ear at -5.3 dB (measured offline in Chrome, 8 independent noises of power 1/8), where
+/// the convolver bank's unit-energy stereo response reached it at 0 dB: +5.3 dB keeps the room levels.
+const DIFFUSE_GAIN: f32 = 1.84;
 
 struct Fdn {
     rt: f32,
@@ -169,12 +192,17 @@ struct Fdn {
 }
 
 impl Fdn {
-    fn new(rt: f32, sr: f32) -> Fdn {
-        let lens: Vec<usize> = FDN_LEN_48K.iter().map(|&l| ((l as f32) * sr / 48000.0) as usize).collect();
+    fn gains(lens: &[usize], rt: f32, sr: f32) -> [f32; 8] {
         let mut g = [0.0; 8];
         for i in 0..8 {
             g[i] = 10f32.powf(-3.0 * lens[i] as f32 / (rt * sr));
         }
+        g
+    }
+
+    fn new(rt: f32, sr: f32) -> Fdn {
+        let lens: Vec<usize> = FDN_LEN_48K.iter().map(|&l| ((l as f32) * sr / 48000.0) as usize).collect();
+        let g = Self::gains(&lens, rt, sr);
         let mut f = Fdn {
             rt,
             lines: lens.iter().map(|&l| vec![0.0; l]).collect(),
@@ -187,16 +215,25 @@ impl Fdn {
             fed: false,
             alive: 0,
         };
-        f.out_gain = DIFFUSE_GAIN / f.impulse_energy(sr).max(1e-9).sqrt();
+        // The damping in the loop shortens the decay (measured 10-18 % short above 2 s): one pass that
+        // measures the response's own T20 and sets the gains for the target, then unit energy.
+        let (_, t20) = f.impulse_response(sr);
+        if t20 > 0.0 && (t20 / rt - 1.0).abs() > 0.02 {
+            f.g = Self::gains(&lens, rt * rt / t20, sr);
+        }
+        let (e, _) = f.impulse_response(sr);
+        f.out_gain = DIFFUSE_GAIN / e.max(1e-9).sqrt();
         f
     }
 
-    /// Energy of the response (all 8 outputs) to a unit-energy impulse spread over the lines.
-    fn impulse_energy(&self, sr: f32) -> f32 {
+    /// Energy and Schroeder T20 (x3) of the response (all outputs) to a unit-energy impulse spread
+    /// over the lines, simulated to 1.3 times the target decay (at most 11 s).
+    fn impulse_response(&self, sr: f32) -> (f32, f32) {
         let mut probe = Fdn { lines: self.lines.iter().map(|l| vec![0.0; l.len()]).collect(), pos: [0; 8], damp: [0.0; 8], out_gain: 1.0, input: vec![[0.0; BLOCK]; 8], fed: true, alive: usize::MAX, ..*self.shallow() };
-        let total = ((self.rt * 1.1).min(9.0) * sr) as usize;
-        let mut e = 0.0f64;
-        let mut out = [0.0f32; SPEAKERS * BLOCK];
+        probe.g = self.g;
+        let total = ((self.rt * 1.3).min(11.0) * sr) as usize;
+        let mut env: Vec<f64> = Vec::with_capacity(total / BLOCK + 1);
+        let mut out = vec![0.0f32; SPEAKERS * BLOCK];
         let mut done = 0;
         while done < total {
             let n = BLOCK.min(total - done);
@@ -207,10 +244,25 @@ impl Fdn {
             }
             out.iter_mut().for_each(|x| *x = 0.0);
             probe.process(&mut out, n);
-            e += out.iter().map(|&x| f64::from(x) * f64::from(x)).sum::<f64>();
+            env.push(out.iter().map(|&x| f64::from(x) * f64::from(x)).sum::<f64>());
             done += n;
         }
-        e as f32
+        let e: f64 = env.iter().sum();
+        // Schroeder integral from 50 ms (the bank's responses were calibrated on their late decay),
+        // T20 from -5 to -25 dB.
+        let skip = ((0.05 * sr) as usize / BLOCK).min(env.len().saturating_sub(1));
+        let late = &env[skip..];
+        let mut sch = vec![0.0f64; late.len()];
+        let mut acc = 0.0;
+        for i in (0..late.len()).rev() {
+            acc += late[i];
+            sch[i] = acc;
+        }
+        let at = |db: f64| -> f32 {
+            let lim = sch[0] * 10f64.powf(db / 10.0);
+            sch.iter().position(|&v| v < lim).map_or(f32::NAN, |i| (i * BLOCK) as f32 / sr)
+        };
+        (e as f32, (at(-25.0) - at(-5.0)) * 3.0)
     }
 
     fn shallow(&self) -> Box<Fdn> {
@@ -484,17 +536,19 @@ mod tests {
             let e: f32 = g.iter().map(|x| x * x).sum();
             assert!((e - 1.0).abs() < 1e-4);
         }
-        // A source on +x lights the ring speaker at +x alone; one at 22.5 degrees shares two.
+        // A source on +x lights the ring speaker at +x alone; one straight up shares the 4 upper ones
+        // that the nearest-3 rule picks (3 of them), none below.
         let g = pan(&spk, [1.0, 0.0, 0.0], 1.0);
         assert!((g[2] - 1.0).abs() < 1e-4, "{g:?}");
-        let a = PI / 8.0;
-        let g = pan(&spk, [a.sin(), 0.0, -a.cos()], 1.0);
-        assert!((g[0] - g[1]).abs() < 1e-4 && g[0] > 0.6, "{g:?}");
+        let g = pan(&spk, [0.0, 1.0, 0.0], 1.0);
+        assert!(g[RING..RING + 4].iter().sum::<f32>() > 1.0 && g[RING + 4..].iter().all(|&x| x == 0.0), "{g:?}");
         // Unit-energy reverb steps: a short and a long decay, both within 1.5 dB of 1.
-        for rt in [0.5f32, 4.0] {
+        for rt in [0.5f32, 4.0, 8.0] {
             let f = Fdn::new(rt, 48000.0);
-            let e = f.impulse_energy(48000.0) * f.out_gain * f.out_gain / (DIFFUSE_GAIN * DIFFUSE_GAIN);
-            assert!((10.0 * e.log10()).abs() < 1.5, "rt {rt}: {e}");
+            let (e, t20) = f.impulse_response(48000.0);
+            let e = e * f.out_gain * f.out_gain / (DIFFUSE_GAIN * DIFFUSE_GAIN);
+            assert!((10.0 * e.log10()).abs() < 1.0, "rt {rt}: {e}");
+            assert!((t20 / rt - 1.0).abs() < 0.08, "rt {rt}: T20 {t20}");
         }
     }
 }

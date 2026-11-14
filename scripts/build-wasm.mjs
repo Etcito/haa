@@ -24,6 +24,12 @@ try {
     new URL('../target/wasm32-unknown-unknown/release/haa_field.wasm', import.meta.url),
     new URL('../packages/haa/pkg/haa-field.wasm', import.meta.url),
   );
+  // The acoustic tracer (crates/haa-trace): its own small wasm, for the main thread or a worker.
+  execFileSync('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'haa-trace'], { stdio: 'inherit', cwd: ROOT });
+  copyFileSync(
+    new URL('../target/wasm32-unknown-unknown/release/haa_trace.wasm', import.meta.url),
+    new URL('../packages/haa/pkg/haa-trace.wasm', import.meta.url),
+  );
 } catch (error) {
   console.error(`[build-wasm] ${String(error instanceof Error ? error.message : error).replace(/\s*\r?\n\s*/g, ' ')}`);
   process.exit(1);

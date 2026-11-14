@@ -48,6 +48,8 @@
     "./render-worker": "./dist/render-worker.js",
     "./mix-worker": "./dist/mix-worker.js",
     "./mix-wasm": "./pkg/haa-mix.wasm",
+    "./trace-worker": "./dist/trace-worker.js",
+    "./trace-wasm": "./pkg/haa-trace.wasm",
     "./package.json": "./package.json"
   },
   "scripts": {

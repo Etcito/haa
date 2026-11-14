@@ -15,3 +15,10 @@ export * from './orchestrator.ts';
 export * from './worker-pool.ts';
 export * from './mix-pool.ts';
 export * from './mix-protocol.ts';
+export * from './tracer.ts';
+// The tracer's geometry helpers carry surface ids (field-wasm.ts has its own without them).
+export { createWasmTracer, geometryFromRapier as tracerGeometryFromRapier } from './trace-wasm.ts';
+export type { SfxGeometry as TracerGeometry, WasmTracer } from './trace-wasm.ts';
+export * from './trace-worker-client.ts';
+export * from './gpu-trace.ts';
+export * from './gpu-particles.ts';

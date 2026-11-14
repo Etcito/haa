@@ -27,6 +27,7 @@ const ENTRIES = [
   { entry: 'src/sfx/bake-worker.ts', outfile: 'dist/bake-worker.js', platform: 'browser' },
   { entry: 'src/sfx/render-worker.ts', outfile: 'dist/render-worker.js', platform: 'browser' },
   { entry: 'src/sfx/mix-worker.ts', outfile: 'dist/mix-worker.js', platform: 'browser' },
+  { entry: 'src/sfx/trace-worker.ts', outfile: 'dist/trace-worker.js', platform: 'browser' },
   { entry: 'src/arranger.ts', outfile: 'dist/arranger.js', platform: 'neutral' },
   { entry: 'src/fit.ts', outfile: 'dist/fit.js', platform: 'neutral' },
 ];

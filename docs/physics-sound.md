@@ -817,3 +817,52 @@ cell, the cubes' faces included, so they follow the clutter.)
 - The hall heard 4 m outside decays in 3.05 s (the hall's own decay; the rays give 3.6 s inside and
   4.8 s through the door, from their long paths through it).
 - 12 MB for the 1 m grid; 8 s until the whole scene is baked (nearest first; the rays answer meanwhile).
+
+### Mix thread, second pass (calibration, 16 speakers, geometry off the main thread, GPU debris)
+
+**Reverb level, calibrated offline** (`temp` harnesses: Node driving haa.wasm and haa-mix.wasm; an
+OfflineAudioContext for the decode). Each FDN step against the bank's rendered response
+(`renderReverbIrData`), impulse in, energy and Schroeder T20 from 50 ms (the responses were calibrated
+on their late decay):
+
+| step (s) | 0.25 | 0.5 | 1 | 2 | 4 | 5.6 | 8 |
+|----------|------|-----|---|---|---|-----|---|
+| rendered T20 | 0.26 | 0.52 | 1.03 | 2.00 | 4.03 | 5.60 | 8.01 |
+| FDN T20 | 0.26 | 0.50 | 1.01 | 2.02 | 4.00 | 5.62 | 8.00 |
+
+- Each step's FDN measures its own late decay at start-up and corrects its gains (the damping in the
+  loop made long steps 10-18 % short); its first line is 5 ms (the onset was 12.6 ms against the
+  responses' 2.8-7.4 ms: hollow); its energy is within 0.6 dB of the target.
+- The decode: through the 8 ring speakers' HRTF panners, a diffuse field of unit total power reaches
+  each ear at -5.3 dB, where the bank's unit-energy stereo response reached it at 0 dB; the FDN is
+  raised by +5.3 dB (it was +3 dB, a guess from a disturbed real-time measure). A direct sound on a
+  speaker reaches the ears as through one HRTF panner (-5 dB per ear at 0 and 90 degrees).
+- Per room the engine gives both paths the same send and decay weights, so with the generator and the
+  decode calibrated the rooms match by construction (to the generator's 0.6 dB). Still different: the
+  first 10 ms of the FDN hold less energy than the rendered responses' dense burst (30 against 52 %
+  at 0.25 s), the first 50 ms a little more at long decays (47 against 38 % at 4 s).
+
+**16 speakers**: a ring of 8 at ear level, 4 at +45 degrees, 4 at -45, VBAP over the 3 nearest.
+Measured offline against one HRTF panner per direction (72 directions, 3 elevations):
+
+| layout | buses | ILD error | ITD error | spectral (elevation) error | audio thread |
+|--------|-------|-----------|-----------|----------------------------|--------------|
+| cube, first order (first version) | 8 | 3.41 dB | 196 us | 3.79 dB | 1.1 % |
+| ring 8 + poles, pairwise | 10 | 2.98 dB | 117 us | 3.67 dB | 1.6 % |
+| ring 8 + 4 up + 4 down, VBAP | 16 | 1.40 dB | 95 us | 2.56 dB | 2.6 % |
+
+**Geometry off the main thread**: the voices' geometry runs in the worker tracer (`createWorkerTracer`,
+crates/haa-trace) wherever the field has no cells. In the cluttered run the engine's main-thread cost
+fell from 134 ms per frame (update 99 ms, physics events 35 ms; 5 frames per second) to 1.25 ms
+(update 0.88, events 0.37; p95 2.0 ms, worst 15 ms); the tracer answers in 13 ms on average (89 ms
+worst). With the main thread free the slots are released on time: 0 voices dropped at 64 slots in
+that run (900-2 600 before).
+
+**Master ceiling**: the compressor's 2 ms attack let an explosion through at +0.7 dBFS (production
+build, 3.6 m): a native WaveShaperNode after it, linear to -3 dBFS, tanh-shaped toward 0.98.
+
+**GPU debris** (`?gpuParticles=1` in the studio, off by default; gpu-particles.ts): 8192 pebbles on the
+GPU collided against the level's 89 boxes, impacts summed per 4 m cell and surface hardness, read
+back each step and fed to `particle-cluster` loops through the mix thread (not drawn, no gameplay).
+Measured: 10 000 particles 0.20 ms of GPU per step (read-back 3.1 ms), 100 000 particles 0.26 ms
+(read-back 3.7 ms median, 35 ms worst).
