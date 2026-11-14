@@ -87,6 +87,12 @@ the preset; the generic ones (`solid-impact`, `slide-scrape`, `roll-rumble`, `ra
 declare an enum input `material` (`wood`, `metal`, `glass`, `stone`, `plastic`, `ceramic`, `concrete`,
 `tile`, `snow`; an index) that a slot can force through its `inputs`.
 
+The runtime sends it from the ringing object's material: `defineMaterial({ name: 'crate', material:
+'wood', ... })` (`SOUND_MATERIALS`, `SoundMaterialKind`). In the contract the value is index / 8
+(`materialInput('stone')`, which is also what a slot's forced `inputs.material` takes); an enum input
+receives the index (`toDeclared` rounds index / 8 back). A material without `material` sends nothing
+and the preset keeps its own default. Rain on a face sends its face's material too.
+
 ## API
 
 ```ts
@@ -223,6 +229,9 @@ rain.stop(0.6);
   body's `shape`, `dim`, `thickness`. The 6 faces loudest at the listener play (estimated from
   intensity, flux, area, hardness, far-side loss and distance); a playing face leaves only for one
   3 dB louder, and faces fade in and out over 0.6 s.
+- `rain-on-face` sits about 35 dB under an energy-1 impact's peak at the listener (output gain 0.04):
+  at gain 1 rain on open ground measured −14 dBFS RMS, above a 160 J crate impact (−29 dBFS RMS over
+  100 ms) and 35 dB above footsteps.
 - `rainOnFace` (Rust): drops are Poisson at 600·intensity^1.3·flux·min(area, 25 m²) per second
   (more area beyond 25 m² only adds density, the far parts are the chain's distance; above 4000
   drops/s each drop carries several). A drop is a short noise splash (bigger drops longer and
@@ -349,6 +358,10 @@ trunk -> send -> pre-delay -> low-pass (absorbent rooms are darker) -> stereo pa
 - Parameters are written only when they moved (0.03 dB, 0.5 % in frequency, 20 µs of delay), as
   25 ms linear ramps that end: a never-ending setTarget on every parameter every frame keeps
   Chrome's biquads and delays on their per-sample paths.
+- The bank's convolvers are connected only while a voice sends to them, and for their tail after:
+  Chrome's ConvolverNode never sleeps on silence (a 10 s response measured 14 % of the audio thread
+  with nothing in it, the 11 of the bank about half of it). 14 pink-noise loops: 0.92 → 0.47 × real
+  time offline. The engine now budgets 3 % per chain (`CHAIN_COST`).
 - Cost (16 pink-noise loops, chains and bank, no ray cast, offline): 1.45 × real time with 6 taps of
   their own filters, two air filters, a proximity shelf and setTarget every frame; 1.29 with the
   writes above; 0.75 with 4 taps sharing one filter and one air shelf (the former chain: 0.61); with

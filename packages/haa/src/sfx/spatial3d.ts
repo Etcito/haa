@@ -509,6 +509,10 @@ export class ReverbBank {
   readonly output: GainNode;
   private readonly ctx: BaseAudioContext;
   private amount = 1;
+  private readonly convolvers: ConvolverNode[] = [];
+  private readonly tails: number[] = [];
+  private readonly connected: boolean[] = [];
+  private readonly lastUse: number[] = [];
 
   constructor(ctx: BaseAudioContext, engine: HaaEngine, dest: AudioNode, steps: readonly number[] = BANK_RT60) {
     this.ctx = ctx;
@@ -522,9 +526,36 @@ export class ReverbBank {
       c.normalize = false;
       c.buffer = renderReverbIr(ctx, engine, rt, BANK_DAMPING);
       input.connect(c);
-      c.connect(this.output);
       this.inputs.push(input);
+      this.convolvers.push(c);
+      this.tails.push(c.buffer.duration);
+      this.connected.push(false);
+      this.lastUse.push(-Infinity);
     }
+  }
+
+  /**
+   * Keep a convolver in the graph only while a voice sends to it, and for its tail after: Chrome's
+   * ConvolverNode never sleeps on silence (a 10 s response measured 14 % of the audio thread with
+   * nothing in it; the 11 of the bank about half of it), and a node nothing pulls is not rendered.
+   */
+  setActive(i: number, active: boolean): void {
+    const now = this.ctx.currentTime;
+    if (active) {
+      this.lastUse[i] = now;
+      if (!this.connected[i]) {
+        this.convolvers[i].connect(this.output);
+        this.connected[i] = true;
+      }
+    } else if (this.connected[i] && now - this.lastUse[i] > this.tails[i] + 0.2) {
+      this.convolvers[i].disconnect();
+      this.connected[i] = false;
+    }
+  }
+
+  /** Convolvers in the graph now. */
+  get running(): number {
+    return this.connected.filter(Boolean).length;
   }
 
   /** Scale every room: 0 dry, 1 the estimated rooms, 2 exaggerated (+6 dB; RT60 × 1.5 via `stretched`). */

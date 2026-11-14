@@ -11,7 +11,22 @@ import type { Vec3 } from './acoustics.ts';
  * `flux` and `area` describe a face under a distributed source (rain on a roof). A preset receives
  * only the inputs it declares.
  */
-export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed', 'density', 'shape', 'dim', 'thickness', 'flux', 'area'] as const;
+export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed', 'density', 'shape', 'dim', 'thickness', 'flux', 'area', 'material'] as const;
+
+/**
+ * What an object is made of, for the generic presets that declare an enum input `material`
+ * (`solid-impact`, `slide-scrape`, `roll-rumble`, `rain-surface`). In the contract the value is
+ * index / 8 (`materialInput`); a preset that declares the enum receives the index. Sent only when
+ * the material declares one: otherwise the preset keeps its own default.
+ */
+export const SOUND_MATERIALS = ['wood', 'metal', 'glass', 'stone', 'plastic', 'ceramic', 'concrete', 'tile', 'snow'] as const;
+export type SoundMaterialKind = (typeof SOUND_MATERIALS)[number];
+
+/** The contract value (0..1) of a material kind, e.g. for a slot's forced `inputs`. */
+export function materialInput(kind: SoundMaterialKind): number {
+  const i = SOUND_MATERIALS.indexOf(kind);
+  return i < 0 ? Number.NaN : i / (SOUND_MATERIALS.length - 1);
+}
 export type SfxInputName = (typeof SFX_INPUTS)[number];
 export type SfxInputs = Record<SfxInputName, number>;
 
@@ -86,6 +101,8 @@ export interface SoundMaterial {
   breakEnergy?: number;
   /** The object's resonator (see `withBody`): its presets receive `shape`, `dim` and `thickness`. */
   body?: SoundBody;
+  /** What it is made of, sent as the `material` enum to the generic presets. */
+  material?: SoundMaterialKind;
 }
 
 /** A material written loosely: slots may be bare preset names, hints default to 0.5 / 0.1. */
@@ -96,6 +113,7 @@ export interface SoundMaterialSpec {
   sounds?: Partial<Record<InteractionKind, SoundSlot | string>>;
   breakEnergy?: number;
   body?: SoundBody;
+  material?: SoundMaterialKind;
 }
 
 export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
@@ -113,6 +131,7 @@ export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
     sounds,
     breakEnergy: spec.breakEnergy,
     body: spec.body ? { ...spec.body } : undefined,
+    material: spec.material,
   };
 }
 
@@ -191,6 +210,8 @@ export function fullInputs(partial: Partial<SfxInputs> | undefined): SfxInputs {
     thickness: clamp01(partial?.thickness ?? 0.5),
     flux: clamp01(partial?.flux ?? 1),
     area: clamp01(partial?.area ?? 0.4),
+    // NaN when not given: the engine then leaves the preset's own default.
+    material: Number.isFinite(partial?.material) ? clamp01(partial!.material!) : Number.NaN,
   };
 }
 
@@ -227,7 +248,8 @@ export function resolveInteraction(
     if (!slot) return null;
     const own = m === surface && m !== striker ? surfaceInputs : undefined;
     // The preset of `m` rings `m`: it gets the other side's hardness and its own body.
-    const merged = fullInputs({ ...base, ...own, hardness: other.hardness, ...bodyInputs(m.body), ...slot.inputs });
+    const made = m.material ? { material: materialInput(m.material) } : {};
+    const merged = fullInputs({ ...base, ...own, hardness: other.hardness, ...bodyInputs(m.body), ...made, ...slot.inputs });
     return { material: m, kind, slot, inputs: merged, gain: slot.gain ?? 1 };
   };
   switch (kind) {

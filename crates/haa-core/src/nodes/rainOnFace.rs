@@ -7,7 +7,7 @@
 //! - `area`: the exposed area (m²): the drop rate is flux × area, so a small face gives sparse
 //!   separate drops and a large one a dense wash;
 //! - `hardness`, `shape`, `dim`, `thickness`: the face's material and its hand-chosen resonator
-//!   (contract `SoundBody`): a metal sheet pings and rings, tiles clink, wood knocks, concrete
+//!   (contract `SoundBody`): a metal sheet drums, tiles clink, wood knocks, concrete
 //!   ticks dully, snow and earth are nearly silent.
 //!
 //! Each drop is a short noise splash (shorter and brighter on harder surfaces, bigger drops longer

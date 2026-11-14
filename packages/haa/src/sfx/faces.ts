@@ -6,7 +6,7 @@
 import type { RayCast, Vec3 } from './acoustics.ts';
 import { add, dot, length, normalize, scale, sub, v3 } from './acoustics.ts';
 import type { ResonatorShape, SfxInputs, SoundMaterial } from './contract.ts';
-import { areaFromSquareMetres, bodyInputs } from './contract.ts';
+import { areaFromSquareMetres, bodyInputs, materialInput } from './contract.ts';
 
 /** A rectangular face of the level: centre, outward normal, half-extent vectors in its plane. */
 export interface SoundFace {
@@ -155,6 +155,7 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
       area: areaFromSquareMetres(s.area),
       hardness: s.face.material.hardness,
       ...bodyInputs(s.face.material.body),
+      ...(s.face.material.material ? { material: materialInput(s.face.material.material) } : {}),
     };
   }
 

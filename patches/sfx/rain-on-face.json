@@ -163,7 +163,7 @@
         "id": "out",
         "type": "output",
         "params": {
-          "gain": 1
+          "gain": 0.04
         },
         "x": 620,
         "y": 20

@@ -199,6 +199,8 @@ interface Slot {
   tx: [number, number, number];
   txs: [number, number, number];
   fadeIn: number;
+  /** Bank weights last sent (which convolvers it feeds). */
+  bankW: readonly number[];
   level: number;
   energy: number;
   ac: Acoustic;
@@ -279,8 +281,8 @@ export function mixedWetDb(db: number, offset = WET_OFFSET_DB): number {
   return db + offset;
 }
 const CONTINUOUS_FADE_S = 0.08;
-/** Audio-thread cost of one voice's 3D chain (5 HRTF panners, 6 delays, 4 biquads, the bank sends), measured in Chrome: ≈ 1.5-2 % of real time. */
-const CHAIN_COST = 0.018;
+/** Audio-thread cost of one voice's 3D chain (5 HRTF panners, 6 delays, 4 biquads, the bank sends), measured in Chrome: 14 noise loops render at 0.47 x real time, so about 3 %. */
+const CHAIN_COST = 0.03;
 /** A one-shot estimated below this level at the listener (−60 dB) is not started. */
 const AUDIBLE = 1e-3;
 /** A slide/roll voice (its measured RMS, not a proxy) estimated below −70 dB at the listener is not started. */
@@ -335,6 +337,11 @@ function sendCutoff(absorption: number): number {
 
 /** Map a 0..1 contract value onto the range the preset declares for that input. */
 export function toDeclared(input: HaaInput | undefined, v: number): number {
+  // An enum receives the index: the contract value is index / (count - 1).
+  if (input && input.kind === 'enum') {
+    const n = (input as { values?: readonly string[] }).values?.length ?? 1;
+    return Math.round(Math.min(1, Math.max(0, v)) * Math.max(0, n - 1));
+  }
   if (!input || input.kind !== 'continuous') return v;
   const { min, max } = input;
   if (input.curve === 'log' && min > 0 && max > 0) return min * (max / min) ** v;
@@ -383,7 +390,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const chain = new VoiceChain(ctx, dry, reverb.inputs);
     slots.push({
       index: i, chain, busy: false, id: 0, preset: '', oneShot: true, priority: 0, started: 0,
-      position: v3(0, 0, 0), extent: 0, nearest: false, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: 1, level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
+      position: v3(0, 0, 0), extent: 0, nearest: false, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: 1, bankW: [], level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
       key: null, stopping: false, cost: 0, speed: 0, quietSince: -1,
     });
   }
@@ -548,7 +555,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const out: Record<string, number> = {};
     for (const name of SFX_INPUTS) {
       const decl = rec.info.inputs.find((i) => i.name === name);
-      if (decl) out[name] = toDeclared(decl, inputs[name]);
+      if (decl && Number.isFinite(inputs[name])) out[name] = toDeclared(decl, inputs[name]);
     }
     return out;
   }
@@ -686,6 +693,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       tapHz: tapCutoff(ac),
     };
     s.chain.apply(state, immediate);
+    s.bankW = state.send > 0 ? state.bank : [];
     ac.taps.forEach((t, i) => {
       if (!t) {
         s.chain.setTap(i, null, immediate);
@@ -801,6 +809,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     pool.start(slot.index, id, rec.name, declaredInputs(rec, inputs), oneShot, maxSeconds);
     geometry(slot, ctx.currentTime, true);
     applyChain(slot, 0, true);
+    useBank();
     log({ ...base, slot: slot.index, result: stole ? `stole ${stole}` : 'started' });
     return slot;
   }
@@ -1021,6 +1030,17 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       s.priority = (s.energy + 0.05) / (1 + dist(s.position) / 8) + (s.oneShot ? 0 : 0.25);
       geometry(s, now, false);
       applyChain(s, dt, false);
+    }
+    useBank();
+  }
+
+  /** Connect the bank's convolvers the busy voices feed; the others leave after their tail. */
+  function useBank(): void {
+    const n = reverb.inputs.length;
+    for (let i = 0; i < n; i++) {
+      let active = false;
+      for (const s of slots) if (s.busy && (s.bankW[i] ?? 0) > 1e-3) active = true;
+      reverb.setActive(i, active);
     }
   }
 
