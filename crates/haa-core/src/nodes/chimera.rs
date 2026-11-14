@@ -16,7 +16,8 @@ use ::chimera::control::score::Gesture;
 use ::chimera::phonetics::beatbox::parse_beat;
 use ::chimera::phonetics::english::EnglishG2P;
 use ::chimera::phonetics::ipa::tokenize_ipa;
-use ::chimera::anatomy::human::ArticPatch;
+use ::chimera::anatomy::human::{rest_tip, ArticKey, ArticPatch, NEUTRAL};
+use ::chimera::phonetics::inventory::phoneme;
 use ::chimera::phonetics::planner::{plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
 use ::chimera::phonetics::Intonation;
 use ::chimera::phonetics::sing::{plan_song, SongOptions, SungNote};
@@ -50,6 +51,15 @@ const WHISTLE_BODY: usize = 15;
 const WHISTLE_EDGE: usize = 16;
 const VOWEL_F1: usize = 17;
 const VOWEL_F2: usize = 18;
+const VOWEL_F3: usize = 19;
+const VOICING: usize = 20;
+const FRICATION: usize = 21;
+const FRIC_PLACE: usize = 22;
+const CLOSURE: usize = 23;
+const BRIGHTNESS: usize = 24;
+const VIBRATO_DEPTH: usize = 25;
+const VIBRATO_RATE: usize = 26;
+const GLIDE: usize = 27;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
@@ -294,6 +304,67 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             unit: "Hz", label_en: "Vowel F2 (front)", label_fr: "Voyelle F2 (avant)",
             modulatable: true, smooth: true,
         },
+        // `voice` mode, what a sung or spoken line does besides its vowels. F3 (0 = ignored) joins F1/F2 in choosing
+        // the vowel (rounding, r-colouring). Voicing 0 stops the folds (a whisper, /h/, the voiceless part of a
+        // consonant); frication moves the tongue tip or the lips to a fricative constriction whose jet makes the
+        // tract's own turbulence noise (place 0 /f/, 0.5 /ʃ/, 1 /s/); closure seals the tract at the alveolar
+        // ridge, and its release under pressure is a plosive burst. Brightness and vibrato are the folds'.
+        ParamDef {
+            key: "vowelF3",
+            kind: ParamKind::Number { min: 0.0, max: 4_000.0, default: 0.0, step: 1.0, scale: Scale::Lin },
+            unit: "Hz", label_en: "Vowel F3", label_fr: "Voyelle F3",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "voicing",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Voicing (folds)", label_fr: "Voisement (cordes)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "frication",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Frication (constriction)", label_fr: "Friction (constriction)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "fricPlace",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Frication place (f, sh, s)", label_fr: "Lieu de friction (f, ch, s)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "closure",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Closure (plosive)", label_fr: "Occlusion (plosive)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "brightness",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.25, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Brightness (fold closure)", label_fr: "Brillance (fermeture des cordes)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "vibratoDepth",
+            kind: ParamKind::Number { min: 0.0, max: 200.0, default: 0.0, step: 1.0, scale: Scale::Lin },
+            unit: "cents", label_en: "Vibrato depth", label_fr: "Profondeur du vibrato",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "vibratoRate",
+            kind: ParamKind::Number { min: 2.0, max: 10.0, default: 5.5, step: 0.1, scale: Scale::Lin },
+            unit: "Hz", label_en: "Vibrato rate", label_fr: "Vitesse du vibrato",
+            modulatable: true, smooth: true,
+        },
+        // `voice` mode: how fast the folds follow the pitch input (time constant). The default glides like a performer
+        // between held notes; a measured pitch curve, which already holds its glides and vibrato, wants it short.
+        ParamDef {
+            key: "glide",
+            kind: ParamKind::Number { min: 0.002, max: 0.3, default: 0.06, step: 0.001, scale: Scale::Log },
+            unit: "s", label_en: "Pitch glide", label_fr: "Glissé de hauteur",
+            modulatable: false, smooth: false,
+        },
     ],
     create,
 };
@@ -348,7 +419,10 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
         speech_end: None,
         beat_end: None,
         vowels: Vec::new(),
-        vowel_at: (0.0, 0.0),
+        text_vowel: ArticPatch::default(),
+        consonants: [ArticPatch::default(); 4],
+        parts: Vec::new(),
+        steer_at: [f64::NAN; 6],
     };
     node.plan(init);
     Box::new(node)
@@ -385,66 +459,111 @@ struct ChimeraNode {
     speech_end: Option<f64>,
     /// Voice-clock time at which one beat pass ends.
     beat_end: Option<f64>,
-    /// `voice` mode: the calibrated vowels of the current body, (ln F1, ln F2, articulation).
-    vowels: Vec<(f64, f64, ArticPatch)>,
-    /// (F1, F2) the tract was last steered to.
-    vowel_at: (f64, f64),
+    /// `voice` mode: the calibrated vowels of the current body, (ln F1, ln F2, ln F3, articulation).
+    vowels: Vec<(f64, f64, f64, ArticPatch)>,
+    /// `voice` mode: the articulation of the `text` vowel (used while no formant input steers).
+    text_vowel: ArticPatch,
+    /// `voice` mode: the calibrated targets of /f/, /ʃ/, /s/ and /t/ for the current body.
+    consonants: [ArticPatch; 4],
+    /// Blend weights scratch (capacity reserved at plan time: steering never allocates).
+    parts: Vec<(f64, ArticPatch)>,
+    /// (F1, F2, F3, frication, place, closure) the tract was last steered to.
+    steer_at: [f64; 6],
 }
 
 /// The calibrated vowels of a body mix: formants blended by the body weights, articulation from `vowel_artic`.
-fn body_vowels(body: BodyMix) -> Vec<(f64, f64, ArticPatch)> {
+fn body_vowels(body: BodyMix) -> Vec<(f64, f64, f64, ArticPatch)> {
     let table = vowel_table();
     let Some(male) = table.get("male") else { return Vec::new() };
     let mut out = Vec::new();
     for ipa in male.keys() {
-        let (mut f1, mut f2, mut wsum) = (0.0, 0.0, 0.0);
+        let (mut f1, mut f2, mut f3, mut wsum) = (0.0, 0.0, 0.0, 0.0);
         for (b, w) in body.weights() {
             if w <= 0.0 {
                 continue;
             }
             let Some(v) = table.get(b.as_str()).and_then(|t| t.get(ipa)).or_else(|| male.get(ipa)) else { continue };
-            if v.formants.len() < 2 {
+            if v.formants.len() < 3 {
                 continue;
             }
             f1 += w * v.formants[0];
             f2 += w * v.formants[1];
+            f3 += w * v.formants[2];
             wsum += w;
         }
         if let (true, Some(artic)) = (wsum > 0.0, vowel_artic(ipa, body)) {
-            out.push(((f1 / wsum).ln(), (f2 / wsum).ln(), artic));
+            out.push(((f1 / wsum).ln(), (f2 / wsum).ln(), (f3 / wsum).ln(), artic));
         }
     }
     out
 }
 
+/// `{ ...base, ...over }`: a patch with every key of `base` that `over` leaves out.
+fn over(base: &ArticPatch, over: &ArticPatch) -> ArticPatch {
+    let mut out = *base;
+    out.merge(over);
+    out
+}
+
 impl ChimeraNode {
-    /// Steer the tract toward (F1, F2): inverse-distance blend of the three nearest calibrated vowels (ln formants,
-    /// F2 counted at 0.6 of F1's weight: its spread is wider). Never allocates.
-    fn steer_vowel(&mut self, f1: f64, f2: f64) {
-        if self.vowels.is_empty() || f1 <= 0.0 || f2 <= 0.0 {
+    /// Steer the tract. The vowel: Shepard blend (inverse distance, power 4) of every calibrated vowel of the body by
+    /// distance in ln formants (F2 counted at 0.6 of F1, F3 at 0.4 when given), so the blend moves continuously as the
+    /// target moves (no jump when the nearest vowels change) and reaches the corners the vowels span. Frication and
+    /// closure then pull the articulation toward a consonant target (/f/-/ʃ/-/s/ by place, /t/ for a closure) built
+    /// on that vowel, so only the consonant's own articulators move. Never allocates.
+    fn steer(&mut self, f1: f64, f2: f64, f3: f64, fric: f64, place: f64, closure: f64) {
+        if self.vowels.is_empty() {
             return;
         }
-        let (a, b) = self.vowel_at;
-        if (f1 / a.max(1.0)).ln().abs() < 0.01 && (f2 / b.max(1.0)).ln().abs() < 0.01 {
+        let key = [f1, f2, f3, fric, place, closure];
+        let close = |a: f64, b: f64, rel: bool| if rel { (a.max(1.0) / b.max(1.0)).ln().abs() < 0.01 } else { (a - b).abs() < 0.01 };
+        if (0..6).all(|i| close(key[i], self.steer_at[i], i < 3)) {
             return;
         }
-        let (l1, l2) = (f1.ln(), f2.ln());
-        let mut near = [(f64::MAX, 0usize); 3];
-        for (i, (v1, v2, _)) in self.vowels.iter().enumerate() {
-            let d = ((l1 - v1).powi(2) + (0.6 * (l2 - v2)).powi(2)).sqrt();
-            if d < near[2].0 {
-                near[2] = (d, i);
-                near.sort_by(|x, y| x.0.total_cmp(&y.0));
+        self.steer_at = key;
+        let vowel = if f1 > 0.0 && f2 > 0.0 {
+            let (l1, l2, l3) = (f1.ln(), f2.ln(), if f3 > 0.0 { f3.ln() } else { 0.0 });
+            self.parts.clear();
+            for (v1, v2, v3, artic) in &self.vowels {
+                let mut d2 = (l1 - v1).powi(2) + (0.6 * (l2 - v2)).powi(2);
+                if f3 > 0.0 {
+                    d2 += (0.4 * (l3 - v3)).powi(2);
+                }
+                self.parts.push((1.0 / (d2.sqrt() + 0.02).powi(4), *artic));
             }
+            ArticPatch::blend(&self.parts)
+        } else {
+            self.text_vowel
+        };
+        let amount = fric.max(closure).clamp(0.0, 1.0);
+        if amount < 1e-3 {
+            // a pure vowel: the tongue tip rests behind the incisors, as before frication existed
+            self.engine.set_artic(&vowel, Some(true));
+            return;
         }
-        let mut parts = [(0.0, ArticPatch::default()); 3];
-        for (k, (d, i)) in near.iter().enumerate() {
-            if *d < f64::MAX {
-                parts[k] = (1.0 / (d + 0.02).powi(2), self.vowels[*i].2);
-            }
+        // every key the consonants move gets a vowel value: the neutral posture where the vowel says nothing, the
+        // tip where it rests for this jaw and tongue body
+        let mut base = ArticPatch::default();
+        for k in ArticKey::ALL {
+            base.set(k, NEUTRAL.get(k));
         }
-        self.engine.set_artic(&ArticPatch::blend(&parts), None);
-        self.vowel_at = (f1, f2);
+        base.merge(&vowel);
+        if vowel.get(ArticKey::TtX).is_none() {
+            let g = |k: ArticKey| base.get(k).unwrap_or(NEUTRAL.get(k));
+            let tip = rest_tip(g(ArticKey::Jaw), g(ArticKey::TbX), g(ArticKey::TbY));
+            base.set(ArticKey::TtX, tip.x);
+            base.set(ArticKey::TtY, tip.y);
+        }
+        let p = place.clamp(0.0, 1.0);
+        let [f, sh, s, t] = self.consonants;
+        let fricative = if p < 0.5 {
+            ArticPatch::blend(&[(1.0 - 2.0 * p, over(&base, &f)), (2.0 * p, over(&base, &sh))])
+        } else {
+            ArticPatch::blend(&[(2.0 - 2.0 * p, over(&base, &sh)), (2.0 * p - 1.0, over(&base, &s))])
+        };
+        let c = closure.clamp(0.0, 1.0);
+        let consonant = ArticPatch::blend(&[(1.0 - c, fricative), (c, over(&base, &t))]);
+        self.engine.set_artic(&ArticPatch::blend(&[(1.0 - amount, base), (amount, consonant)]), Some(false));
     }
 }
 
@@ -557,11 +676,15 @@ impl ChimeraNode {
                 // A sustained Chimera vowel, no score: the pitch/gain curves play it like an
                 // instrument, but the sound is the engine's voice (tract + folds), not a flute.
                 let vowel = if text.is_empty() { "a" } else { text };
-                if let Some(artic) = vowel_artic(vowel, BodyMix::new(female, child)) {
+                let body = BodyMix::new(female, child);
+                if let Some(artic) = vowel_artic(vowel, body) {
                     self.engine.set_artic(&artic, None);
+                    self.text_vowel = artic;
                 }
-                self.vowels = body_vowels(BodyMix::new(female, child));
-                self.vowel_at = (0.0, 0.0);
+                self.vowels = body_vowels(body);
+                self.consonants = ["f", "ʃ", "s", "t"].map(|c| phoneme(c, body).map(|p| p.targets).unwrap_or_default());
+                self.parts = Vec::with_capacity(self.vowels.len());
+                self.steer_at = [f64::NAN; 6];
                 self.engine.stop_speech();
                 self.engine.set_gate(1.0);
                 self.speech_end = None;
@@ -676,18 +799,35 @@ impl Node for ChimeraNode {
                 self.engine.set_gate(0.0);
                 self.beat_end = None;
             }
-            let patch = SourcePatch {
+            let mut patch = SourcePatch {
                 f0: Some(params[PITCH]),
                 pressure: Some(params[PRESSURE]),
                 breathiness: Some(params[BREATH]),
                 tension: Some(params[TENSION]),
                 ..SourcePatch::default()
             };
+            let at = |i: usize, d: f64| params.get(i).copied().unwrap_or(d);
+            let voicing = at(VOICING, 1.0).clamp(0.0, 1.0);
+            if self.mode == VOICE {
+                // under ~1/3 voicing the folds part (voiceless abduction: aspiration); above, they vibrate with an
+                // amplitude that follows the voicing, so a voiced sound fades into a voiceless one
+                patch.voiced = Some(voicing >= 0.35);
+                patch.brightness = Some(at(BRIGHTNESS, 0.25).clamp(0.0, 1.0));
+                patch.vibrato_depth = Some(at(VIBRATO_DEPTH, 0.0).clamp(0.0, 200.0));
+                patch.vibrato_rate = Some(at(VIBRATO_RATE, 5.5).clamp(2.0, 10.0));
+                patch.glide = Some(at(GLIDE, 0.06).clamp(0.002, 0.3));
+            }
             self.engine.set_source(&patch);
             if self.mode == VOICE {
-                let f1 = params.get(VOWEL_F1).copied().unwrap_or(0.0);
-                let f2 = params.get(VOWEL_F2).copied().unwrap_or(0.0);
-                self.steer_vowel(f1, f2);
+                self.engine.voice_mut().glottis.params.amplitude *= voicing;
+                self.steer(
+                    at(VOWEL_F1, 0.0),
+                    at(VOWEL_F2, 0.0),
+                    at(VOWEL_F3, 0.0),
+                    at(FRICATION, 0.0),
+                    at(FRIC_PLACE, 1.0),
+                    at(CLOSURE, 0.0),
+                );
             }
             self.engine.render(&mut self.buffer);
             self.pos = 0;
@@ -954,6 +1094,29 @@ mod tests {
         let ri = band(ti, 600.0, 900.0) / band(ti, 200.0, 450.0);
         let ra = band(ta, 600.0, 900.0) / band(ta, 200.0, 450.0);
         assert!(ra > 3.0 * ri, "open/close energy ratio /a/ {ra} vs /i/ {ri}");
+    }
+
+    #[test]
+    fn voice_mode_frication_turns_the_vowel_into_a_voiceless_hiss() {
+        // the same /a/ steering, then voiceless with the tongue tip at /s/: the tract's own jet noise, high and audible
+        let mut params = [
+            2.0, 0.0, 130.0, 10.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.1, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0, 750.0, 1250.0,
+            0.0, 1.0, 0.0, 1.0, 0.0, 0.25, 0.0, 5.5,
+        ];
+        let texts: [Option<String>; 27] = Default::default();
+        // share of the signal's power left after two first differences (+12 dB/octave): high when the energy sits high
+        let high = |y: &[f64]| {
+            let d2: Vec<f64> = y.windows(3).map(|w| w[2] - 2.0 * w[1] + w[0]).collect();
+            rms(&d2) / rms(y)
+        };
+        let vowel = run(&init(&params, &texts), 48_000);
+        params[VOICING] = 0.0;
+        params[FRICATION] = 1.0;
+        let hiss = run(&init(&params, &texts), 48_000);
+        assert!(vowel.iter().chain(hiss.iter()).all(|x| x.is_finite() && x.abs() <= 1.5));
+        let (v, s) = (&vowel[24_000..], &hiss[24_000..]);
+        assert!(rms(s) > 0.002, "hiss rms {}", rms(s));
+        assert!(high(s) > 4.0 * high(v), "high share: hiss {} vowel {}", high(s), high(v));
     }
 
     #[test]
