@@ -489,3 +489,66 @@ audio thread:
   avoids most loads.
 - Rule of thumb: 12–16 short one-shots plus 2–3 loops per AudioContext. Presets that are cheap and
   short (under 0.5 s for impacts) are what make bursts of particles possible.
+
+## Orchestrator (`createOrchestrator`, `src/sfx/orchestrator.ts`)
+
+The owner heard the scene "saturate". Measured in Chrome (real-time AudioContext,
+`AudioContext.playbackStats`) with rain on the faces, a walker, a bottle breaking every 0.8 s and 40
+pebbles every 3 s: **962 underruns, 9.6 s of dropouts in 20 s** of playback, and 1179 voices dropped for
+353 started. The master peaked at -2.5 dBFS with no sample over full scale: it was the audio thread
+overrunning (the crackle), not clipping. The cause, isolated by removing one kind of node at a time
+from the same mix:
+
+- the reverb bank: every **fed** ConvolverNode costs the audio thread whatever the length of its
+  response. Same mix, 6 s: 11 convolvers fed 388 underruns, 9 (up to 4 s) 377, 3 about 100, 1 seven,
+  none ten. Capping every response at 3 s changed nothing (381). Offline the mix rendered at 2.15 x
+  real time with the bank, 0.97 x without;
+- then the voices themselves: the heavy one-shots (bottle break 18 %, metal impact 12 %, footsteps
+  6-12 % of a core per voice in the browser) and the chains' tap panners (4 HRTF panners per voice,
+  more costly when they move).
+
+```ts
+import { createOrchestrator, createSfxEngine } from '@etcito/haa/sfx';
+import BakeWorker from '@etcito/haa/bake-worker?worker';    // Vite; any bundler's worker URL works
+const orchestrator = await createOrchestrator(ctx, module, { worker: new BakeWorker(), version: wasmUrl });
+const sfx = await createSfxEngine({ ctx, module, processorUrl, loadPreset, orchestrator });
+requestIdleCallback(() => sfx.prewarm());                   // bake the materials' one-shots
+sfx.stats().orchestrator;  // level, baked / live counts, cache MB, queue, underruns, prewarm time
+```
+
+- **Bakes**: a one-shot (impact, step, break, explosion) whose cell is baked plays an
+  AudioBufferSourceNode through its voice's usual spatial chain and is admitted at the chain's cost
+  only; an un-baked cell plays live this once and its bake is queued. A cell is the preset at its
+  declared inputs quantised (energy 16 steps, the other continuous inputs 8, enums exact), in 3
+  seeds so repeats differ. Between two baked energy cells the level is interpolated from their RMS.
+  Bakes run in `@etcito/haa/bake-worker` (one HAA engine in a Web Worker), never on the main or the
+  audio thread, heaviest presets first; `prewarm()` queues each defined material's one-shots at
+  energies 0.45 / 0.65 / 0.85. Continuous voices (slide, roll, rain per face, swarm clusters) stay
+  live.
+- **Cache**: an LRU with a byte budget (48 MB by default; a cell keeps only its AudioBuffer once
+  played) and IndexedDB across sessions, keyed by the engine `version`, the sample rate, the preset's
+  hash, the cell and the seed. The studio persists in production only (its wasm URL is hashed).
+- **Impulse responses**: the bank's 11 responses render in the same worker, shortest first, and
+  persist the same way; each convolver gets its response when it arrives. Creating the engine no
+  longer blocks the main thread (1.1-1.55 s before; the 11 renders take 0.8 s in the worker).
+- **Governor**: each update reads the context's underrun count and the modelled load; a new
+  underrun steps the level up at once, 4 s of calm steps it down, and a step down that brings
+  underruns back within 10 s doubles the calm needed (up to 60 s), so the level settles where it
+  holds. Per level (0 → 3): convolvers allowed 3 / 2 / 1 / 1 (the steps the voices and the room need
+  most; the others fade out over 0.3 s and leave the graph), longest reverb 8 / 4 / 2.8 / 2 s,
+  listener rays 1 / 1 / 0.5 / 0.25, and the chains: the loudest voices keep 4 HRTF taps (6 / 4 / 2 / 0
+  of them, 2 taps at level 2), the others drop their taps and, from level 1, their HRTF for equal
+  power. A large source heard from inside (extent ≥ 3 m) never takes HRTF taps.
+- One-shots outrank continuous voices during their attack (+0.35 for 0.25 s, against a slide or
+  roll's +0.25): a rolling ball no longer keeps a bottle break from starting.
+
+Measured on the same scene and mix, orchestrator on (`?orchestrator=0` turns it off in the studio):
+**1 underrun (10 ms) in 20 s**, 557 voices started for 587 dropped, master peak -2.8 dBFS. The first
+8 s, while the governor climbs, had 47 underruns; it then settles between levels 1 and 2. Prewarm:
+126 cells (the declared materials' one-shots × 3 energies × 3 seeds) in 13 s of worker time, 23.6 MB;
+after the run the cache was at its 48 MB budget (294 cells).
+
+Not done yet: looped or cross-faded baked beds for heavy continuous voices, rain faces summed into
+a few beds, and a cheaper reverb than one convolver per step (a wasm FDN in the pool would cost a
+few % instead). The audio thread has no clock in an AudioWorklet (`performance` is undefined there),
+so the governor reacts to underruns rather than predicting them from measured render times.

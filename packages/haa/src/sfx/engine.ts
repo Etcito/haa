@@ -8,15 +8,16 @@ import { add, cross, dot, earlyReflections, length, normalize, scale, SPEED_OF_S
 import type { DirectPath, ListenerTrace, SpaceEstimate, VoiceReverb } from './raytrace.ts';
 import { diffractionLevels, directPath, sphereDirections, traceListener, voiceReverb } from './raytrace.ts';
 import type { InteractionKind, SfxEvent, SfxInputs, SoundMaterial, SoundMaterialSpec } from './contract.ts';
-import { defineMaterial, fallbackGain, fullInputs, isContinuous, resolveInteraction, SFX_INPUTS } from './contract.ts';
+import { bodyInputs, defineMaterial, fallbackGain, fullInputs, isContinuous, materialInput, resolveInteraction, SFX_INPUTS } from './contract.ts';
 import { createSfxPool } from './pool.ts';
 import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
 import type { ChainState } from './spatial3d.ts';
-import { bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, TAPS_PER_VOICE, VoiceChain } from './spatial3d.ts';
+import { activeBankWeights, BANK_RT60, bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, TAPS_PER_VOICE, VoiceChain } from './spatial3d.ts';
 import type { FaceSource, FaceSourceOptions, SoundFace } from './faces.ts';
 import { createFaceSource } from './faces.ts';
 import type { SwarmOptions } from './swarm.ts';
+import type { OrchestratorStats, SfxOrchestrator } from './orchestrator.ts';
 import { SwarmTracker } from './swarm.ts';
 
 export interface SfxEngineOptions {
@@ -45,6 +46,12 @@ export interface SfxEngineOptions {
   swarm?: SwarmOptions | false;
   /** Ray budget of the acoustics (docs/physics-sound.md): more rays, smoother and slower. */
   acoustics?: AcousticsOptions;
+  /**
+   * The orchestrator (orchestrator.ts, docs "Orchestrator"): baked one-shots, the bank's impulse
+   * responses rendered in a worker, and a governor of the audio thread's load (lighter chains, fewer
+   * convolvers, fewer rays). Without it every voice is live and the bank renders here.
+   */
+  orchestrator?: SfxOrchestrator;
 }
 
 export interface AcousticsOptions {
@@ -136,6 +143,14 @@ export interface SfxStats {
   room: SfxRoom | null;
   /** Acoustics of each busy voice as it is heard now (smoothed values). */
   voices: SfxVoiceAcoustics[];
+  /** Busy voices playing a baked buffer, and voices on a lightened chain (no taps or no HRTF). */
+  bakedVoices: number;
+  lightVoices: number;
+  /** Convolvers of the bank in the graph now, and those the orchestrator allows. */
+  convolvers: number;
+  allowedConvolvers: number;
+  /** The orchestrator's state (governor level, cache, bakes), when there is one. */
+  orchestrator: OrchestratorStats | null;
 }
 
 export interface SfxVoiceAcoustics {
@@ -201,6 +216,8 @@ interface Slot {
   fadeIn: number;
   /** Bank weights last sent (which convolvers it feeds). */
   bankW: readonly number[];
+  /** A baked one-shot's buffer source (the orchestrator), instead of a pool voice. */
+  source: AudioBufferSourceNode | null;
   level: number;
   energy: number;
   ac: Acoustic;
@@ -229,6 +246,12 @@ export interface SfxEngine {
   loop(preset: string, position: Vec3, inputs?: Partial<SfxInputs>, o?: PlayOptions): SfxLoop;
   update(listener: SfxListener): void;
   setRaycast(cast: RayCast | undefined): void;
+  /**
+   * Queue the bakes of the one-shots the defined materials can play (impact, step, break), at a few
+   * energies, for the orchestrator to render in idle time. Resolves with the cells queued (0 without
+   * an orchestrator).
+   */
+  prewarm(energies?: readonly number[]): Promise<number>;
   /** Occlusion strength, 0..2 (default 1); the running voices follow at their next geometry update. */
   setOcclusionStrength(strength: number): void;
   /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
@@ -281,6 +304,9 @@ export function mixedWetDb(db: number, offset = WET_OFFSET_DB): number {
   return db + offset;
 }
 const CONTINUOUS_FADE_S = 0.08;
+/** Priority bonus of a one-shot during its attack (s): above a continuous voice's +0.25. */
+const ONE_SHOT_BONUS = 0.35;
+const ONE_SHOT_ATTACK_S = 0.25;
 /** Audio-thread cost of one voice's 3D chain (5 HRTF panners, 6 delays, 4 biquads, the bank sends), measured in Chrome: 14 noise loops render at 0.47 x real time, so about 3 %. */
 const CHAIN_COST = 0.03;
 /** A one-shot estimated below this level at the listener (−60 dB) is not started. */
@@ -354,6 +380,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const pool: SfxPool = await createSfxPool(ctx, { module: o.module, processorUrl: o.processorUrl, slots: o.slots ?? 16 });
   const budget = o.cpuBudget ?? 0.6;
   let raycast = o.raycast;
+  const orch = o.orchestrator ?? null;
   let occlusionStrength = o.occlusionStrength ?? 1;
   let wetOffsetDb = clampWetDb(o.reverbLevelDb ?? WET_OFFSET_DB);
   const faceSources = new Set<FaceSource>();
@@ -365,7 +392,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const dry = ctx.createGain();
   const mix = ctx.createGain();
   dry.connect(mix);
-  const reverb = new ReverbBank(ctx, haa, mix);
+  // With an orchestrator the impulse responses come from its worker (and its persistent cache):
+  // creating the engine no longer renders 11 responses on this thread.
+  const reverb = new ReverbBank(ctx, haa, mix, BANK_RT60, orch ? (rt, a) => orch.ir(rt, a) : undefined);
   if (o.reverbAmount !== undefined) reverb.setAmount(o.reverbAmount);
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -3;
@@ -390,7 +419,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const chain = new VoiceChain(ctx, dry, reverb.inputs);
     slots.push({
       index: i, chain, busy: false, id: 0, preset: '', oneShot: true, priority: 0, started: 0,
-      position: v3(0, 0, 0), extent: 0, nearest: false, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: 1, bankW: [], level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
+      position: v3(0, 0, 0), extent: 0, nearest: false, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: 1, bankW: [], source: null, level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
       key: null, stopping: false, cost: 0, speed: 0, quietSince: -1,
     });
   }
@@ -453,6 +482,18 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   function release(s: Slot): void {
     s.chain.mute();
+    const src = s.source;
+    s.source = null;
+    if (src) {
+      src.onended = null;
+      defer(0.06, () => {
+        try {
+          src.stop();
+        } catch {
+          // Already ended.
+        }
+      });
+    }
     // Disconnect after the fade so idle chains cost nothing on the audio thread; a slot reused
     // meanwhile keeps its connection.
     defer(0.06, () => {
@@ -563,7 +604,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   function retrace(now: number): void {
     if (!raycast) return;
     const rays: RaySegment[] = [];
-    trace = traceListener(listener.position, raycast, { rays: ao.traceRays ?? 256, bounces: ao.bounces ?? 6 }, rays);
+    trace = traceListener(listener.position, raycast, { rays: Math.max(32, Math.round((ao.traceRays ?? 256) * (orch?.rayScale() ?? 1))), bounces: ao.bounces ?? 6 }, rays);
     roomRays = rays;
     const feet = voiceReverb(trace, sub(listener.position, v3(0, 1.5, 0)), raycast, { stride: (ao.reverbStride ?? 2) * 2, ref: REF_DISTANCE });
     room = { ...trace.space, wet: feet.energy > 0 ? Math.min(SEND_MAX, 10 ** (mixedWetDb(10 * Math.log10(feet.energy), wetOffsetDb) / 20)) : 0, wetRt60: feet.rt60 };
@@ -689,7 +730,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       // Half the lateral component: a field arriving through a door on the left still reaches the
       // right ear (head shadow, room), 5-8 dB lower, not 25.
       sendPan: 0.5 * dot(ac.rdir, right),
-      bank: bankWeights(reverb.stretched(Math.exp(ac.rtLog))),
+      bank: orch
+        ? activeBankWeights(Math.min(orch.bankCap(), reverb.stretched(Math.exp(ac.rtLog))), reverb.allowedMask)
+        : bankWeights(reverb.stretched(Math.exp(ac.rtLog))),
       tapHz: tapCutoff(ac),
     };
     s.chain.apply(state, immediate);
@@ -718,12 +761,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
    * over 60 ms in its own slot while the new one starts in a spare (a cut was a click). Only when
    * every slot is busy, fading ones included, is the oldest fading voice cut.
    */
-  function allocate(rec: PresetRecord, priority: number): { slot: Slot | null; stole: string | null } {
+  function allocate(rec: PresetRecord, priority: number, cost = rec.cost): { slot: Slot | null; stole: string | null } {
     const busy = slots.filter((s) => s.busy);
     let load = busy.reduce((a, s) => a + (s.stopping ? 0 : s.cost), 0);
     let active = busy.filter((s) => !s.stopping).length;
     const limit = Math.max(1, slots.length - SPARE_SLOTS);
-    const fits = (): boolean => load + rec.cost <= budget && active < limit;
+    const fits = (): boolean => load + cost <= budget && active < limit;
     const freeSlot = (): Slot | null => {
       const free = slots.filter((s) => !s.busy);
       if (!free.length) return null;
@@ -769,7 +812,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     nearest?: boolean,
   ): Slot | null {
     const d = dist(position);
-    const prio = priority ?? (inputs.energy + 0.05) / (1 + d / 8) + (oneShot ? 0 : 0.25);
+    // A one-shot is its attack: it outranks the steady +0.25 of a slide or roll when it starts
+    // (a rolling ball held every slot and the bottle break was dropped).
+    const prio = priority ?? (inputs.energy + 0.05) / (1 + d / 8) + (oneShot ? ONE_SHOT_BONUS : 0.25);
     const base = { label, preset: rec.name, kind, inputs, distance: d };
     if (!rec.playable) {
       log({ ...base, slot: -1, result: 'not playable' });
@@ -789,7 +834,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       log({ ...base, slot: -1, result: 'culled' });
       return null;
     }
-    const { slot, stole } = allocate(rec, prio);
+    // A one-shot whose cell is baked plays its buffer through the same chain and costs the chain
+    // only; otherwise it plays live and the orchestrator bakes that cell for the next time.
+    const declared = declaredInputs(rec, inputs);
+    const baked = oneShot && orch ? orch.oneShot(rec, declared) : null;
+    const { slot, stole } = allocate(rec, prio, baked ? CHAIN_COST : rec.cost);
     if (!slot) {
       counters.dropped++;
       log({ ...base, slot: -1, result: 'dropped' });
@@ -801,12 +850,28 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     Object.assign(slot, {
       busy: true, id, preset: rec.name, oneShot, priority: prio, started: ctx.currentTime, position, extent: extent ?? 0, ac: newAcoustic(),
       nearest: !!nearest, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: oneShot ? 1 : 0,
-      level: gain * levelTrim(rec, inputs.energy, kind), energy: inputs.energy,
-      key, stopping: false, cost: rec.cost, speed: inputs.speed, quietSince: -1,
+      level: gain * levelTrim(rec, inputs.energy, kind) * (baked?.gain ?? 1), energy: inputs.energy,
+      key, stopping: false, cost: baked ? CHAIN_COST : rec.cost, speed: inputs.speed, quietSince: -1,
     });
+    if (orch) {
+      const rank = slots.filter((x) => x.busy && x !== slot && !x.stopping && x.priority > prio).length;
+      const q = orch.quality(rank, extent ?? 0);
+      slot.chain.setQuality(q.taps, q.hrtf);
+    }
     const maxSeconds = rec.info.mode === 'timeline' ? rec.info.duration : 3;
-    slot.chain.attach(pool.node, slot.index);
-    pool.start(slot.index, id, rec.name, declaredInputs(rec, inputs), oneShot, maxSeconds);
+    if (baked) {
+      const src = ctx.createBufferSource();
+      src.buffer = baked.buffer;
+      slot.source = src;
+      slot.chain.attach(src, 0);
+      src.onended = () => {
+        if (slot.id === id && slot.busy && slot.source === src) release(slot);
+      };
+      src.start();
+    } else {
+      slot.chain.attach(pool.node, slot.index);
+      pool.start(slot.index, id, rec.name, declared, oneShot, maxSeconds);
+    }
     geometry(slot, ctx.currentTime, true);
     applyChain(slot, 0, true);
     useBank();
@@ -1027,11 +1092,67 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     for (const f of faceSources) f.tick(dt);
     for (const s of slots) {
       if (!s.busy) continue;
-      s.priority = (s.energy + 0.05) / (1 + dist(s.position) / 8) + (s.oneShot ? 0 : 0.25);
+      s.priority = (s.energy + 0.05) / (1 + dist(s.position) / 8) + (s.oneShot ? (now - s.started < ONE_SHOT_ATTACK_S ? ONE_SHOT_BONUS : 0) : 0.25);
       geometry(s, now, false);
       applyChain(s, dt, false);
     }
+    if (orch) {
+      orch.tick(now, slots.reduce((a, s) => a + (s.busy && !s.stopping ? s.cost : 0), 0));
+      limitBank(orch.bankSize());
+    }
     useBank();
+  }
+
+  /**
+   * The orchestrator's limit on the bank: the `k` steps the busy voices (and the listener's room)
+   * need most stay allowed, with some hysteresis; voices are remapped onto them by
+   * `activeBankWeights` at their next chain write.
+   */
+  function limitBank(k: number): void {
+    const n = BANK_RT60.length;
+    if (k >= n) {
+      if (reverb.allowedMask.some((a) => !a)) reverb.allow(BANK_RT60.map(() => true));
+      return;
+    }
+    const demand = new Array<number>(n).fill(0);
+    const cap = orch ? orch.bankCap() : Infinity;
+    for (const s of slots) {
+      if (!s.busy || s.stopping) continue;
+      const w = bankWeights(Math.min(cap, reverb.stretched(Math.exp(s.ac.rtLog))));
+      const send = 10 ** (s.ac.wetDb / 20);
+      w.forEach((x, i) => (demand[i] += x * send));
+    }
+    if (room) bankWeights(Math.min(cap, room.wetRt60)).forEach((x, i) => (demand[i] += x * 0.5));
+    const cur = reverb.allowedMask;
+    // Hysteresis: an allowed step counts 1.5 times its demand.
+    const order = demand.map((d, i) => ({ i, d: d * (cur[i] ? 1.5 : 1) })).sort((a, b) => b.d - a.d);
+    const keep = new Set(order.slice(0, Math.max(1, k)).map((x) => x.i));
+    const mask = BANK_RT60.map((_, i) => keep.has(i));
+    if (mask.some((m, i) => m !== cur[i])) reverb.allow(mask);
+  }
+
+  /** The prewarm list: each defined material's one-shot slots at `energies`, against an average surface. */
+  async function prewarm(energies: readonly number[] = [0.45, 0.65, 0.85]): Promise<number> {
+    if (!orch) return 0;
+    const mats = [...materials.values()];
+    const hardness = mats.length ? mats.reduce((a, m) => a + m.hardness, 0) / mats.length : 0.5;
+    const items: Array<{ rec: PresetRecord; declared: Record<string, number> }> = [];
+    for (const m of mats) {
+      for (const kind of ['impact', 'step', 'break'] as const) {
+        const slot = m.sounds[kind];
+        if (!slot) continue;
+        const rec = await preset(slot.preset);
+        if (!rec || !rec.playable) continue;
+        for (const energy of energies) {
+          const inputs = fullInputs({
+            energy, hardness, ...bodyInputs(m.body), ...(m.material ? { material: materialInput(m.material) } : {}), ...slot.inputs,
+          });
+          items.push({ rec, declared: declaredInputs(rec, inputs) });
+        }
+      }
+    }
+    orch.prewarm(items);
+    return items.length;
   }
 
   /** Connect the bank's convolvers the busy voices feed; the others leave after their tail. */
@@ -1056,6 +1177,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     play,
     loop,
     update,
+    prewarm,
     setRaycast(cast) {
       raycast = cast;
       trace = null;
@@ -1101,6 +1223,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
             pan: 0.5 * dot(ac.rdir, normalize(cross(listener.forward, listener.up))), taps: ac.taps.filter((t) => t && t.w > 0.01).length,
           };
         }),
+        bakedVoices: busy.filter((s) => s.source).length,
+        lightVoices: busy.filter((s) => s.chain.quality.taps < TAPS_PER_VOICE || !s.chain.quality.hrtf).length,
+        convolvers: reverb.running,
+        allowedConvolvers: reverb.allowedMask.filter(Boolean).length,
+        orchestrator: orch ? orch.stats() : null,
       };
     },
     rays() {

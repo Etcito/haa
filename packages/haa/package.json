@@ -42,6 +42,7 @@
     },
     "./worklet": "./dist/worklet.js",
     "./wasm": "./pkg/haa.wasm",
+    "./bake-worker": "./dist/bake-worker.js",
     "./package.json": "./package.json"
   },
   "scripts": {

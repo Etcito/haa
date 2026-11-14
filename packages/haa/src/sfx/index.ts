@@ -9,3 +9,4 @@ export * from './pool.ts';
 export * from './spatial3d.ts';
 export * from './swarm.ts';
 export * from './engine.ts';
+export * from './orchestrator.ts';

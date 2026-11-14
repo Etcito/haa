@@ -142,8 +142,10 @@ export class VoiceChain {
 
   private source: { node: AudioNode; output: number } | null = null;
 
-  /** Feed this chain from output `output` of `node` (a pool slot); idle chains stay unconnected. */
+  /** Feed this chain from output `output` of `node` (a pool slot or a baked buffer); idle chains stay unconnected. */
   attach(node: AudioNode, output: number): void {
+    // A slot reused before its deferred detach: switch sources (a baked voice after a live one).
+    if (this.source && (this.source.node !== node || this.source.output !== output)) this.detach();
     if (this.source) return;
     node.connect(this.input, output, 0);
     this.source = { node, output };
@@ -157,6 +159,39 @@ export class VoiceChain {
       // Already disconnected.
     }
     this.source = null;
+  }
+
+  private tapsOn = TAPS_PER_VOICE;
+  private hrtf = true;
+
+  /**
+   * Chain quality (the orchestrator's budget): how many early-reflection taps are fed, and HRTF or
+   * equal-power panning for the direct sound and the taps. The tap panners are most of a chain's
+   * audio-thread cost (measured: 14 chains 0.27 of real time without taps, 0.96 with 4 HRTF taps,
+   * moving); a quiet or distant voice keeps its direct sound, reverb send and distance, not its echoes.
+   * Set at a voice's start (switching the panning model of a sounding voice could click).
+   */
+  setQuality(taps: number, hrtf: boolean): void {
+    const n = Math.max(0, Math.min(TAPS_PER_VOICE, Math.round(taps)));
+    for (let i = 0; i < TAPS_PER_VOICE; i++) {
+      const was = i < this.tapsOn;
+      const now = i < n;
+      if (was === now) continue;
+      if (now) this.tapFilter.connect(this.taps[i].delay);
+      else this.tapFilter.disconnect(this.taps[i].delay);
+    }
+    this.tapsOn = n;
+    if (hrtf !== this.hrtf) {
+      const model: PanningModelType = hrtf ? 'HRTF' : 'equalpower';
+      this.direct.panningModel = model;
+      for (const t of this.taps) t.panner.panningModel = model;
+      this.hrtf = hrtf;
+    }
+  }
+
+  /** Taps fed and panning (`setQuality`). */
+  get quality(): { taps: number; hrtf: boolean } {
+    return { taps: this.tapsOn, hrtf: this.hrtf };
   }
 
   /** Last value written to each parameter (changes under a tolerance are skipped). */
@@ -310,6 +345,16 @@ const BANK_DAMPING = 0.15;
  * log(RT60) between them. Continuous: a voice walking from a shed into a hall glides from one IR
  * to the next, it never swaps.
  */
+/** `bankWeights` over the allowed steps of `mask` only, as weights of the whole bank (the others 0). */
+export function activeBankWeights(rt60: number, mask: readonly boolean[], steps: readonly number[] = BANK_RT60): number[] {
+  const idx = steps.map((_, i) => i).filter((i) => mask[i] !== false);
+  const full = steps.map(() => 0);
+  if (!idx.length) return full;
+  const w = bankWeights(rt60, idx.map((i) => steps[i]));
+  idx.forEach((i, j) => (full[i] = w[j]));
+  return full;
+}
+
 export function bankWeights(rt60: number, steps: readonly number[] = BANK_RT60): number[] {
   const w = steps.map(() => 0);
   const r = Math.min(steps[steps.length - 1], Math.max(steps[0], rt60));
@@ -376,21 +421,28 @@ export function reverbIrPatch(rt60: number, absorption: number, duration = Math.
  * response starts as a dense field, not a slap.
  */
 export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: number, absorption: number): AudioBuffer {
+  const [l, r] = renderReverbIrData(engine, ctx.sampleRate, rt60, absorption);
+  const buffer = ctx.createBuffer(2, l.length, ctx.sampleRate);
+  buffer.copyToChannel(l, 0);
+  buffer.copyToChannel(r, 1);
+  return buffer;
+}
+
+/** `renderReverbIr` as two channels of samples: no AudioContext, so it also runs in a worker (the orchestrator's bakes). */
+export function renderReverbIrData(engine: HaaEngine, sr: number, rt60: number, absorption: number): [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>] {
   const rendered = Math.min(rt60, SPACE_MAX_RT60);
   const duration = Math.min(10.5, rt60 * 1.25 + 0.15);
   // The engine renders this patch cleanly up to about 5 s (longer timelines came out NaN after
   // 1.9 s); a longer response continues the render's own tail (see below).
   const renderS = Math.min(duration, RENDER_MAX_S);
   const patch = reverbIrPatch(rendered, absorption, renderS);
-  const voice = engine.createVoice(ctx.sampleRate, 11);
-  const sr = ctx.sampleRate;
+  const voice = engine.createVoice(sr, 11);
   try {
     const { playable } = voice.load(new TextEncoder().encode(JSON.stringify(patch)));
     const frames = Math.round(duration * sr);
-    const buffer = ctx.createBuffer(2, frames, sr);
-    if (!playable) return buffer;
-    const l = buffer.getChannelData(0);
-    const r = buffer.getChannelData(1);
+    const l = new Float32Array(frames);
+    const r = new Float32Array(frames);
+    if (!playable) return [l, r];
     const rendFrames = Math.min(frames, Math.round(renderS * sr));
     for (let f = 0; f < rendFrames; f += 128) {
       const n = Math.min(128, rendFrames - f);
@@ -478,7 +530,7 @@ export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: n
         r[i] *= k;
       }
     }
-    return buffer;
+    return [l, r];
   } finally {
     voice.free();
   }
@@ -513,8 +565,18 @@ export class ReverbBank {
   private readonly tails: number[] = [];
   private readonly connected: boolean[] = [];
   private readonly lastUse: number[] = [];
+  private readonly outs: GainNode[] = [];
+  /** Steps the orchestrator allows (`allow`); all by default. */
+  private readonly allowed: boolean[] = [];
+  /** Impulse responses in place (all of them when rendered here; an async source fills them in). */
+  ready = 0;
 
-  constructor(ctx: BaseAudioContext, engine: HaaEngine, dest: AudioNode, steps: readonly number[] = BANK_RT60) {
+  /**
+   * `irs`: an async source of the impulse responses (the orchestrator renders them in a worker,
+   * shortest first, and keeps them across sessions): the bank starts at once and each convolver gets
+   * its response when it arrives, that step silent meanwhile. Without it they are rendered here.
+   */
+  constructor(ctx: BaseAudioContext, engine: HaaEngine, dest: AudioNode, steps: readonly number[] = BANK_RT60, irs?: (rt60: number, absorption: number) => Promise<AudioBuffer | null>) {
     this.ctx = ctx;
     this.output = ctx.createGain();
     this.output.connect(dest);
@@ -524,14 +586,56 @@ export class ReverbBank {
       // The IR is rendered at unit energy; the browser's own normalisation (a fixed -58 dB
       // calibration) buried the tail 30 dB and more under the direct sound.
       c.normalize = false;
-      c.buffer = renderReverbIr(ctx, engine, rt, BANK_DAMPING);
+      const i = this.convolvers.length;
+      const out = ctx.createGain();
+      out.connect(this.output);
       input.connect(c);
       this.inputs.push(input);
       this.convolvers.push(c);
-      this.tails.push(c.buffer.duration);
+      this.outs.push(out);
+      this.tails.push(0);
       this.connected.push(false);
       this.lastUse.push(-Infinity);
+      this.allowed.push(true);
+      if (irs) {
+        void irs(rt, BANK_DAMPING).then((b) => {
+          if (!b) return;
+          c.buffer = b;
+          this.tails[i] = b.duration;
+          this.ready++;
+        }, () => undefined);
+      } else {
+        c.buffer = renderReverbIr(ctx, engine, rt, BANK_DAMPING);
+        this.tails[i] = c.buffer.duration;
+        this.ready++;
+      }
     }
+  }
+
+  /**
+   * The orchestrator's limit: only the steps of `mask` may run. Every fed convolver costs the audio
+   * thread whatever its response's length (measured in Chrome, a busy scene: 11 fed convolvers 388
+   * underruns in 6 s, 3 about 100, 1 seven, none ten), so under load the voices are remapped onto
+   * a few steps (`activeBankWeights`) and a step taken out fades over 0.3 s and leaves the graph
+   * then, not after its whole tail.
+   */
+  allow(mask: readonly boolean[]): void {
+    const t = this.ctx.currentTime;
+    mask.forEach((on, i) => {
+      if (i >= this.allowed.length || on === this.allowed[i]) return;
+      this.allowed[i] = on;
+      const g = this.outs[i].gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(on ? 1 : 0, t + (on ? 0.05 : 0.3));
+      // A step taken out counts as unused from now: it leaves once the fade is over.
+      if (!on) this.lastUse[i] = t + 0.3 - this.tails[i] - 0.2;
+    });
+  }
+
+  /** Steps the orchestrator allows. */
+  get allowedMask(): readonly boolean[] {
+    return this.allowed;
   }
 
   /**
@@ -544,7 +648,7 @@ export class ReverbBank {
     if (active) {
       this.lastUse[i] = now;
       if (!this.connected[i]) {
-        this.convolvers[i].connect(this.output);
+        this.convolvers[i].connect(this.outs[i]);
         this.connected[i] = true;
       }
     } else if (this.connected[i] && now - this.lastUse[i] > this.tails[i] + 0.2) {
