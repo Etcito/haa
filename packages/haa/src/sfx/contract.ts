@@ -1,11 +1,14 @@
 // The sound-effect contract shared by game code, the physics adapters and the preset authors:
-// the five published inputs (all 0..1), the interaction kinds, the sound material slot and the
+// the published inputs (all 0..1), the interaction kinds, the sound material slot and the
 // unit conversions from physics (joules, kilograms, metres per second, metres) to 0..1.
 // Pure and realm-neutral (docs/physics-sound.md).
 import type { Vec3 } from './acoustics.ts';
 
-/** Published inputs every sfx preset may read through an `input` node; each one is 0..1. */
-export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed'] as const;
+/**
+ * Published inputs every sfx preset may read through an `input` node; each one is 0..1. `density`
+ * is the impact rate of a swarm (impacts per second / `DENSITY_FULL`); only cluster presets read it.
+ */
+export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed', 'density'] as const;
 export type SfxInputName = (typeof SFX_INPUTS)[number];
 export type SfxInputs = Record<SfxInputName, number>;
 
@@ -25,6 +28,12 @@ export interface SoundSlot {
   gain?: number;
   /** Inputs forced for this slot, e.g. `{ size: 0.2 }` for a light tin can. */
   inputs?: Partial<SfxInputs>;
+  /**
+   * Swarm preset (impact slots of debris: pebbles, shards). When many impacts of this material fall
+   * in the same short window and region, the first and loudest keep their own voices and the rest
+   * drive ONE continuous voice of this preset through `density`, `energy`, `size` and `hardness`.
+   */
+  cluster?: SoundSlot | string;
 }
 
 /** A sound material: which preset each interaction plays, plus the physical hints. */
@@ -53,6 +62,8 @@ export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
   for (const kind of INTERACTION_KINDS) {
     const slot = spec.sounds?.[kind];
     if (slot) sounds[kind] = typeof slot === 'string' ? { preset: slot } : { ...slot };
+    const cluster = sounds[kind]?.cluster;
+    if (typeof cluster === 'string') sounds[kind]!.cluster = { preset: cluster };
   }
   return {
     name: spec.name,
@@ -73,6 +84,8 @@ export const SIZE_KG: readonly [number, number] = [1e-3, 1e3];
 export const SPEED_FULL = 10;
 /** Penetration or sinking at which `depth` reaches 1 (m). */
 export const DEPTH_FULL = 0.1;
+/** Impact rate at which `density` reaches 1 (impacts per second). */
+export const DENSITY_FULL = 200;
 
 export function clamp01(v: number): number {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
@@ -109,6 +122,7 @@ export function fullInputs(partial: Partial<SfxInputs> | undefined): SfxInputs {
     hardness: clamp01(partial?.hardness ?? 0.5),
     depth: clamp01(partial?.depth ?? 0),
     speed: clamp01(partial?.speed ?? 0),
+    density: clamp01(partial?.density ?? 0),
   };
 }
 

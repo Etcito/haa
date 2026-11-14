@@ -1,10 +1,10 @@
-// Web Audio side of the 3D sound: one fixed node chain per pool slot (occlusion low-pass, level,
-// HRTF panner for the direct path, four early-reflection taps each panned from its image source,
+// Web Audio side of the 3D sound: one fixed node chain per pool slot (air low-pass, two occlusion
+// high shelves, level, HRTF panner for the direct path, four early-reflection taps each panned from its image source,
 // a send to the shared reverb) and the shared reverb, a ConvolverNode whose impulse response the
 // HAA engine renders with its own `space` node. Browser-only; no sample loop is written here.
 import type { HaaEngine } from '../engine.ts';
 import type { Occlusion, Reflection, RoomEstimate, Vec3 } from './acoustics.ts';
-import { airCutoff, RT60_RANGE } from './acoustics.ts';
+import { airCutoff, OCCLUSION_SHELF_HZ, RT60_RANGE } from './acoustics.ts';
 
 export const TAPS_PER_VOICE = 4;
 /** Distance (m) up to which a voice plays at full level; beyond, 1/r (the panner's inverse model). */
@@ -23,6 +23,7 @@ export class VoiceChain {
   readonly input: GainNode;
   readonly level: GainNode;
   readonly filter: BiquadFilterNode;
+  readonly shelves: [BiquadFilterNode, BiquadFilterNode];
   readonly direct: PannerNode;
   readonly send: GainNode;
   readonly taps: Tap[] = [];
@@ -35,13 +36,23 @@ export class VoiceChain {
     this.filter.type = 'lowpass';
     this.filter.frequency.value = 20000;
     this.filter.Q.value = 0.5;
+    const shelf = (hz: number): BiquadFilterNode => {
+      const f = ctx.createBiquadFilter();
+      f.type = 'highshelf';
+      f.frequency.value = hz;
+      f.gain.value = 0;
+      return f;
+    };
+    this.shelves = [shelf(OCCLUSION_SHELF_HZ[0]), shelf(OCCLUSION_SHELF_HZ[1])];
     this.level = ctx.createGain();
     this.level.gain.value = 0;
     this.direct = makePanner(ctx, 'HRTF');
     this.send = ctx.createGain();
     this.send.gain.value = 0;
     this.input.connect(this.filter);
-    this.filter.connect(this.level);
+    this.filter.connect(this.shelves[0]);
+    this.shelves[0].connect(this.shelves[1]);
+    this.shelves[1].connect(this.level);
     this.level.connect(this.direct);
     this.direct.connect(dry);
     this.level.connect(this.send);
@@ -88,14 +99,18 @@ export class VoiceChain {
     setPos(this.ctx, this.direct, p, immediate);
   }
 
-  /** Level, occlusion and air absorption of the direct path, plus the reverb send. */
-  setLevels(level: number, occ: Occlusion, distance: number, wet: number, immediate: boolean): void {
+  /**
+   * Level, occlusion and air absorption of the direct path, plus the reverb send. The send carries
+   * no room level (the reverb bus applies it once): the reverb is heard through the walls more
+   * than the direct sound, so it loses half the occlusion loss.
+   */
+  setLevels(level: number, occ: Occlusion, distance: number, immediate: boolean): void {
     const t = this.ctx.currentTime;
-    const cutoff = Math.min(occ.cutoff, airCutoff(distance));
     ramp(this.level.gain, level * occ.gain, t, immediate);
-    ramp(this.filter.frequency, cutoff, t, immediate);
-    // The reverb is heard through the walls more than the direct sound: half the occlusion loss.
-    ramp(this.send.gain, wet * (0.5 + 0.5 * occ.gain), t, immediate);
+    ramp(this.filter.frequency, airCutoff(distance), t, immediate);
+    ramp(this.shelves[0].gain, occ.shelves[0], t, immediate);
+    ramp(this.shelves[1].gain, occ.shelves[1], t, immediate);
+    ramp(this.send.gain, 0.5 + 0.5 * occ.gain, t, immediate);
   }
 
   setReflections(refl: readonly Reflection[], immediate: boolean): void {
@@ -234,7 +249,11 @@ export function reverbIrPatch(rt60: number, absorption: number): object {
   };
 }
 
-/** Render `reverbIrPatch` with the engine into an AudioBuffer of the context's rate. */
+/**
+ * Render `reverbIrPatch` with the engine into an AudioBuffer of the context's rate, scaled to unit
+ * energy (mean of the two channels' sum of squares): the bus gain is then the diffuse-to-direct
+ * amplitude of the room estimate.
+ */
 export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: number, absorption: number): AudioBuffer {
   const patch = reverbIrPatch(rt60, absorption) as { graph: { duration: number } };
   const voice = engine.createVoice(ctx.sampleRate, 11);
@@ -250,6 +269,15 @@ export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: n
       voice.process(n);
       l.set(voice.left().subarray(0, n), f);
       r.set(voice.right().subarray(0, n), f);
+    }
+    let energy = 0;
+    for (let i = 0; i < frames; i++) energy += (l[i] * l[i] + r[i] * r[i]) / 2;
+    if (energy > 0) {
+      const k = 1 / Math.sqrt(energy);
+      for (let i = 0; i < frames; i++) {
+        l[i] *= k;
+        r[i] *= k;
+      }
     }
     return buffer;
   } finally {
@@ -279,7 +307,9 @@ export class ReverbBus {
     this.output.connect(dest);
     const make = (): [ConvolverNode, GainNode] => {
       const c = ctx.createConvolver();
-      c.normalize = true;
+      // The IR is rendered at unit energy; the browser's own normalisation (a fixed -58 dB
+      // calibration) buried the tail 30 dB and more under the direct sound.
+      c.normalize = false;
       const g = ctx.createGain();
       g.gain.value = 0;
       this.input.connect(c);
@@ -293,9 +323,15 @@ export class ReverbBus {
     this.fades = [g0, g1];
   }
 
-  /** Follow a room estimate: switch IR when its step changes, and scale the wet level. */
+  private room: RoomEstimate | null = null;
+
+  /**
+   * Follow a room estimate: switch IR when its step changes, and set the diffuse level. Above
+   * amount 1 the room is exaggerated in time as well: RT60 x (1 + (amount - 1) / 2).
+   */
   setRoom(room: RoomEstimate): void {
-    const step = rt60Step(room.rt60);
+    this.room = room;
+    const step = rt60Step(room.rt60 * (1 + Math.max(0, this.amount - 1) / 2));
     const damp = Math.round(Math.min(1, room.absorption) * 4) / 4;
     const key = `${step}:${damp}`;
     const t = this.ctx.currentTime;
@@ -321,9 +357,10 @@ export class ReverbBus {
     this.output.gain.setTargetAtTime(room.wet * this.amount, t, 0.1);
   }
 
-  /** Scale the reverb level of every room: 0 dry, 1 the estimated room, up to 2. */
+  /** Scale the reverb of every room: 0 dry, 1 the estimated room, 2 exaggerated (+6 dB, 1.5 x RT60). */
   setAmount(amount: number): void {
     this.amount = Math.min(2, Math.max(0, Number.isFinite(amount) ? amount : 1));
-    this.output.gain.setTargetAtTime(this.wet * this.amount, this.ctx.currentTime, 0.05);
+    if (this.room) this.setRoom(this.room);
+    else this.output.gain.setTargetAtTime(this.wet * this.amount, this.ctx.currentTime, 0.05);
   }
 }

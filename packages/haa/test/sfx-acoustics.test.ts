@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import type { RayCast, RayHit, Vec3 } from '../src/sfx/acoustics.ts';
-import { earlyReflections, estimateRoom, occlusion, occlusionLevels, OCCLUDED_CUTOFF_HZ, OCCLUDED_GAIN, SPEED_OF_SOUND_M_S, v3 } from '../src/sfx/acoustics.ts';
+import { earlyReflections, estimateRoom, occlusion, occlusionLevels, OCCLUDED_GAIN, SPEED_OF_SOUND_M_S, v3, WET_MAX } from '../src/sfx/acoustics.ts';
 
 interface Plane {
   id: number;
@@ -64,10 +64,21 @@ test('a corner adds the two walls, shortest paths first; a listener behind a wal
   assert.equal(behind.length, 0);
 });
 
-test('room: open ground is short and dry, a closed box follows Sabine from the mean free path', () => {
+test('room: open ground is dry, a corner faint, a closed box follows Sabine and is the wettest', () => {
   const open = estimateRoom(v3(0, 1.6, 0), planes([floor]));
   assert.ok(open.escape > 0.6, `escape ${open.escape}`);
-  assert.ok(open.wet < 0.15 && open.rt60 <= 0.2, JSON.stringify(open));
+  assert.equal(open.enclosure, 0);
+  assert.equal(open.wet, 0);
+  // Two concrete walls 3 m away and open sky: a diffuse field well under the direct sound.
+  const corner = estimateRoom(v3(7, 1.6, -7), planes([
+    floor,
+    { id: 2, n: v3(-1, 0, 0), d: -10, absorption: 0.02, within: (p) => p.y < 4 },
+    { id: 3, n: v3(0, 0, 1), d: -10, absorption: 0.02, within: (p) => p.y < 4 },
+  ]));
+  assert.ok(corner.wet > 0.05 && corner.wet < 0.3, JSON.stringify(corner));
+  // A far wall (12 m) gives echoes, not a diffuse field.
+  const far = estimateRoom(v3(0, 1.6, 0), planes([floor, { id: 4, n: v3(0, 0, 1), d: -12, absorption: 0.02 }]));
+  assert.ok(far.wet < 0.02, JSON.stringify(far));
 
   const a = 0.05;
   const box = planes([
@@ -81,7 +92,8 @@ test('room: open ground is short and dry, a closed box follows Sabine from the m
   const room = estimateRoom(v3(0, 2, 0), box);
   assert.equal(room.escape, 0);
   assert.ok(Math.abs(room.rt60 - (0.161 * room.meanFreePath) / (4 * a)) < 1e-9 || room.rt60 === 1.8);
-  assert.ok(room.wet > 0.9);
+  assert.equal(room.enclosure, 1);
+  assert.equal(room.wet, WET_MAX);
 });
 
 test('occlusion: a wall between source and listener blocks all probes; the source surface itself never does', () => {
@@ -89,11 +101,15 @@ test('occlusion: a wall between source and listener blocks all probes; the sourc
   const cast = planes([floor, wall]);
   const blocked = occlusion(v3(0, 1, 2), v3(0, 1.6, 9), cast);
   assert.equal(blocked.blocked, 1);
-  assert.ok(Math.abs(blocked.gain - OCCLUDED_GAIN) < 1e-12 && Math.abs(blocked.cutoff - OCCLUDED_CUTOFF_HZ) < 1e-6);
-  // Fully blocked is about -10 dB and 1.2 kHz by default; strength 0 turns occlusion off, 2 doubles the dB loss.
-  assert.ok(Math.abs(20 * Math.log10(blocked.gain) + 10) < 0.05);
-  assert.deepEqual(occlusionLevels(1, 0), { blocked: 1, gain: 1, cutoff: 20000 });
-  assert.ok(Math.abs(20 * Math.log10(occlusionLevels(1, 2).gain) + 20) < 0.1);
+  assert.ok(Math.abs(blocked.gain - OCCLUDED_GAIN) < 1e-12);
+  // Fully blocked is -7 dB broadband and -16 dB in the highs (two shelves) by default: a gentle
+  // slope, not a low-pass; strength 0 turns occlusion off, 2 doubles every dB figure.
+  assert.ok(Math.abs(20 * Math.log10(blocked.gain) + 7) < 0.05);
+  assert.deepEqual(blocked.shelves, [-4, -5]);
+  assert.deepEqual(occlusionLevels(1, 0), { blocked: 1, gain: 1, shelves: [0, 0] });
+  const twice = occlusionLevels(1, 2);
+  assert.ok(Math.abs(20 * Math.log10(twice.gain) + 14) < 0.1);
+  assert.deepEqual(twice.shelves, [-8, -10]);
   // A source lying on the floor, heard from above: the floor under it is skipped.
   const onFloor = occlusion(v3(0, 0, 0), v3(3, 2, 0), planes([floor]));
   assert.equal(onFloor.blocked, 0);

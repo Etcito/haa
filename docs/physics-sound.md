@@ -19,6 +19,10 @@ Every sfx preset can read these published inputs through an `input` node. Each o
 | `hardness` | the hardness of the *other* material of the contact                         |
 | `depth`    | penetration (÷ 10 cm) × softness of the surface, or the sinking given by the game (footsteps) |
 | `speed`    | tangential slip speed ÷ 10 m/s                                              |
+| `density`  | impact rate of a swarm ÷ 200 per second (cluster presets only, see Swarms)  |
+
+For `slide` and `roll`, `energy` is the pressing power (normal force × speed, in watts) on the same
+log axis.
 
 - A one-shot preset (`impact`, `step`, `break`) is a timeline graph. It is restarted for each event
   and stopped after one pass, even when the patch loops. Its inputs are set before the restart, and
@@ -26,8 +30,12 @@ Every sfx preset can read these published inputs through an `input` node. Each o
 - A continuous preset (`slide`, `roll`, and loops started with `loop()`) runs until it is stopped
   and gets new inputs every frame. A timeline graph without `loop` is restarted when it ends.
 - A preset that declares an input with another range receives the 0..1 value mapped onto
-  `min..max` (log when `curve` is `log`). A preset that does not read `energy` is scaled by level
-  instead: 10^(−2·(1 − energy)), so 0 dB at 1 and −40 dB at 0.
+  `min..max` (log when `curve` is `log`). A one-shot (or a game loop) that does not read `energy`
+  is scaled by level instead: 10^(−2·(1 − energy)), so 0 dB at 1 and −40 dB at 0.
+- A `slide`/`roll` voice is never scaled by `energy`: its preset's `speed` input is its loudness law.
+  The two loops are calibrated against the impacts: at 2-3 m/s a rolling 2 kg ball and a sliding
+  crate sit about 10-15 dB under their own impacts (10 ms RMS at the same distance), at rest they are
+  silent. (Scaling them by the pressing power as well put a rolling ball 40-60 dB under its impacts.)
 - Reserved input `_dist`: a preset that declares it receives the distance in metres. Direction is
   handled by an HRTF panner, so `_pan` and `_doppler` are not sent.
 
@@ -59,8 +67,9 @@ sfx.handle({ kind: 'step', position, striker: boot, surface: snow,
 ```
 
 - **Material slots**: `impact`, `slide`, `roll`, `step`, `break`. A slot is a preset name, or
-  `{ preset, gain, inputs }`, where `inputs` forces fixed values (for example a tin can is
-  `size: 0.1`). `hardness` is 0..1 and `absorption` is the surface's Sabine α.
+  `{ preset, gain, inputs, cluster }`, where `inputs` forces fixed values (for example a tin can is
+  `size: 0.1`) and `cluster` names the swarm preset of debris (see Swarms). `hardness` is 0..1 and
+  `absorption` is the surface's Sabine α.
 - **Which presets play** (`resolveInteraction`):
   - impact: both sides, each receiving the other's hardness, −3 dB each. When both name the same
     preset, it plays once.
@@ -74,8 +83,9 @@ sfx.handle({ kind: 'step', position, striker: boot, surface: snow,
     events make the adapter re-check a pair that is held in contact.
   - Velocities are taken before the step, because after it the solver has already stopped the
     body.
-  - Impacts below 0.35 m/s normal speed are dropped. Each pair waits 60 ms and each collider 20 ms
-    between impacts. While in contact, a new impact needs an impulse spike of 4× the running mean.
+  - Impacts below 0.35 m/s normal speed are dropped. Each pair waits 60 ms and each moving collider
+    20 ms between impacts; a fixed collider (the ground) does not wait, or a swarm of pebbles
+    landing on it made one impact per 20 ms. While in contact, a new impact needs an impulse spike of 4× the running mean.
   - A game that polls contacts, or the Rust engine's `ege.contact` events, can feed
     `contactStarted` and `contactStopped` instead of the EventQueue.
   - `surfaceBelow(p)` returns the material under a foot.
@@ -87,6 +97,33 @@ sfx.handle({ kind: 'step', position, striker: boot, surface: snow,
   - When the budget or the slots are full, the voice with the lowest priority is stolen. Priority is
     energy ÷ (1 + d/8), +0.25 for a continuous voice. A one-shot estimated below −60 dB is not
     started.
+  - A slide/roll voice is started only when it would be heard: each looping `speed` preset's RMS is
+    measured once at 13 speeds, and a contact estimated under −70 dB at the listener (that level at
+    its speed, 1/r beyond 2 m) takes no voice. A running one that stays 6 dB under that for 0.25 s is
+    stopped. A bottle rocking to rest no longer restarts silent `roll-rumble` voices.
+  - Deferred stops and releases run on the audio clock (each `update`/`handle`), with a timer as the
+    fallback, so an OfflineAudioContext render frees its voices on time.
+
+## Swarms
+
+One voice per tiny impact does not scale: 40 pebbles or the 14 shards of a bottle exhausted the 16
+slots. An impact whose striker's slot has a `cluster` preset goes through `SwarmTracker`
+(`src/sfx/swarm.ts`):
+
+- A swarm is a region (4 m) of impacts sharing a cluster preset. In each 0.3 s window its first 3
+  impacts keep their own voices, and up to 2 more that are louder (by 0.05 energy) than all of them,
+  so the pattern still reads as discrete hits.
+- Every other impact feeds ONE continuous voice of the cluster preset at the swarm's centre:
+  `density` is the impact rate (a leaky count, τ = 0.08 s, ÷ 200), `energy` the power mean (on
+  the 48 dB axis of the impact presets) and `size`, `hardness` the means of the last impacts, with
+  the same τ: the grains then carry on average exactly the summed power of the impacts. The voice
+  stops 0.15 s after the last impact.
+- A cluster preset is a `grain` cloud whose grain is the single impact (same tone, decay and
+  energy-to-level map) and whose rate is `density` × 200, so its summed level follows the impacts it
+  stands for (one grain within ±2 dB of one impact). `particle-cluster` (pebbles, debris) and
+  `glass-cluster` (shards) are in `patches/sfx/`.
+- `createSfxEngine({ swarm: false })` gives every impact its own voice; `swarm: { individual, ... }`
+  tunes the grouping. `stats().clustered` counts the impacts absorbed.
 
 ## Acoustic model
 
@@ -97,11 +134,16 @@ material's α.
   absorption is a low-pass of 20 kHz / (1 + d/50).
 - **Occlusion**: three rays from the listener, one to the source and two to points 0.35 m beside and
   above it. The last 0.2 m of each ray is ignored, so the surface the sound comes from does not
-  count. With a blocked fraction b and a strength s (0..2, default 1), the loss is 10·s·b dB
-  (−10 dB when fully blocked) and the low-pass cutoff is 20 kHz·(1.2 kHz / 20 kHz)^(s·b), so
-  1.2 kHz when fully blocked. The reverb send loses only half of that. `setOcclusionStrength(s)`
-  changes it live (the former −16 dB / 700 Hz made glass behind a wall lose 32 dB).
-- **Reverb amount**: `setReverbAmount(a)` (0..2, default 1) scales the wet level of the room.
+  count. Diffraction around an edge loses more the shorter the wavelength, about 3 dB per octave,
+  so a blocked path is a broadband loss plus two gentle high shelves (600 Hz and 2.5 kHz), not a
+  low-pass. With a blocked fraction b and a strength s (0..2, default 1), every figure is scaled by
+  s·b: fully blocked at s = 1 is −7 dB broadband and −4 / −5 dB shelves, so −7 dB below 300 Hz,
+  about −11 dB at 1.2 kHz and −16 dB above 4 kHz. Measured in Chrome, glass shards behind the free
+  wall lose 15.5 dB at s = 1 (30 dB at s = 2) and keep their spectral centroid (7.7 kHz; the former
+  1.2 kHz low-pass took 26.6 dB and left 1.4 kHz). The reverb send loses half the broadband loss.
+  `setOcclusionStrength(s)` changes it live.
+- **Reverb amount**: `setReverbAmount(a)` (0..2, default 1): 1 is the level estimated from the room,
+  2 is exaggerated (+6 dB and RT60 × 1.5).
 - **Early reflections**: first-order image sources.
   - 14 rays from the source (6 axes and 8 diagonals) find nearby surfaces.
   - Each surface plane mirrors the source. The bounce point is where the line from the image to the
@@ -114,11 +156,23 @@ material's α.
     distance, and ᾱ is the mean α of the hits.
   - Sabine with V/S = l/4 gives RT60 = 0.161·l / (4·ᾱ_eff), with ᾱ_eff = (1 − e)·ᾱ + e, clamped to
     0.1–1.8 s.
-  - The wet level is (1 − e)²·√(1 − ᾱ), so open air (rays escape) has almost no reverb.
+  - Level: a diffuse field of room constant R = S·ᾱ_eff/(1 − ᾱ_eff) carries 64π/R times the energy of
+    the direct sound at the 2 m reference, with S ≈ 13.5·l² (a cube). Sabine assumes a closed room;
+    with open sky the energy leaves after a bounce or two, so the energy is scaled by the
+    enclosure³, the share of the 9 sideways and upward rays closed by a surface (weight
+    (4 m / distance)², at most 1). The amplitude is capped at 2 (+6 dB).
   - The impulse response is rendered by the HAA engine itself (a 4 ms noise burst into a `space`
-    node at full wet). The size is calibrated so that the measured Schroeder T20 matches the RT60
-    within 0.01 s at 0.25 to 1.7 s. A ConvolverNode plays it, with a cross-fade when the room
-    changes.
+    node at full wet) and scaled to unit energy, so the bus gain is that diffuse-to-direct amplitude.
+    The size is calibrated so that the measured Schroeder T20 matches the RT60 within 0.01 s at
+    0.25 to 1.7 s. A ConvolverNode (normalize off) plays it, with a cross-fade when the room changes.
+  - The former law applied the wet level twice (on each voice's send and on the bus) and let the
+    ConvolverNode normalise the IR to its fixed −58 dB calibration: the tail sat 30 dB and more
+    under the direct sound, and open ground came out wetter than the concrete corner.
+  - Measured in Chrome (a 1 ms click, energy windows relative to the direct sound, amount 1): the
+    concrete corner (two 4 m walls, click 1 m from both, listener at 2.9 m) has its early reflections
+    at +4.5 dB in 2.5-50 ms, a tail at −15 dB in 50-150 ms and −30 dB in 150-400 ms; open ground
+    −45 dB and −65 dB; inside the studio scene's concrete shed +7 dB, +3 dB, −3 dB (RT60 0.9 s);
+    just outside its door −20 dB and −33 dB.
 - **Update rates**: occlusion and reflections are recomputed per voice every 0.2 s, and the room
   every 0.25 s. Panner and listener positions are set, never automated: automating them sends
   Chrome's panner down its per-sample path. Setting them, and leaving idle slots unconnected, brought

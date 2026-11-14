@@ -149,9 +149,14 @@ export interface RoomEstimate {
   meanFreePath: number;
   /** Mean α of the surfaces hit. */
   absorption: number;
+  /** Share of the sideways and upward rays closed by a near surface (weight (4 m / distance)², at most 1). */
+  enclosure: number;
   /** Reverb time (s), Sabine from the mean free path, escaped rays counted as α = 1. */
   rt60: number;
-  /** Reverb send level 0..1: enclosure × reflectivity. */
+  /**
+   * Amplitude of the diffuse field relative to the direct sound at the reference distance (2 m):
+   * the reverb bus gain for an impulse response of unit energy. 0 in the open, up to `WET_MAX`.
+   */
   wet: number;
 }
 
@@ -161,11 +166,23 @@ export interface RoomOptions {
 }
 
 export const RT60_RANGE: readonly [number, number] = [0.1, 1.8];
+/** Largest diffuse-to-direct amplitude at 2 m (+6 dB): a bare concrete room is louder still, a game mix is not. */
+export const WET_MAX = 2;
+/** A surface nearer than this (m) closes its ray fully; a farther one sends discrete echoes more than a diffuse field. */
+export const ENCLOSURE_NEAR_M = 4;
 
 /**
  * Sabine: RT60 = 0.161·V / (S·ᾱ). The mean free path of a room is l = 4V/S, so
  * RT60 = 0.161·l / (4·ᾱ) ≈ 0.04·l/ᾱ. A ray that escapes is a perfectly absorbing patch of wall
  * (open sky), so ᾱ_eff = (1 − e)·ᾱ_hits + e.
+ *
+ * Level: the diffuse field of a room of constant R = S·ᾱ/(1 − ᾱ) has an energy 16π·r²/R times the
+ * direct sound at r, so 64π/R times the direct sound at the 2 m reference (where the direct path
+ * is at full level). The surface is taken from the mean free path as for a cube, S ≈ 13.5·l².
+ * Sabine assumes a closed, diffuse room; with open sky the energy leaves after one or two bounces,
+ * so the level is scaled by the enclosure³ (the sideways and upward rays closed by a near surface):
+ * open ground and a lone far wall give no diffuse field (their echoes are the early reflections),
+ * a corner of two walls a short faint one, a closed room the full Sabine level.
  */
 export function estimateRoom(listener: Vec3, cast: RayCast, o: RoomOptions = {}, segments?: RaySegment[]): RoomEstimate {
   const maxDist = o.maxDist ?? 50;
@@ -173,6 +190,8 @@ export function estimateRoom(listener: Vec3, cast: RayCast, o: RoomOptions = {},
   let hits = 0;
   let sumToi = 0;
   let sumAbs = 0;
+  let open = 0;
+  let closed = 0;
   for (const dir of dirs) {
     const hit = cast(listener, dir, maxDist);
     if (hit) {
@@ -180,15 +199,23 @@ export function estimateRoom(listener: Vec3, cast: RayCast, o: RoomOptions = {},
       sumToi += hit.toi;
       sumAbs += hit.absorption;
     }
+    if (dir.y > -0.1) {
+      open++;
+      if (hit) closed += Math.min(1, (ENCLOSURE_NEAR_M / Math.max(hit.toi, 1e-3)) ** 2);
+    }
     segments?.push({ from: listener, to: hit ? hit.point : add(listener, scale(dir, Math.min(maxDist, 12))), hit: !!hit, kind: 'room' });
   }
   const escape = 1 - hits / dirs.length;
   const meanFreePath = hits ? sumToi / hits : maxDist;
   const absorption = hits ? sumAbs / hits : 1;
-  const alpha = Math.max(0.01, (1 - escape) * absorption + escape);
+  const enclosure = open ? closed / open : 0;
+  const alpha = Math.min(0.999, Math.max(0.01, (1 - escape) * absorption + escape));
   const rt60 = Math.min(RT60_RANGE[1], Math.max(RT60_RANGE[0], (0.161 * meanFreePath) / (4 * alpha)));
-  const wet = Math.min(1, (1 - escape) ** 2 * Math.sqrt(1 - Math.min(1, absorption)));
-  return { escape, meanFreePath, absorption, rt60, wet };
+  const surface = 13.5 * meanFreePath * meanFreePath;
+  const roomConstant = (surface * alpha) / (1 - alpha);
+  const energy = ((64 * Math.PI) / roomConstant) * enclosure ** 3;
+  const wet = hits ? Math.min(WET_MAX, Math.sqrt(energy)) : 0;
+  return { escape, meanFreePath, absorption, enclosure, rt60, wet };
 }
 
 // --- occlusion -------------------------------------------------------------------------------
@@ -196,16 +223,23 @@ export function estimateRoom(listener: Vec3, cast: RayCast, o: RoomOptions = {},
 export interface Occlusion {
   /** Fraction of the probe rays blocked, 0..1. */
   blocked: number;
-  /** Linear gain to apply: −10 dB when fully blocked (at strength 1). */
+  /** Broadband linear gain: −7 dB when fully blocked (at strength 1). */
   gain: number;
-  /** Low-pass cutoff (Hz): 20 kHz open, 1.2 kHz fully blocked (at strength 1), log-interpolated. */
-  cutoff: number;
+  /** Gains (dB, ≤ 0) of the two high shelves at `OCCLUSION_SHELF_HZ`: −4 and −5 dB fully blocked. */
+  shelves: readonly [number, number];
 }
 
-/** Gain of a fully blocked path at strength 1: −10 dB (a wall muffles, it does not mute). */
-export const OCCLUDED_GAIN = 0.316;
-/** Low-pass cutoff of a fully blocked path at strength 1. */
-export const OCCLUDED_CUTOFF_HZ = 1200;
+/**
+ * A blocked path at strength 1 (a wall muffles, it does not mute). Diffraction around an edge loses
+ * more the shorter the wavelength, about 3 dB per octave over the speech band (Maekawa), so the
+ * loss is a broadband −7 dB plus two gentle high shelves: about −7 dB below 300 Hz, −11 dB at
+ * 1.2 kHz and −16 dB above 4 kHz. A bright sound behind a wall stays recognisable.
+ */
+export const OCCLUDED_GAIN_DB = -7;
+export const OCCLUSION_SHELF_HZ: readonly [number, number] = [600, 2500];
+export const OCCLUDED_SHELF_DB: readonly [number, number] = [-4, -5];
+/** Broadband gain of a fully blocked path at strength 1 (−7 dB). */
+export const OCCLUDED_GAIN = 10 ** (OCCLUDED_GAIN_DB / 20);
 export const OPEN_CUTOFF_HZ = 20000;
 /** Range of the occlusion strength: 0 turns occlusion off, 1 is the default, 2 doubles the loss in dB. */
 export const OCCLUSION_STRENGTH_RANGE: readonly [number, number] = [0, 2];
@@ -218,7 +252,7 @@ export const OCCLUSION_STRENGTH_RANGE: readonly [number, number] = [0, 2];
 export function occlusion(source: Vec3, listener: Vec3, cast: RayCast, endSkip = 0.2, segments?: RaySegment[]): Occlusion {
   const toSource = sub(source, listener);
   const d = length(toSource);
-  if (d <= endSkip + 1e-3) return { blocked: 0, gain: 1, cutoff: OPEN_CUTOFF_HZ };
+  if (d <= endSkip + 1e-3) return occlusionLevels(0);
   const fwd = scale(toSource, 1 / d);
   let side = cross(fwd, v3(0, 1, 0));
   if (length(side) < 1e-3) side = v3(1, 0, 0);
@@ -238,8 +272,9 @@ export function occlusion(source: Vec3, listener: Vec3, cast: RayCast, endSkip =
 }
 
 /**
- * Gain and cutoff for a blocked fraction. The loss is linear in dB: `strength · blocked` times
- * −10 dB, and the cutoff falls on a log axis by the same amount (1.2 kHz at 1, 72 Hz at 2).
+ * Gain and shelves for a blocked fraction. Every loss is linear in dB with `strength · blocked`:
+ * fully blocked at strength 1 is −7 dB broadband and −4 / −5 dB shelves (−16 dB in the highs),
+ * strength 2 doubles every figure.
  */
 export function occlusionLevels(blocked: number, strength = 1): Occlusion {
   const b = Math.min(1, Math.max(0, blocked));
@@ -247,8 +282,8 @@ export function occlusionLevels(blocked: number, strength = 1): Occlusion {
   const x = b * Math.min(hi, Math.max(lo, Number.isFinite(strength) ? strength : 1));
   return {
     blocked: b,
-    gain: OCCLUDED_GAIN ** x,
-    cutoff: OPEN_CUTOFF_HZ * (OCCLUDED_CUTOFF_HZ / OPEN_CUTOFF_HZ) ** x,
+    gain: 10 ** ((OCCLUDED_GAIN_DB * x) / 20),
+    shelves: x > 0 ? [OCCLUDED_SHELF_DB[0] * x, OCCLUDED_SHELF_DB[1] * x] : [0, 0],
   };
 }
 

@@ -11,6 +11,8 @@ import { createSfxPool } from './pool.ts';
 import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
 import { REF_DISTANCE, ReverbBus, setListener, VoiceChain } from './spatial3d.ts';
+import type { SwarmOptions } from './swarm.ts';
+import { SwarmTracker } from './swarm.ts';
 
 export interface SfxEngineOptions {
   /** An AudioContext, or an OfflineAudioContext for renders and benchmarks. */
@@ -30,8 +32,10 @@ export interface SfxEngineOptions {
   output?: AudioNode;
   /** Occlusion strength, 0..2: 0 off, 1 the default (about -10 dB and 1.2 kHz behind a wall). */
   occlusionStrength?: number;
-  /** Reverb amount, 0..2: 0 dry, 1 the level estimated from the room. */
+  /** Reverb amount, 0..2: 0 dry, 1 the level estimated from the room, 2 exaggerated. */
   reverbAmount?: number;
+  /** Swarms of small impacts (slots with a `cluster` preset): grouping options, or false to give every impact its own voice. */
+  swarm?: SwarmOptions | false;
 }
 
 export interface PresetRecord {
@@ -42,6 +46,12 @@ export interface PresetRecord {
   cost: number;
   readsEnergy: boolean;
   playable: boolean;
+  /**
+   * A looping preset that reads `speed` (slide, roll): its RMS level at `SPEED_STEPS`, measured
+   * once with the other inputs at their defaults. The engine starts no slide/roll voice that would
+   * be inaudible at the listener and stops one that falls silent.
+   */
+  speedLevels: number[] | null;
 }
 
 export interface SfxListener {
@@ -87,8 +97,10 @@ export interface SfxStats {
   started: number;
   dropped: number;
   stolen: number;
-  /** One-shots not started because they would be inaudible (below −60 dB). */
+  /** Voices not started because they would be inaudible (below −60 dB): one-shots, and slide/roll contacts. */
   culled: number;
+  /** Impacts absorbed by a swarm's cluster voice instead of taking their own. */
+  clustered: number;
   /** Patch loads done on the audio thread, and the slowest (ms). */
   loads: number;
   maxLoadMs: number;
@@ -113,6 +125,9 @@ interface Slot {
   key: string | null;
   stopping: boolean;
   cost: number;
+  /** Slide/roll: the last speed, and since when its estimated level has been inaudible (-1: audible). */
+  speed: number;
+  quietSince: number;
 }
 
 export interface SfxEngine {
@@ -150,6 +165,25 @@ const CONTINUOUS_FADE_S = 0.08;
 const CHAIN_COST = 0.006;
 /** A one-shot estimated below this level at the listener (−60 dB) is not started. */
 const AUDIBLE = 1e-3;
+/** A slide/roll voice (its measured RMS, not a proxy) estimated below −70 dB at the listener is not started. */
+const CONTACT_AUDIBLE = 10 ** (-70 / 20);
+/** A running slide/roll voice estimated 6 dB under `CONTACT_AUDIBLE` for this long (s) is stopped. */
+const QUIET_STOP_S = 0.25;
+/** Speeds (0..1) at which a looping `speed` preset's level is measured. */
+export const SPEED_STEPS: readonly number[] = [0, 0.01, 0.02, 0.035, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 1];
+
+/** Linear interpolation of a `speedLevels` table at `speed`. */
+export function levelAtSpeed(levels: readonly number[], speed: number): number {
+  const s = Math.min(1, Math.max(0, speed));
+  for (let i = 1; i < SPEED_STEPS.length; i++) {
+    if (s <= SPEED_STEPS[i]) {
+      const a = SPEED_STEPS[i - 1];
+      const t = (s - a) / (SPEED_STEPS[i] - a);
+      return levels[i - 1] + (levels[i] - levels[i - 1]) * t;
+    }
+  }
+  return levels[levels.length - 1];
+}
 
 /** Map a 0..1 contract value onto the range the preset declares for that input. */
 export function toDeclared(input: HaaInput | undefined, v: number): number {
@@ -197,8 +231,39 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     slots.push({
       index: i, chain, busy: false, id: 0, preset: '', oneShot: true, priority: 0, started: 0,
       position: v3(0, 0, 0), level: 0, energy: 0, occ: occlusionLevels(0), reflections: [], nextGeo: 0,
-      key: null, stopping: false, cost: 0,
+      key: null, stopping: false, cost: 0, speed: 0, quietSince: -1,
     });
+  }
+  const swarms = o.swarm === false ? null : new SwarmTracker(o.swarm ?? {});
+  /** Cluster voice of each swarm. */
+  const clusterVoices = new Map<number, { slot: Slot; id: number; forced: Partial<SfxInputs> }>();
+  /** Slide/roll keys found inaudible (logged once until they end or start). */
+  const quietKeys = new Set<string>();
+
+  // Deferred actions run on the audio clock (each update and handle), with a timer as the fallback
+  // for a page that stops calling update (a background tab); each runs once. On the audio clock an
+  // OfflineAudioContext render (benchmarks, the measurement harness) releases its voices on time.
+  const deferred: Array<{ at: number; run: () => void; done: boolean }> = [];
+  function defer(seconds: number, run: () => void): void {
+    const job = { at: ctx.currentTime + seconds, run, done: false };
+    deferred.push(job);
+    setTimeout(() => runJob(job), seconds * 1000 + 40);
+  }
+  function runJob(job: { run: () => void; done: boolean }): void {
+    if (job.done) return;
+    job.done = true;
+    job.run();
+  }
+  function runDue(): void {
+    const now = ctx.currentTime;
+    for (let i = 0; i < deferred.length; ) {
+      const job = deferred[i];
+      if (job.done) deferred.splice(i, 1);
+      else if (job.at <= now) {
+        deferred.splice(i, 1);
+        runJob(job);
+      } else i++;
+    }
   }
 
   const materials = new Map<string, SoundMaterial>();
@@ -212,7 +277,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   let roomRays: RaySegment[] = [];
   const voiceRays = new Map<number, RaySegment[]>();
   let nextId = 1;
-  const counters = { started: 0, dropped: 0, stolen: 0, culled: 0, loads: 0, maxLoadMs: 0 };
+  const counters = { started: 0, dropped: 0, stolen: 0, culled: 0, clustered: 0, loads: 0, maxLoadMs: 0 };
 
   pool.onMessage((msg: SfxPoolOutMsg) => {
     if (msg.t === 'ended') {
@@ -228,9 +293,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     s.chain.mute();
     // Disconnect after the fade so idle chains cost nothing on the audio thread; a slot reused
     // meanwhile keeps its connection.
-    setTimeout(() => {
+    defer(0.06, () => {
       if (!s.busy) s.chain.detach();
-    }, 60);
+    });
     s.busy = false;
     s.stopping = false;
     if (s.key && continuous.get(s.key) === s) continuous.delete(s.key);
@@ -238,12 +303,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     voiceRays.delete(s.index);
   }
 
-  function measure(bytes: Uint8Array): { info: VoiceInfo; cost: number; playable: boolean } {
+  function measure(bytes: Uint8Array): { info: VoiceInfo; cost: number; playable: boolean; speedLevels: number[] | null } {
     const voice = haa.createVoice(ctx.sampleRate, 3);
     try {
       const { playable } = voice.load(bytes);
       const info = voice.info();
-      if (!playable) return { info, cost: 0, playable };
+      if (!playable) return { info, cost: 0, playable, speedLevels: null };
       const blocks = Math.round((0.25 * ctx.sampleRate) / 128);
       let ms = 0;
       for (let pass = 0; pass < 2; pass++) {
@@ -252,7 +317,29 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         for (let b = 0; b < blocks; b++) voice.process(128);
         ms = performance.now() - t0;
       }
-      return { info, cost: ms / 250, playable };
+      // A slide/roll loop: its level at each speed (0.4 s each, the first 0.1 s skipped).
+      let speedLevels: number[] | null = null;
+      const speed = info.inputs.find((i) => i.name === 'speed');
+      if (info.loop && speed) {
+        speedLevels = SPEED_STEPS.map((v) => {
+          voice.set('speed', toDeclared(speed, v));
+          voice.restart();
+          let sum = 0;
+          let n = 0;
+          const total = Math.round((0.4 * ctx.sampleRate) / 128);
+          const skip = Math.round((0.1 * ctx.sampleRate) / 128);
+          for (let b = 0; b < total; b++) {
+            voice.process(128);
+            if (b < skip) continue;
+            const l = voice.left();
+            const r = voice.right();
+            for (let i = 0; i < 128; i++) sum += (l[i] * l[i] + r[i] * r[i]) / 2;
+            n += 128;
+          }
+          return Math.sqrt(sum / Math.max(1, n));
+        });
+      }
+      return { info, cost: ms / 250, playable, speedLevels };
     } finally {
       voice.free();
     }
@@ -260,8 +347,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   function setPreset(name: string, patch: HaaPatch | string | Uint8Array): PresetRecord {
     const bytes = patchBytes(patch);
-    const { info, cost, playable } = measure(bytes);
-    const rec: PresetRecord = { name, bytes, info, cost: cost + CHAIN_COST, playable, readsEnergy: info.inputs.some((i) => i.name === 'energy') };
+    const { info, cost, playable, speedLevels } = measure(bytes);
+    const rec: PresetRecord = { name, bytes, info, cost: cost + CHAIN_COST, playable, readsEnergy: info.inputs.some((i) => i.name === 'energy'), speedLevels };
     presets.set(name, rec);
     pool.preset(name, bytes);
     return rec;
@@ -322,7 +409,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       s.chain.setReflections(s.reflections, immediate);
     }
     const occ = occlusionLevels(s.occ.blocked, occlusionStrength);
-    if (!s.stopping) s.chain.setLevels(s.level, occ, d, room ? room.wet : 0, immediate);
+    if (!s.stopping) s.chain.setLevels(s.level, occ, d, immediate);
     // A preset that declares `_dist` gets the distance in metres (a far explosion rumbles more).
     if (presets.get(s.preset)?.info.inputs.some((i) => i.name === '_dist')) pool.set(s.index, s.id, { _dist: d });
   }
@@ -381,6 +468,14 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       log({ ...base, slot: -1, result: 'not playable' });
       return null;
     }
+    // A slide/roll contact too slow (or too far) to be heard takes no voice.
+    if (key && !oneShot && rec.speedLevels && contactLevel(rec, inputs.speed, gain, d) < CONTACT_AUDIBLE) {
+      counters.culled++;
+      if (!quietKeys.has(key)) log({ ...base, slot: -1, result: 'culled' });
+      quietKeys.add(key);
+      return null;
+    }
+    if (key) quietKeys.delete(key);
     // Loudness proxy: the energy on its 40 dB axis, the level trim, 1/r beyond the reference distance.
     if (oneShot && fallbackGain(inputs.energy) * gain * Math.min(1, REF_DISTANCE / Math.max(d, 1e-3)) < AUDIBLE) {
       counters.culled++;
@@ -398,8 +493,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const id = nextId++;
     Object.assign(slot, {
       busy: true, id, preset: rec.name, oneShot, priority: prio, started: ctx.currentTime, position,
-      level: gain * (rec.readsEnergy ? 1 : fallbackGain(inputs.energy)), energy: inputs.energy,
-      key, stopping: false, cost: rec.cost,
+      level: gain * levelTrim(rec, inputs.energy, kind), energy: inputs.energy,
+      key, stopping: false, cost: rec.cost, speed: inputs.speed, quietSince: -1,
     });
     const maxSeconds = rec.info.mode === 'timeline' ? rec.info.duration : 3;
     slot.chain.attach(pool.node, slot.index);
@@ -415,21 +510,96 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     s.stopping = true;
     s.chain.mute(fadeS);
     const id = s.id;
-    setTimeout(() => {
+    defer(fadeS + 0.01, () => {
       if (s.id === id && s.busy) {
         pool.stop(s.index, id);
         release(s);
       }
-    }, fadeS * 1000 + 40);
+    });
+  }
+
+  /**
+   * Level trim of a voice. A one-shot (or a game loop) whose preset does not read `energy` follows
+   * the energy on its 40 dB axis. A slide/roll voice does not: its preset's `speed` input is its
+   * loudness law, and the contact's energy (a pressing power) was scaling it a second time.
+   */
+  function levelTrim(rec: PresetRecord, energy: number, kind: SfxLogEntry['kind']): number {
+    if (rec.readsEnergy || kind === 'slide' || kind === 'roll') return 1;
+    return fallbackGain(energy);
+  }
+
+  /** Estimated RMS at the listener of a slide/roll voice (no occlusion, which is not known yet). */
+  function contactLevel(rec: PresetRecord, speed: number, gain: number, d: number): number {
+    if (!rec.speedLevels) return 1;
+    return levelAtSpeed(rec.speedLevels, speed) * gain * Math.min(1, REF_DISTANCE / Math.max(d, 1e-3));
+  }
+
+  function clusterSlot(m: SoundMaterial, kind: InteractionKind): { preset: string; gain: number; inputs: Partial<SfxInputs> } | null {
+    const c = m.sounds[kind]?.cluster;
+    if (!c) return null;
+    return typeof c === 'string' ? { preset: c, gain: 1, inputs: {} } : { preset: c.preset, gain: c.gain ?? 1, inputs: c.inputs ?? {} };
+  }
+
+  /** An impact of a swarm material: its own voice (false is returned), or the swarm's cluster voice. */
+  function swarmed(ev: SfxEvent, label: string): boolean {
+    if (!swarms || ev.kind !== 'impact') return false;
+    const c = clusterSlot(ev.striker, 'impact');
+    if (!c) return false;
+    const rec = presets.get(c.preset);
+    if (!rec) {
+      void preset(c.preset);
+      return false;
+    }
+    const inputs = fullInputs({ ...ev.inputs, hardness: ev.surface.hardness, ...c.inputs });
+    const now = ctx.currentTime;
+    const route = swarms.route(c.preset, ev.position, inputs, now);
+    if (route.own) return false;
+    counters.clustered++;
+    const sw = route.swarm;
+    const cin = fullInputs({ ...inputs, ...swarms.inputs(sw, now), ...c.inputs });
+    const voice = clusterVoices.get(sw.id);
+    if (voice && voice.slot.busy && voice.slot.id === voice.id && !voice.slot.stopping) {
+      voice.slot.position = sw.center;
+      voice.slot.chain.setPosition(sw.center, false);
+      voice.slot.energy = cin.energy;
+      pool.set(voice.slot.index, voice.id, declaredInputs(rec, cin));
+      return true;
+    }
+    const s = start(rec, sw.center, cin, false, c.gain, undefined, `${label} ×swarm`, 'impact', null);
+    if (s) clusterVoices.set(sw.id, { slot: s, id: s.id, forced: c.inputs });
+    return true;
+  }
+
+  function updateSwarms(now: number): void {
+    if (!swarms) return;
+    for (const sw of swarms.swarms) {
+      const voice = clusterVoices.get(sw.id);
+      if (!voice) continue;
+      const { slot, id } = voice;
+      if (!slot.busy || slot.id !== id) {
+        clusterVoices.delete(sw.id);
+        continue;
+      }
+      if (swarms.quiet(sw, now)) {
+        stopSlot(slot, 0.06);
+        clusterVoices.delete(sw.id);
+        continue;
+      }
+      const rec = presets.get(slot.preset);
+      if (rec) pool.set(slot.index, id, declaredInputs(rec, fullInputs({ ...swarms.inputs(sw, now), ...voice.forced })));
+    }
+    for (const sw of swarms.prune(now)) clusterVoices.delete(sw.id);
   }
 
   function handle(ev: SfxEvent): void {
+    runDue();
     const resolved = resolveInteraction(ev.kind, ev.striker, ev.surface, ev.inputs, ev.surfaceInputs);
     const label = `${ev.striker.name} → ${ev.surface.name}`;
     if (isContinuous(ev.kind)) {
       const baseKey = ev.key ?? `${ev.kind}:${label}`;
       if (ev.phase === 'end') {
         for (const [k, s] of continuous) if (k.startsWith(baseKey + '|')) stopSlot(s);
+        for (const k of quietKeys) if (k.startsWith(baseKey + '|')) quietKeys.delete(k);
         return;
       }
       for (const r of resolved) {
@@ -439,9 +609,19 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         if (running && running.busy && !running.stopping && rec) {
           running.position = ev.position;
           running.chain.setPosition(ev.position, false);
-          running.level = r.gain * (rec.readsEnergy ? 1 : fallbackGain(r.inputs.energy));
+          running.level = r.gain * levelTrim(rec, r.inputs.energy, ev.kind);
           running.energy = r.inputs.energy;
+          running.speed = r.inputs.speed;
           pool.set(running.index, running.id, declaredInputs(rec, r.inputs));
+          // Fallen silent (a bottle rocking to rest): release the voice once it stays so.
+          const now = ctx.currentTime;
+          if (contactLevel(rec, r.inputs.speed, r.gain, dist(ev.position)) < CONTACT_AUDIBLE * 0.5) {
+            if (running.quietSince < 0) running.quietSince = now;
+            else if (now - running.quietSince >= QUIET_STOP_S) {
+              stopSlot(running);
+              quietKeys.add(key);
+            }
+          } else running.quietSince = -1;
           continue;
         }
         if (!rec) {
@@ -454,6 +634,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       }
       return;
     }
+    if (swarmed(ev, label)) return;
     for (const r of resolved) {
       const rec = presets.get(r.slot.preset);
       if (!rec) {
@@ -525,6 +706,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     listener = l;
     setListener(ctx, l.position, l.forward, l.up);
     const now = ctx.currentTime;
+    runDue();
+    updateSwarms(now);
     if (raycast && now >= nextRoom) {
       const rays: RaySegment[] = [];
       room = estimateRoom(l.position, raycast, {}, rays);

@@ -86,7 +86,10 @@ export interface RapierSfxOptions {
   minImpactSpeed?: number;
   /** Minimum time between two impacts of the same pair (s). Default 0.06. */
   pairCooldown?: number;
-  /** Minimum time between two impacts of the same collider with anything (s). Default 0.02. */
+  /**
+   * Minimum time between two impacts of the same moving collider with anything (s). Default 0.02.
+   * A fixed collider (the ground) has none: it took one impact per 20 ms from a whole swarm.
+   */
   colliderCooldown?: number;
   /** Tangential slip above which a continuous slide/roll runs (m/s). Default 0.15. */
   minSlideSpeed?: number;
@@ -136,6 +139,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
   const forced = new Set<string>();
   const lastByCollider = new Map<number, number>();
   let time = 0;
+  let stepDt = 1 / 60;
 
   function velocityAt(body: RBody | null, p: RVec): Vec3 {
     if (!body || body.isFixed()) return v3(0, 0, 0);
@@ -195,10 +199,12 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     return body.mass() || c.mass() || 1;
   }
 
-  function cooled(pair: Pair, c1: number, c2: number): boolean {
+  function cooled(pair: Pair, c1: RCollider, c2: RCollider): boolean {
     if (time - pair.lastImpact < pairCooldown) return false;
-    if (time - (lastByCollider.get(c1) ?? -1) < colliderCooldown) return false;
-    if (time - (lastByCollider.get(c2) ?? -1) < colliderCooldown) return false;
+    for (const c of [c1, c2]) {
+      if (!Number.isFinite(massOf(c))) continue;
+      if (time - (lastByCollider.get(c.handle) ?? -1) < colliderCooldown) return false;
+    }
     return true;
   }
 
@@ -213,7 +219,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     const b2 = c2.parent();
     const rel = sub(velocityAt(b1, hit.point), velocityAt(b2, hit.point));
     const vn = Math.abs(dot(rel, hit.normal));
-    if (vn < minImpact || !cooled(pair, c1.handle, c2.handle)) return false;
+    if (vn < minImpact || !cooled(pair, c1, c2)) return false;
     const vt = length(sub(rel, scale(hit.normal, dot(rel, hit.normal))));
     const ma = massOf(c1);
     const mb = massOf(c2);
@@ -305,8 +311,9 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
       surface,
       inputs: {
         speed: speedFromVelocity(speed),
-        // Normal impulse per step as a pressing force, on the same log axis as impacts.
-        energy: energyFromJoules(Math.max(1e-6, force * speed)),
+        // Pressing power: normal force (impulse / dt) times the slip or rolling speed, in watts on
+        // the impacts' log axis. A slide/roll preset that does not read it is not scaled by it.
+        energy: energyFromJoules(Math.max(1e-6, (force / Math.max(1e-4, stepDt)) * speed)),
         size: sizeFromMass(Number.isFinite(mass) ? mass : 1000),
         depth: depthFromMetres(hit.depth) * (1 - surface.hardness),
       },
@@ -367,6 +374,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     },
     afterStep(queue, dt) {
       time += dt;
+      if (dt > 0) stepDt = dt;
       queue?.drainCollisionEvents((h1, h2, isStart) => (isStart ? started : stopped).push([h1, h2]));
       queue?.drainContactForceEvents((e) => forced.add(pairKey(e.collider1(), e.collider2())));
       const fresh = new Set<string>();
