@@ -12,7 +12,7 @@
 import type { Reflection, Vec3 } from './acoustics.ts';
 import { add, dot, length, normalize, scale, sub, v3, SPEED_OF_SOUND_M_S } from './acoustics.ts';
 import type { FieldGrid, FieldPath, FieldSample, SfxGeometry } from './field-wasm.ts';
-import { FieldWasm } from './field-wasm.ts';
+import { BOX_STRIDE, FieldWasm } from './field-wasm.ts';
 import type { FieldWorkerIn, FieldWorkerOut } from './field-worker.ts';
 import type { DirectPath, VoiceReverb } from './raytrace.ts';
 
@@ -79,7 +79,7 @@ export interface FieldStats {
 /** An opening is narrower than half the cross-section at both ends and under 16 m² (a door, not a corridor). */
 const OPENING_MAX_M2 = 16;
 /** Bump when the baked cell format or what a cell holds changes (the persisted bakes' key). */
-const FIELD_FORMAT = 5;
+const FIELD_FORMAT = 6;
 
 /** Energy (linear, relative to the direct sound at 2 m) of a sample's traced diffuse field. */
 function energyOf(s: FieldSample): number {
@@ -339,14 +339,14 @@ export class AcousticField implements SfxFieldProvider {
         if (seen.has(k)) continue;
         seen.add(k);
         const [x, y, z] = k.split(',').map((v) => (Number(v) + 0.5) * cell);
-        out.push(x, y, z, h, h, h, 0, 0, 0, 1, 0.1, 9999);
+        out.push(x, y, z, h, h, h, 0, 0, 0, 1, 0.1, 9999, 0.1, 0.1);
       }
     }
     return new Float32Array(out);
   }
 
   get occupiedCells(): number {
-    return this.occupancyBoxes(performance.now() / 1000).length / 12;
+    return this.occupancyBoxes(performance.now() / 1000).length / BOX_STRIDE;
   }
 
   /** Account a stretch of main-thread field work. */
@@ -382,9 +382,9 @@ export class AcousticField implements SfxFieldProvider {
     const reach = Math.max(...f.half) + 20;
     const keep: number[] = [];
     for (const b of moving ? [base.boxes, moving.boxes] : [base.boxes]) {
-      for (let i = 0; i + 11 < b.length; i += 12) {
+      for (let i = 0; i + BOX_STRIDE - 1 < b.length; i += BOX_STRIDE) {
         const ext = Math.max(Math.abs(b[i + 3]), Math.abs(b[i + 4]), Math.abs(b[i + 5])) * 1.75;
-        if (Math.hypot(b[i] - p.x, b[i + 2] - p.z) - ext < reach) for (let k = 0; k < 12; k++) keep.push(b[i + k]);
+        if (Math.hypot(b[i] - p.x, b[i + 2] - p.z) - ext < reach) for (let k = 0; k < BOX_STRIDE; k++) keep.push(b[i + k]);
       }
     }
     const boxes = new Float32Array(keep.length + occ.length);
@@ -513,12 +513,16 @@ export class AcousticField implements SfxFieldProvider {
     let rt60: number;
     let direction: Vec3;
     let predelay: number;
+    let lnLo: number;
+    let lnHi: number;
     const lnRt = (x: FieldSample): number => Math.log(Math.max(0.05, x.rt60));
     if (!opening) {
       energy = Math.sqrt(ea * eb);
       // The more reverberant end sets the decay (coupled spaces: the late slope is the slower one's).
       const w = ea / Math.max(1e-12, ea + eb);
       rt60 = Math.exp(w * lnRt(a) + (1 - w) * lnRt(b));
+      lnLo = w * Math.log(a.rtLo) + (1 - w) * Math.log(b.rtLo);
+      lnHi = w * Math.log(a.rtHi) + (1 - w) * Math.log(b.rtHi);
       direction = b.dir;
       // The cell's onset is timed from a source on the listener; a source r away has its direct sound
       // r / c later and its room paths at most that much longer: the field starts that much sooner
@@ -534,6 +538,8 @@ export class AcousticField implements SfxFieldProvider {
       energy = fromSource + own;
       const w = fromSource / Math.max(1e-12, energy);
       rt60 = Math.exp(w * lnRt(a) + (1 - w) * lnRt(b));
+      lnLo = w * Math.log(a.rtLo) + (1 - w) * Math.log(b.rtLo);
+      lnHi = w * Math.log(a.rtHi) + (1 - w) * Math.log(b.rtHi);
       direction = add(scale(normalize(sub(at, l)), (0.3 + 0.6 * w) * w), scale(b.dir, 1 - w));
       predelay = w * (a.predelay + Math.max(0, rl - 1) / SPEED_OF_SOUND_M_S) + (1 - w) * b.predelay;
     }
@@ -547,6 +553,8 @@ export class AcousticField implements SfxFieldProvider {
       predelay: Math.min(0.1, Math.max(0.002, predelay)),
       absorption: b.absorption,
       hits: Math.round((a.weight + b.weight) * 100),
+      rtLo: Math.exp(lnLo),
+      rtHi: Math.exp(lnHi),
     };
   }
 

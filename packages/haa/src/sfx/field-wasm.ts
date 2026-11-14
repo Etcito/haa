@@ -4,15 +4,16 @@
 // fed with the baked cells, on the main thread for the lookups and the flood.
 import type { Vec3 } from './acoustics.ts';
 import { v3 } from './acoustics.ts';
+import { absorptionTriple } from './absorption.ts';
 
-/** Floats per box: centre (3), half extents (3), rotation quaternion x y z w (4), absorption, surface id. */
-export const BOX_STRIDE = 12;
-/** Floats per triangle: three vertices (9), absorption, surface id. */
-export const TRI_STRIDE = 11;
+/** Floats per box: centre (3), half extents (3), rotation quaternion x y z w (4), α (mid band), surface id, α low, α high. */
+export const BOX_STRIDE = 14;
+/** Floats per triangle: three vertices (9), α (mid band), surface id, α low, α high. */
+export const TRI_STRIDE = 13;
 /** Reflecting planes stored per cell. */
 export const FIELD_PLANES = 6;
 /** Floats per baked cell record (crates/haa-field `RECORD`). */
-export const FIELD_RECORD = 14 + FIELD_PLANES * 5;
+export const FIELD_RECORD = 14 + FIELD_PLANES * 5 + 2;
 
 /** The static level as the field reads it: oriented boxes and triangles with their Sabine α. */
 export interface SfxGeometry {
@@ -50,20 +51,21 @@ interface RWorldLike {
  * meshes as triangles, balls, cylinders and capsules as the box around them. (Same records as the
  * `compute` branch's tracer, haa-trace.)
  */
-export function geometryFromRapier(world: RWorldLike, absorptionOf: (c: RColliderLike) => number, include: (c: RColliderLike) => boolean): SfxGeometry {
+export function geometryFromRapier(world: RWorldLike, absorptionOf: (c: RColliderLike) => number | readonly number[], include: (c: RColliderLike) => boolean): SfxGeometry {
   const boxes: number[] = [];
   const tris: number[] = [];
   let id = 0;
   world.forEachCollider((c) => {
     if (!include(c)) return;
-    const a = absorptionOf(c);
+    // α per band (absorption.ts): the mid band's, then the low and high bands' after the surface id.
+    const [lo, a, hi] = absorptionTriple(absorptionOf(c));
     const t = c.translation();
     const q = c.rotation();
     const s = c.shape;
     if (s.vertices && s.indices) {
       const v = s.vertices;
       const rot = (i: number): number[] => rotate(q, v[i * 3], v[i * 3 + 1], v[i * 3 + 2]).map((x, k) => x + [t.x, t.y, t.z][k]);
-      for (let i = 0; i + 2 < s.indices.length; i += 3) tris.push(...rot(s.indices[i]), ...rot(s.indices[i + 1]), ...rot(s.indices[i + 2]), a, id);
+      for (let i = 0; i + 2 < s.indices.length; i += 3) tris.push(...rot(s.indices[i]), ...rot(s.indices[i + 1]), ...rot(s.indices[i + 2]), a, id, lo, hi);
       id++;
       return;
     }
@@ -73,7 +75,7 @@ export function geometryFromRapier(world: RWorldLike, absorptionOf: (c: RCollide
       h = s.halfHeight !== undefined ? v3(r, s.halfHeight + (s.type === 2 ? r : 0), r) : v3(r, r, r);
     }
     if (!h) return;
-    boxes.push(t.x, t.y, t.z, h.x, h.y, h.z, q.x, q.y, q.z, q.w, a, id++);
+    boxes.push(t.x, t.y, t.z, h.x, h.y, h.z, q.x, q.y, q.z, q.w, a, id++, lo, hi);
   });
   return { boxes: new Float32Array(boxes), triangles: new Float32Array(tris) };
 }
@@ -123,6 +125,9 @@ export interface FieldSample {
   dir: Vec3;
   /** Its onset after the direct sound (s). */
   predelay: number;
+  /** The low (125-250 Hz) and high (2-4 kHz) bands' decay times relative to rt60. */
+  rtLo: number;
+  rtHi: number;
 }
 
 export interface FieldPath {
@@ -197,8 +202,8 @@ export class FieldWasm {
 
   sample(p: Vec3): FieldSample {
     this.x.field_sample(p.x, p.y, p.z);
-    const o = this.out(10);
-    return { weight: o[0], rt60: o[1], mfp: o[2], absorption: o[3], escape: o[4], energyDb: o[5], dir: v3(o[6], o[7], o[8]), predelay: o[9] };
+    const o = this.out(12);
+    return { weight: o[0], rt60: o[1], mfp: o[2], absorption: o[3], escape: o[4], energyDb: o[5], dir: v3(o[6], o[7], o[8]), predelay: o[9], rtLo: o[10] || 1, rtHi: o[11] || 1 };
   }
 
   /** One ray: true when the segment crosses no geometry. */

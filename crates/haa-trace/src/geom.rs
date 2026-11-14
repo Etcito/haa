@@ -69,7 +69,8 @@ impl V3 {
     }
 }
 
-/// A ray hit, as the TS `RayHit`: distance, point, surface normal, absorption α, surface id.
+/// A ray hit, as the TS `RayHit`: distance, point, surface normal, absorption α (the mid band,
+/// 500 Hz-1 kHz), surface id, and α in the low (125-250 Hz) and high (2-4 kHz) bands.
 #[derive(Clone, Copy, Debug)]
 pub struct Hit {
     pub toi: f64,
@@ -77,6 +78,8 @@ pub struct Hit {
     pub normal: V3,
     pub absorption: f64,
     pub id: u32,
+    pub abs_lo: f64,
+    pub abs_hi: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -90,6 +93,8 @@ enum Shape {
 struct Prim {
     shape: Shape,
     absorption: f64,
+    abs_lo: f32,
+    abs_hi: f32,
     id: u32,
     lo: V3,
     hi: V3,
@@ -107,10 +112,11 @@ struct Node {
     axis: u32,
 }
 
-/// Floats per box record: centre (3), half extents (3), rotation quaternion x y z w (4), α, id.
-pub const BOX_STRIDE: usize = 12;
-/// Floats per triangle record: three vertices (9), α, id.
-pub const TRI_STRIDE: usize = 11;
+/// Floats per box record: centre (3), half extents (3), rotation quaternion x y z w (4), α, id,
+/// α low, α high.
+pub const BOX_STRIDE: usize = 14;
+/// Floats per triangle record: three vertices (9), α, id, α low, α high.
+pub const TRI_STRIDE: usize = 13;
 
 pub struct Scene {
     prims: Vec<Prim>,
@@ -143,7 +149,7 @@ impl Scene {
                 half.x * ax[0].y.abs() + half.y * ax[1].y.abs() + half.z * ax[2].y.abs(),
                 half.x * ax[0].z.abs() + half.y * ax[1].z.abs() + half.z * ax[2].z.abs(),
             );
-            prims.push(Prim { shape: Shape::Box { c, ax, half }, absorption: f(10), id: r[11] as u32, lo: c - ext, hi: c + ext });
+            prims.push(Prim { shape: Shape::Box { c, ax, half }, absorption: f(10), abs_lo: r[12], abs_hi: r[13], id: r[11] as u32, lo: c - ext, hi: c + ext });
         }
         for r in tris.chunks_exact(TRI_STRIDE) {
             let f = |i: usize| f64::from(r[i]);
@@ -153,7 +159,7 @@ impl Scene {
             let (e1, e2) = (b - a, c - a);
             let n = e1.cross(e2).normalize();
             let eps = v3(1e-4, 1e-4, 1e-4);
-            prims.push(Prim { shape: Shape::Tri { a, e1, e2, n }, absorption: f(9), id: r[10] as u32, lo: a.min(b).min(c) - eps, hi: a.max(b).max(c) + eps });
+            prims.push(Prim { shape: Shape::Tri { a, e1, e2, n }, absorption: f(9), abs_lo: r[11], abs_hi: r[12], id: r[10] as u32, lo: a.min(b).min(c) - eps, hi: a.max(b).max(c) + eps });
         }
         let mut s = Scene { prims, nodes: Vec::new(), casts: 0 };
         if !s.prims.is_empty() {
@@ -245,7 +251,7 @@ impl Scene {
         }
         best.map(|(i, n)| {
             let p = &self.prims[i];
-            Hit { toi: best_t, point: o + d * best_t, normal: n, absorption: p.absorption, id: p.id }
+            Hit { toi: best_t, point: o + d * best_t, normal: n, absorption: p.absorption, id: p.id, abs_lo: f64::from(p.abs_lo), abs_hi: f64::from(p.abs_hi) }
         })
     }
 }

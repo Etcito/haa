@@ -920,3 +920,75 @@ GPU collided against the level's 89 boxes, impacts summed per 4 m cell and surfa
 back each step and fed to `particle-cluster` loops through the mix thread (not drawn, no gameplay).
 Measured: 10 000 particles 0.20 ms of GPU per step (read-back 3.1 ms), 100 000 particles 0.26 ms
 (read-back 3.7 ms median, 35 ms worst).
+
+### Absorption per band, the reverb level, the physical default (echo2)
+
+**Absorption per octave band** (`src/sfx/absorption.ts`). A material carries α at 125, 250, 500, 1000,
+2000 and 4000 Hz (`SoundMaterial.absorptionBands`; 8 kHz takes the 4 kHz value, air absorption rules
+it). Its spectrum is its kind's row of the absorption table of sengpielaudio.com's RT60 calculator
+(https://sengpielaudio.com/calculator-RT60Coeff.htm), scaled to the mid-band α the level gives the
+material (the 500 Hz-1 kHz mean, on which the rooms' reverb times and levels were checked):
+
+| kind | table row | 125 | 250 | 500 | 1k | 2k | 4k |
+|------|-----------|-----|-----|-----|----|----|----|
+| concrete | Floor: concrete or tile | 0.01 | 0.01 | 0.015 | 0.02 | 0.02 | 0.02 |
+| wood | Wall: Wood: 3/8" plywood panel | 0.28 | 0.22 | 0.17 | 0.09 | 0.10 | 0.11 |
+| tile, ceramic | Wall: Marble/Tile | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | 0.02 |
+| glass | Wall: Glass: window | 0.35 | 0.25 | 0.18 | 0.12 | 0.07 | 0.04 |
+| stone | Wall: Brick: unglazed | 0.03 | 0.03 | 0.03 | 0.04 | 0.05 | 0.07 |
+
+No octave-band row was found for sheet metal, snow, soil or plastic: they stay flat. A material may give
+its own `absorptionBands`. The geometry records carry α low (125-250 Hz) and high (2-4 kHz) after the
+surface id (14 floats per box, 13 per triangle); the trace (haa-trace) carries each ray's energy in the
+three bands and gives each space the low and high bands' decay times relative to the mid's; the field
+stores them per cell (2 more u16: 62 bytes per air cell persisted, 58 before; `FIELD_FORMAT` 6), the
+worker tracer per listener trace. The voices' ratios, weighted by their diffuse energy, set the mix
+thread's reverb (`mix_bands`): every step's low shelf, and its two high shelves before air absorption.
+The low shelf reaches 500 Hz too: the mid gain and the shelf solve the pair that gives the low band
+(centre 177 Hz) and the mid (707 Hz) their targets. Measured ratios: hall 1.37 / 0.76 (low / high),
+6000 m3 building 1.62 / 0.89, cluttered building 1.34 / 0.91, shed 0.60 / 1.15.
+
+**The 3 dB the reverb had above its request** (hall, 4 m: +9.2 dB asked, about +12.4 rendered):
+- +1.8 dB (up to +3.2 dB between two steps): the FDNs of two neighbouring decay steps share their lines
+  and matrix, so a voice sent to both with the sine/cosine weights of two independent responses added
+  in phase. The mixer now feeds them the squared weights.
+- +0.8 dB: the level was normalised in a "mid band" of one-pole filters that let the highs and lows in;
+  now a one-octave band-pass (500 Hz-1 kHz, two RBJ sections).
+- +0.6 dB: the HRTF calibration was broadband (-5.0 dB direct, -5.3 dB diffuse per ear); in the mid
+  band the direct reaches the ears at -2.22 dB and the diffuse field at -1.90 dB. DIFFUSE_GAIN 0.964.
+Measured in the mixer's buses (node, the wasm): the 500 Hz and 1 kHz octaves of the reverb sit at
+-0.2 to -0.5 dB re the direct at every decay (target -0.32), against +0.4 to +3.2 dB before.
+
+**Default Reverb: 0 dB (physical).** Click at 4 m (12 m), physical setting, against Barron's revised
+theory for the room's own volume and measured T20:
+
+| room | DRR ours | DRR Barron | C50 (500 / 1k) ours | C50 Barron |
+|------|----------|------------|---------------------|------------|
+| hall 480 m3, 4 m | -15.2 | -15.2 | -7.6 / -7.0 | -5.2 |
+| building 6000 m3, 4 m | -6.8 | -7.6 | -8.0 / -7.0 | -5.3 |
+| building 6000 m3, 12 m | -15.6 | -16.9 | -12.5 / -11.2 | -9.0 |
+| shed 42 m3, 3 m | -10.1 | -16.4 | +0.5 / -0.6 | +1.2 |
+
+The former -7 dB default made up for a reverb 8 dB too loud (5 dB of diffuse gain copied from the
+convolver bank, the 3 dB above); with both fixed it is 7 dB drier than the rooms. Still wrong: the
+first 50 ms hold 2-3 dB less than Barron's rooms (4 taps and an FDN that builds up in 10-35 ms), and
+the shed's field is 6 dB under Sabine (a small room's energy is mostly in the orders under 2 and
+the first 10 ms, which the field leaves to the taps).
+
+**Decay per band** (T20, s, 125 Hz-8 kHz, physical setting):
+
+| room | 125 | 250 | 500 | 1k | 2k | 4k | 8k |
+|------|-----|-----|-----|----|----|----|----|
+| shed | 0.51 | 0.56 | 0.74 | 0.83 | 0.89 | 0.81 | 0.62 |
+| hall | 4.04 | 3.64 | 3.06 | 2.79 | 2.54 | 1.80 | 1.22 |
+| building, 4 m | 10.7 | 8.77 | 6.63 | 5.53 | 4.37 | 2.77 | 1.71 |
+| building, 12 m | 11.1 | 8.99 | 6.75 | 5.57 | 4.51 | 2.75 | 1.86 |
+| cluttered building | 7.93 | 7.21 | 6.01 | 5.28 | 4.27 | 2.74 | 1.73 |
+
+125/500 Hz: 1.32 (hall), 1.61-1.64 (building) for the measured stone halls' 1.51-1.53 (Maes Howe,
+Hamilton Mausoleum); 250/500 Hz 1.19-1.33 for 1.05-1.23; the shed 0.69 for Sabine's 0.63 with its
+plywood. 4 kHz within 8 % of the air-limited estimate; 8 kHz 24-30 % above it.
+
+**Rolling bodies removed**: a slide or roll whose body was removed (an exploded grenade, a cleared
+pellet) never sent its end: the voice played on (7 roll and slide voices with no body in the scene).
+The Rapier adapter keeps the slide's materials and sends the end when a collider is gone.

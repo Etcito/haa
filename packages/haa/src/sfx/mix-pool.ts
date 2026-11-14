@@ -53,6 +53,8 @@ export interface MixPool extends SfxPool {
   /** Transport 'port': send the parameters written since the last flush (once per engine update). */
   flush(): void;
   starved(): number;
+  /** The low and high bands' decay times relative to the mid's (the surfaces' absorption per band at the listener). */
+  setBands(lo: number, hi: number): void;
   workerLoad(): number[];
   mixStats(): MixStats;
 }
@@ -191,6 +193,7 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
   const loads = o.workers.map(() => 0);
   const portCounters = o.workers.map(() => ({ rendered: 0, thinned: 0, silenced: 0 }));
   let portStarved = 0;
+  const bands: [number, number] = [1, 1];
   node.port.onmessage = (e: MessageEvent<{ t: string; n: number }>) => {
     if (e.data?.t === 'starved') portStarved = e.data.n;
   };
@@ -236,6 +239,13 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
     slots,
     offThread: true,
     mixer: true,
+    setBands(lo, hi) {
+      // Sent when either moves by 2 % or more: every worker re-derives its steps' shelves.
+      if (Math.abs(Math.log(lo / bands[0])) < 0.02 && Math.abs(Math.log(hi / bands[1])) < 0.02) return;
+      bands[0] = lo;
+      bands[1] = hi;
+      for (const w of o.workers) w.postMessage({ t: 'bands', lo, hi } satisfies MixWorkerIn);
+    },
     chain(i, listener, amount) {
       return new MixChain(params.subarray(i * MIX_PARAMS, i * MIX_PARAMS + MIX_PARAMS), listener, amount, () => {
         if (!sab) dirtySlots.add(i);

@@ -2,6 +2,7 @@
 // the published inputs (all 0..1), the interaction kinds, the sound material slot and the
 // unit conversions from physics (joules, kilograms, metres per second, metres) to 0..1.
 // Pure and realm-neutral (docs/physics-sound.md).
+import { absorptionBands } from './absorption.ts';
 import type { Vec3 } from './acoustics.ts';
 
 /**
@@ -94,8 +95,10 @@ export interface SoundMaterial {
   name: string;
   /** 0 = soft (snow, cloth), 1 = hard (metal, stone). The other side receives it as `hardness`. */
   hardness: number;
-  /** Acoustic absorption coefficient α of a surface made of it (Sabine, 0..1). Snow ≈ 0.6, concrete ≈ 0.02. */
+  /** Acoustic absorption coefficient α of a surface made of it (Sabine, 0..1), mid band (500 Hz-1 kHz). Snow ≈ 0.6, concrete ≈ 0.02. */
   absorption: number;
+  /** α per octave band, 125 Hz-4 kHz (absorption.ts: its table row's spectrum at `absorption`, or its own). */
+  absorptionBands: readonly number[];
   sounds: Partial<Record<InteractionKind, SoundSlot>>;
   /** Kinetic energy in joules above which an impact breaks a body made of it (needs a `break` slot). */
   breakEnergy?: number;
@@ -110,6 +113,8 @@ export interface SoundMaterialSpec {
   name: string;
   hardness?: number;
   absorption?: number;
+  /** α per octave band, 125, 250, 500, 1000, 2000, 4000 Hz (default: the material kind's table row, absorption.ts). */
+  absorptionBands?: readonly number[];
   sounds?: Partial<Record<InteractionKind, SoundSlot | string>>;
   breakEnergy?: number;
   body?: SoundBody;
@@ -124,10 +129,12 @@ export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
     const cluster = sounds[kind]?.cluster;
     if (typeof cluster === 'string') sounds[kind]!.cluster = { preset: cluster };
   }
+  const absorption = clamp01(spec.absorption ?? 0.1);
   return {
     name: spec.name,
     hardness: clamp01(spec.hardness ?? 0.5),
-    absorption: clamp01(spec.absorption ?? 0.1),
+    absorption,
+    absorptionBands: absorptionBands(absorption, spec.material, spec.absorptionBands),
     sounds,
     breakEnergy: spec.breakEnergy,
     body: spec.body ? { ...spec.body } : undefined,

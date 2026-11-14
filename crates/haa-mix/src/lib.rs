@@ -120,6 +120,36 @@ pub fn pan(spk: &[[f32; 3]; SPEAKERS], d: [f32; 3], focus: f32) -> [f32; SPEAKER
     g
 }
 
+/// A one-octave band-pass: two RBJ band-pass sections (0 dB peak, Q = sqrt 2) at `f0`.
+struct Octave {
+    b0: f32,
+    a1: f32,
+    a2: f32,
+}
+
+impl Octave {
+    fn new(f0: f32, sr: f32) -> Octave {
+        let w = 2.0 * PI * f0 / sr;
+        let al = w.sin() / (2.0 * 2f32.sqrt());
+        let a0 = 1.0 + al;
+        Octave { b0: al / a0, a1: -2.0 * w.cos() / a0, a2: (1.0 - al) / a0 }
+    }
+    /// One sample through both sections; `s` = [x1, x2, y1, y2] per section.
+    fn run(&self, s: &mut [f32; 8], x: f32) -> f32 {
+        let mut v = x;
+        for k in 0..2 {
+            let o = k * 4;
+            let y = self.b0 * v - self.b0 * s[o + 1] - self.a1 * s[o + 2] - self.a2 * s[o + 3];
+            s[o + 1] = s[o];
+            s[o] = v;
+            s[o + 3] = s[o + 2];
+            s[o + 2] = y;
+            v = y;
+        }
+        v
+    }
+}
+
 fn coef(hz: f32, sr: f32) -> f32 {
     1.0 - (-2.0 * PI * hz.clamp(10.0, 0.45 * sr) / sr).exp()
 }
@@ -177,12 +207,12 @@ const FDN_LEN_48K: [usize; 8] = [241, 409, 593, 787, 991, 1213, 1433, 1667];
 /// that much sooner: timed from the send, the hall's field arrived 19 ms late and its first 50 ms held
 /// 3 dB less than Barron's estimate for the room (C50 -8.7 dB for -5.7).
 const FDN_ONSET_S: f32 = (241 + 409 + 593 + 787 + 991 + 1213 + 1433 + 1667) as f32 / 8.0 / 48000.0;
-/// The engine's diffuse level is relative to the direct sound at 2 m, and that direct sound reaches
-/// each ear through an HRTF panner at -5.0 dB; a diffuse field of unit total power over the 8 ring
-/// speakers reaches each ear at -5.3 dB (both measured offline in Chrome): +0.3 dB. (It was +5.3 dB,
-/// matched to the former convolver bank, whose stereo response reached the ears at 0 dB, 5 dB above
-/// the engine's own estimate: a ball in the hall came out 5 dB wetter than its physics.)
-const DIFFUSE_GAIN: f32 = 1.035;
+/// The engine's diffuse level is relative to the direct sound at 2 m, set in the mid band (500 Hz-
+/// 1 kHz): there the direct sound reaches each ear through an HRTF panner at -2.22 dB, a diffuse field
+/// of unit total power over the 8 ring speakers at -1.90 dB (both measured offline in Chrome, white
+/// noise; broadband they are -5.0 and -5.3 dB): -0.32 dB. (It was +0.3 dB, from the broadband
+/// figures, and +5.3 dB before that, matched to the former convolver bank.)
+const DIFFUSE_GAIN: f32 = 0.964;
 /// Air absorption sets the upper bands' decay (ISO 9613-1, 20 C, 50 % RH: 29.7 dB/km at 4 kHz, 105 at
 /// 8 kHz; on its own a room decays in 0.161 / 4m: 5.9 s at 4 kHz, 1.7 s at 8 kHz). A band decays at
 /// 1 / (1 / RT + 1 / RT_air): a measured large hard hall (Hamilton Mausoleum, 9000 m3) rings 0.28 x
@@ -190,15 +220,15 @@ const DIFFUSE_GAIN: f32 = 1.035;
 /// an 8 s hall, above what air allows).
 const AIR_RT_4K: f32 = 5.9;
 const AIR_RT_8K: f32 = 1.7;
-/// The low band's decay relative to the mid (below 250 Hz): the measured hard halls ring longer
-/// there (1.5 x at 125 Hz); the walls' estimate is a mid value, kept as it is below.
-const LOW_RT_RATIO: f32 = 1.0;
 const SHELF_LOW_HZ: f32 = 250.0;
 const SHELF_4K_HZ: f32 = 2800.0;
 const SHELF_8K_HZ: f32 = 6500.0;
 
 struct Fdn {
     rt: f32,
+    /// The correction pass's decay scale, and the low/high bands' decay re the mid (`Mixer::bands`).
+    scale: f32,
+    bands: (f32, f32),
     lines: Vec<Vec<f32>>,
     pos: [usize; 8],
     /// Mid-band loop gain per line, and the low/high bands' gains relative to it (shelves in the loop).
@@ -228,18 +258,19 @@ impl Fdn {
         g
     }
 
-    /// Mid, low, 4 kHz and 8 kHz loop gains for a decay `rt` (the upper bands with air absorption),
-    /// every band's decay scaled by `scale` (the correction pass). A first-order shelf of gain g only
+    /// Mid, low, 4 kHz and 8 kHz loop gains for a decay `rt`, the low band's decay `lo` times the mid's
+    /// and the upper bands' `hi` times it before air absorption (the surfaces' absorption per band,
+    /// from the field or the rays), every band's decay scaled by `scale` (the correction pass). A first-order shelf of gain g only
     /// reaches g far above its corner: at a frequency f it applies the fraction Re(1 - LP(f)) of its
     /// loss in dB (LP the one-pole low-pass of the shelf, as sampled), and each shelf leaks into the
     /// other band. An octave's decay is its slowest part's, its lower edge: the two shelves' losses
     /// solve the 2 x 2 system that gives each band its target there (without it an 8 s hall rang 4.0 s
     /// at 4 kHz and 2.7 s at 8 kHz for 3.4 s and 1.4 s).
-    fn band_gains(lens: &[usize], rt: f32, scale: f32, sr: f32) -> ([f32; 8], [f32; 8], [f32; 8], [f32; 8]) {
-        let g = Self::gains(lens, rt * scale, sr);
-        let lo = Self::gains(lens, rt * LOW_RT_RATIO * scale, sr);
-        let h4 = Self::gains(lens, scale / (1.0 / rt + 1.0 / AIR_RT_4K), sr);
-        let h8 = Self::gains(lens, scale / (1.0 / rt + 1.0 / AIR_RT_8K), sr);
+    fn band_gains(lens: &[usize], rt: f32, scale: f32, sr: f32, (lo, hi): (f32, f32)) -> ([f32; 8], [f32; 8], [f32; 8], [f32; 8]) {
+        let gm = Self::gains(lens, rt * scale, sr);
+        let lo = Self::gains(lens, rt * lo * scale, sr);
+        let h4 = Self::gains(lens, scale / (1.0 / (rt * hi) + 1.0 / AIR_RT_4K), sr);
+        let h8 = Self::gains(lens, scale / (1.0 / (rt * hi) + 1.0 / AIR_RT_8K), sr);
         let phi = |f: f32, corner: f32| {
             // LP(w) = k / (1 - (1 - k) e^-jw); Re(1 - LP).
             let k = coef(corner, sr);
@@ -251,15 +282,26 @@ impl Fdn {
         let (a44, a48) = (phi(f4, SHELF_4K_HZ), phi(f4, SHELF_8K_HZ));
         let (a84, a88) = (phi(f8, SHELF_4K_HZ), phi(f8, SHELF_8K_HZ));
         let det = a44 * a88 - a48 * a84;
+        // The low shelf (gain gl below 250 Hz) reaches 500 Hz-1 kHz too: the fraction Re LP of its loss
+        // at the low band's centre (177 Hz) and at the mid's (707 Hz). The mid gain and gl solve the
+        // pair that gives each band its target (with gl alone the 125/500 Hz decay ratio came out 1.17
+        // for 1.37, and the mid band rang longer than its target).
+        let lp = |f: f32, corner: f32| 1.0 - phi(f, corner);
+        let (pl, pm) = (lp(177.0, SHELF_LOW_HZ), lp(707.0, SHELF_LOW_HZ));
+        let mut g = [1.0; 8];
         let mut gl = [1.0; 8];
         let mut gh = [1.0; 8];
         let mut g8 = [1.0; 8];
         for i in 0..8 {
-            gl[i] = (lo[i] / g[i]).min(1.0 / g[i]);
-            // Log losses wanted at 4 and 8 kHz, relative to the mid band.
+            let ln_gl = (lo[i] / gm[i]).ln() / (pl - pm);
+            g[i] = (gm[i].ln() - pm * ln_gl).exp().min(0.9999);
+            gl[i] = ln_gl.exp().min(0.9999 / g[i]);
+            // Log losses wanted at 4 and 8 kHz, relative to the mid gain as set.
             let (l4, l8) = ((h4[i] / g[i]).ln(), (h8[i] / g[i]).ln());
-            let a = ((l4 * a88 - l8 * a48) / det).min(0.0);
-            let b = ((l8 - a84 * a) / a88).min(0.0);
+            // Never a loop gain at or above 1 (a band longer than the mid boosts its shelf up to that).
+            let room = -(g[i].ln()) - 1e-4;
+            let a = ((l4 * a88 - l8 * a48) / det).min(room);
+            let b = ((l8 - a84 * a) / a88).min(room - a.max(0.0));
             gh[i] = a.exp();
             g8[i] = b.exp();
         }
@@ -268,9 +310,11 @@ impl Fdn {
 
     fn new(rt: f32, sr: f32) -> Fdn {
         let lens: Vec<usize> = FDN_LEN_48K.iter().map(|&l| ((l as f32) * sr / 48000.0) as usize).collect();
-        let (g, gl, gh, g8) = Self::band_gains(&lens, rt, 1.0, sr);
+        let (g, gl, gh, g8) = Self::band_gains(&lens, rt, 1.0, sr, (1.0, 1.0));
         let mut f = Fdn {
             rt,
+            scale: 1.0,
+            bands: (1.0, 1.0),
             lines: lens.iter().map(|&l| vec![0.0; l]).collect(),
             pos: [0; 8],
             g,
@@ -292,7 +336,8 @@ impl Fdn {
         // made) and scales every band's decay for the target.
         let (_, t20) = f.impulse_response(sr);
         if t20 > 0.0 && (t20 / rt - 1.0).abs() > 0.02 {
-            let (g, gl, gh, g8) = Self::band_gains(&lens, rt, rt / t20, sr);
+            f.scale = rt / t20;
+            let (g, gl, gh, g8) = Self::band_gains(&lens, rt, f.scale, sr, (1.0, 1.0));
             f.g = g;
             f.gl = gl;
             f.gh = gh;
@@ -307,7 +352,7 @@ impl Fdn {
         f
     }
 
-    /// Mid-band energy (500 Hz-1 kHz, relative to the same band of a white unit-energy impulse) and
+    /// Mid-band energy (500 Hz-1 kHz octave, relative to the same band of a white unit-energy impulse) and
     /// mid-band Schroeder T20 (x3) of the response (all outputs) to a unit-energy impulse spread over
     /// the lines, simulated to 1.3 times the target decay (at most 11 s).
     fn impulse_response(&self, sr: f32) -> (f32, f32) {
@@ -316,10 +361,11 @@ impl Fdn {
         probe.gl = self.gl;
         probe.gh = self.gh;
         probe.g8 = self.g8;
-        // The mid band of each output (one-pole high-pass 500 Hz, low-pass 1 kHz) for the decay.
-        let (ka, kb) = (coef(500.0, sr), coef(1000.0, sr));
-        let mut hp_state = [0.0f32; SPEAKERS];
-        let mut lp_state = [0.0f32; SPEAKERS];
+        // The mid band of each output, 500 Hz-1 kHz: a one-octave band-pass at 707 Hz, two RBJ sections.
+        // (One-pole high- and low-passes let the highs in: the response, poorer in highs than a white
+        // impulse, came out 0.4-1.1 dB above its target in the true 500 Hz and 1 kHz octaves.)
+        let mid = Octave::new(707.0, sr);
+        let mut st = [[0.0f32; 8]; SPEAKERS];
         let mut env_mid: Vec<f64> = Vec::with_capacity(((self.rt * 1.3).min(11.0) * sr) as usize / BLOCK + 1);
         let total = ((self.rt * 1.3).min(11.0) * sr) as usize;
         let mut out = vec![0.0f32; SPEAKERS * BLOCK];
@@ -336,23 +382,18 @@ impl Fdn {
             let mut em = 0.0f64;
             for c in 0..SPEAKERS {
                 for i in 0..n {
-                    let x = out[c * BLOCK + i];
-                    hp_state[c] += ka * (x - hp_state[c]);
-                    let h = x - hp_state[c];
-                    lp_state[c] += kb * (h - lp_state[c]);
-                    em += f64::from(lp_state[c]) * f64::from(lp_state[c]);
+                    let y = mid.run(&mut st[c], out[c * BLOCK + i]);
+                    em += f64::from(y) * f64::from(y);
                 }
             }
             env_mid.push(em);
             done += n;
         }
         // The mid-band filter's share of a white unit impulse's energy.
-        let (mut a, mut b, mut white) = (0.0f32, 0.0f32, 0.0f64);
+        let (mut w, mut white) = ([0.0f32; 8], 0.0f64);
         for i in 0..(sr as usize / 4) {
-            let x = if i == 0 { 1.0 } else { 0.0 };
-            a += ka * (x - a);
-            b += kb * ((x - a) - b);
-            white += f64::from(b) * f64::from(b);
+            let y = mid.run(&mut w, if i == 0 { 1.0 } else { 0.0 });
+            white += f64::from(y) * f64::from(y);
         }
         let e = env_mid.iter().sum::<f64>() / white.max(1e-12);
         let env = env_mid;
@@ -374,7 +415,7 @@ impl Fdn {
     }
 
     fn shallow(&self) -> Box<Fdn> {
-        Box::new(Fdn { rt: self.rt, lines: Vec::new(), pos: [0; 8], g: self.g, gl: self.gl, gh: self.gh, g8: self.g8, lp_lo: [0.0; 8], lp_hi: [0.0; 8], lp_8k: [0.0; 8], k_lo: self.k_lo, k_hi: self.k_hi, k_8k: self.k_8k, out_gain: 1.0, input: Vec::new(), fed: false, alive: 0 })
+        Box::new(Fdn { rt: self.rt, scale: self.scale, bands: self.bands, lines: Vec::new(), pos: [0; 8], g: self.g, gl: self.gl, gh: self.gh, g8: self.g8, lp_lo: [0.0; 8], lp_hi: [0.0; 8], lp_8k: [0.0; 8], k_lo: self.k_lo, k_hi: self.k_hi, k_8k: self.k_8k, out_gain: 1.0, input: Vec::new(), fed: false, alive: 0 })
     }
 
     /// Run `n` samples: inputs from `self.input`, outputs added onto `bus` (speaker-major planes).
@@ -536,8 +577,13 @@ impl Mixer {
                 let ys = vo.read(delay + (lerp(cur[p::PREDELAY], tgt[p::PREDELAY], t) - FDN_ONSET_S).max(0.0) * sr);
                 vo.send_lp += ks * (ys - vo.send_lp);
                 let u = vo.send_lp * lerp(cur[p::SEND], tgt[p::SEND], t) * level;
+                // The host's weights keep the energy of two independent responses (cos, sin). The
+                // FDNs of two steps share their lines and matrix, so their responses add in phase:
+                // the squared weights (summing to 1) keep the energy of that coherent sum. With the
+                // weights themselves a send between two steps came out up to 3.2 dB louder (+1.8 dB
+                // in the hall, 2.95 s between 2.8 and 4 s), measured in the mixer's buses.
                 for &(k, a, b) in &fed_steps {
-                    let x = u * lerp(a, b, t);
+                    let x = u * lerp(a * a, b * b, t);
                     let f = &mut self.fdn[k];
                     for j in 0..8 {
                         f.input[j][i] += x * lw[j];
@@ -567,6 +613,26 @@ impl Mixer {
 
     pub fn clear(&mut self) {
         self.bus.iter_mut().for_each(|x| *x = 0.0);
+    }
+
+    /// The surfaces' absorption per band, as the decay times of the low (125-250 Hz) and high
+    /// (2-4 kHz) bands relative to the mid's (the field's or the rays' estimate at the listener):
+    /// every step's shelves follow. The mid band, its level and its decay do not change.
+    pub fn set_bands(&mut self, lo: f32, hi: f32) {
+        let (lo, hi) = (lo.clamp(0.25, 4.0), hi.clamp(0.25, 4.0));
+        let sr = self.sr;
+        for f in self.fdn.iter_mut() {
+            if ((f.bands.0 / lo).ln().abs() < 0.01) && ((f.bands.1 / hi).ln().abs() < 0.01) {
+                continue;
+            }
+            let lens: Vec<usize> = f.lines.iter().map(|l| l.len()).collect();
+            let (g, gl, gh, g8) = Fdn::band_gains(&lens, f.rt, f.scale, sr, (lo, hi));
+            f.g = g;
+            f.gl = gl;
+            f.gh = gh;
+            f.g8 = g8;
+            f.bands = (lo, hi);
+        }
     }
 
     /// Reverb steps running now (fed or ringing).
@@ -631,6 +697,11 @@ mod abi {
     #[unsafe(no_mangle)]
     pub extern "C" fn mix_clear() {
         with(|m| m.clear());
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn mix_bands(lo: f32, hi: f32) {
+        with(|m| m.set_bands(lo, hi));
     }
 
     #[unsafe(no_mangle)]

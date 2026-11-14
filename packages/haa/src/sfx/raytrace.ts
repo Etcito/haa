@@ -96,6 +96,9 @@ export interface SpaceEstimate {
   volume: number;
   /** Mean α of the first hits. */
   absorption: number;
+  /** The low (125-250 Hz) and high (2-4 kHz) bands' decay times relative to rt60 (1 when not traced per band). */
+  rtLo?: number;
+  rtHi?: number;
 }
 
 export interface ListenerTrace {
@@ -215,6 +218,9 @@ export interface VoiceReverb {
   absorption: number;
   /** Bounce points that saw the source. */
   hits: number;
+  /** The low (125-250 Hz) and high (2-4 kHz) bands' decay times relative to rt60 (1 when unknown). */
+  rtLo?: number;
+  rtHi?: number;
 }
 
 export interface VoiceReverbOptions {

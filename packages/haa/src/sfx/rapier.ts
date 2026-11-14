@@ -109,6 +109,10 @@ interface Pair {
   lastImpact: number;
   continuous: InteractionKind | null;
   quietSince: number;
+  /** The running slide/roll's materials and last position: its end is sent even once a collider is gone. */
+  striker?: SoundMaterial;
+  surface?: SoundMaterial;
+  at?: Vec3;
 }
 
 const pairKey = (a: number, b: number): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
@@ -320,6 +324,9 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
       tangentSpeed: speed,
     };
     pair.continuous = kind;
+    pair.striker = event.striker;
+    pair.surface = event.surface;
+    pair.at = event.position;
     o.emit(event);
   }
 
@@ -327,8 +334,11 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     if (!pair.continuous) return;
     const c1 = o.world.getCollider(pair.c1);
     const c2 = o.world.getCollider(pair.c2);
-    const m1 = c1 ? o.materialOf(c1) : null;
-    const m2 = c2 ? o.materialOf(c2) : null;
+    // A body removed while it rolled (a grenade that explodes, a pellet cleared, a level reset) has no
+    // collider left: the end uses the materials the slide/roll started with (without it the voice
+    // played on: 7 roll and slide voices kept sounding with no body in the scene).
+    const m1 = (c1 ? o.materialOf(c1) : null) ?? pair.striker ?? null;
+    const m2 = (c2 ? o.materialOf(c2) : null) ?? pair.surface ?? null;
     if (m1 && m2) {
       o.emit({
         kind: pair.continuous,
@@ -349,7 +359,11 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     if (!pair) return;
     const c1 = o.world.getCollider(h1);
     const c2 = o.world.getCollider(h2);
-    if (!c1 || !c2) return;
+    if (!c1 || !c2) {
+      endContinuous(pair, pair.at ?? v3(0, 0, 0));
+      pairs.delete(key);
+      return;
+    }
     const m1 = o.materialOf(c1);
     const m2 = o.materialOf(c2);
     if (!m1 || !m2) return;

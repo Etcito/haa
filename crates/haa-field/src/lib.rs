@@ -14,7 +14,7 @@
 //! how far sound travels to it around the obstacles; a source reads its path, string-pulled into a few
 //! corners, and the narrowest opening along it.
 //!
-//! Cells are stored quantised (about 56 bytes each). Geometry and ray casts come from haa-trace
+//! Cells are stored quantised (about 60 bytes each). Geometry and ray casts come from haa-trace
 //! (oriented boxes, triangles, a BVH). RAA's world is an SDF: a bake could sample the SDF at the cell
 //! centres (solid test), sphere-trace it for the probes, and step it for the links.
 
@@ -35,8 +35,9 @@ pub const ESCAPE: f64 = 60.0;
 pub const PLANES: usize = 6;
 const BRICK: usize = 4;
 /// Floats per exported cell record: index, state, rt60, mfp, absorption, escape, energy, dir xyz,
-/// predelay, 2 edge halves, plane count, planes (normal xyz, distance, absorption).
-pub const RECORD: usize = 14 + PLANES * 5;
+/// predelay, 2 edge halves, plane count, planes (normal xyz, distance, absorption), then the low and
+/// high bands' decay times relative to rt60.
+pub const RECORD: usize = 14 + PLANES * 5 + 2;
 
 /// A reflecting plane, quantised: octahedral normal (toward the air), distance from the cell centre
 /// (cm), absorption (/255).
@@ -55,12 +56,13 @@ pub struct Cell {
     pub nplanes: u8,
     /// Bit k: the segment to neighbour k (`OFFSETS`) is clear.
     pub edges: u32,
-    /// rt60 (0-8.5 s), mfp (0-60 m), absorption, escape, energy (dB -80..+40), dir x y z (-1..1), predelay (0-0.25 s).
-    q: [u16; 9],
+    /// rt60 (0-8.5 s), mfp (0-60 m), absorption, escape, energy (dB -80..+40), dir x y z (-1..1),
+    /// predelay (0-0.25 s), the low (125-250 Hz) and high (2-4 kHz) bands' decay re rt60 (0.25-4).
+    q: [u16; 11],
     pub planes: [Plane; PLANES],
 }
 
-const Q_RANGES: [(f64, f64); 9] = [(0.0, 8.5), (0.0, 60.0), (0.0, 1.0), (0.0, 1.0), (-80.0, 40.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (0.0, 0.25)];
+const Q_RANGES: [(f64, f64); 11] = [(0.0, 8.5), (0.0, 60.0), (0.0, 1.0), (0.0, 1.0), (-80.0, 40.0), (-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0), (0.0, 0.25), (0.25, 4.0), (0.25, 4.0)];
 
 fn quant(v: f64, (lo, hi): (f64, f64)) -> u16 {
     (((v - lo) / (hi - lo)).clamp(0.0, 1.0) * 65535.0).round() as u16
@@ -115,10 +117,17 @@ impl Cell {
     pub fn predelay(&self) -> f64 {
         dequant(self.q[8], Q_RANGES[8])
     }
+    /// The low and high bands' decay times relative to rt60 (1 for a cell baked without them).
+    pub fn bands(&self) -> (f64, f64) {
+        if self.q[9] == 0 && self.q[10] == 0 {
+            return (1.0, 1.0);
+        }
+        (dequant(self.q[9], Q_RANGES[9]), dequant(self.q[10], Q_RANGES[10]))
+    }
     #[allow(clippy::too_many_arguments)]
-    pub fn set(&mut self, rt60: f64, mfp: f64, absorption: f64, escape: f64, energy_db: f64, dir: V3, predelay: f64) {
-        let v = [rt60, mfp, absorption, escape, energy_db, dir.x, dir.y, dir.z, predelay];
-        for k in 0..9 {
+    pub fn set(&mut self, rt60: f64, mfp: f64, absorption: f64, escape: f64, energy_db: f64, dir: V3, predelay: f64, rt_lo: f64, rt_hi: f64) {
+        let v = [rt60, mfp, absorption, escape, energy_db, dir.x, dir.y, dir.z, predelay, rt_lo, rt_hi];
+        for k in 0..11 {
             self.q[k] = quant(v[k], Q_RANGES[k]);
         }
     }
@@ -221,6 +230,9 @@ pub struct Sample {
     pub energy_db: f64,
     pub dir: V3,
     pub predelay: f64,
+    /// The low (125-250 Hz) and high (2-4 kHz) bands' decay times relative to rt60.
+    pub rt_lo: f64,
+    pub rt_hi: f64,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -385,7 +397,7 @@ impl Field {
         let vr = trace::voice_reverb(&mut self.scene, &self.trace, c, &o, &mut self.arrivals);
         let energy_db = if vr.energy > 0.0 { 10.0 * vr.energy.log10() } else { -80.0 };
         // The reverb time from the decay per bounce and the mean free path (as haa-trace, up to 8.5 s).
-        cell.set(rt60(sp.decay_per_bounce, sp.mean_free_path), sp.mean_free_path, sp.absorption, sp.escape, energy_db, vr.direction, vr.predelay);
+        cell.set(rt60(sp.decay_per_bounce, sp.mean_free_path), sp.mean_free_path, sp.absorption, sp.escape, energy_db, vr.direction, vr.predelay, sp.rt_lo, sp.rt_hi);
         let ci = self.grid.coords(idx);
         for (k, o) in OFFSETS.iter().enumerate() {
             if self.grid.index([ci[0] + o.0 as i64, ci[1] + o.1 as i64, ci[2] + o.2 as i64]).is_none() {
@@ -455,6 +467,7 @@ impl Field {
         let (b, f) = self.grid.base(p);
         let mut s = Sample::default();
         let mut ln_rt = 0.0;
+        let (mut ln_lo, mut ln_hi) = (0.0, 0.0);
         let mut corners: [(f64, Option<&Cell>); 8] = [(0.0, None); 8];
         let mut near: Option<(usize, f64)> = None;
         for (corner, slot) in corners.iter_mut().enumerate() {
@@ -487,6 +500,9 @@ impl Field {
             }
             s.weight += wgt;
             ln_rt += wgt * c.rt60().max(0.05).ln();
+            let (lo, hi) = c.bands();
+            ln_lo += wgt * lo.ln();
+            ln_hi += wgt * hi.ln();
             s.mfp += wgt * c.mfp();
             s.absorption += wgt * c.absorption();
             s.escape += wgt * c.escape();
@@ -497,6 +513,8 @@ impl Field {
         if s.weight > 0.0 {
             let k = 1.0 / s.weight;
             s.rt60 = (ln_rt * k).exp();
+            s.rt_lo = (ln_lo * k).exp();
+            s.rt_hi = (ln_hi * k).exp();
             s.mfp *= k;
             s.absorption *= k;
             s.escape *= k;
@@ -763,13 +781,16 @@ impl Field {
             let n = oct_decode(p.oct);
             out.extend_from_slice(&[n.x as f32, n.y as f32, n.z as f32, f32::from(p.dist_cm) / 100.0, f32::from(p.alpha) / 255.0]);
         }
+        let (lo, hi) = c.bands();
+        out.extend_from_slice(&[lo as f32, hi as f32]);
     }
 
     pub fn ingest(&mut self, r: &[f32]) {
         for rec in r.chunks_exact(RECORD) {
             let mut c = Cell { state: rec[1] as u8, ..Default::default() };
             let f = |i: usize| f64::from(rec[i]);
-            c.set(f(2), f(3), f(4), f(5), f(6), v3(f(7), f(8), f(9)), f(10));
+            let k = 14 + PLANES * 5;
+            c.set(f(2), f(3), f(4), f(5), f(6), v3(f(7), f(8), f(9)), f(10), f(k), f(k + 1));
             c.edges = (rec[11] as u32) | ((rec[12] as u32) << 16);
             c.nplanes = rec[13] as u8;
             for j in 0..PLANES {
@@ -781,7 +802,7 @@ impl Field {
     }
 
     /// Every baked cell as bytes (to persist a bake, or hand it to another instance of the grid):
-    /// index u32, state u8, and for air nplanes u8, edges u32, 9 u16, 6 planes of 5 bytes (little endian).
+    /// index u32, state u8, and for air nplanes u8, edges u32, 11 u16, 6 planes of 5 bytes (little endian).
     pub fn pack(&self, out: &mut Vec<u8>) {
         out.clear();
         for i in 0..self.grid.len() {
@@ -817,13 +838,13 @@ impl Field {
                 break;
             }
             if c.state == 1 {
-                if k + 53 > b.len() {
+                if k + 57 > b.len() {
                     break;
                 }
                 c.nplanes = b[k];
                 c.edges = u32::from_le_bytes([b[k + 1], b[k + 2], b[k + 3], b[k + 4]]);
                 k += 5;
-                for q in 0..9 {
+                for q in 0..11 {
                     c.q[q] = u16at(b, k);
                     k += 2;
                 }
@@ -986,7 +1007,7 @@ mod abi {
             let State { field, out, .. } = s;
             let Some(f) = field.as_ref() else { return };
             let p = f.sample(v3(x, y, z));
-            out[..10].copy_from_slice(&[p.weight, p.rt60, p.mfp, p.absorption, p.escape, p.energy_db, p.dir.x, p.dir.y, p.dir.z, p.predelay]);
+            out[..12].copy_from_slice(&[p.weight, p.rt60, p.mfp, p.absorption, p.escape, p.energy_db, p.dir.x, p.dir.y, p.dir.z, p.predelay, p.rt_lo, p.rt_hi]);
         })
     }
 
@@ -1089,7 +1110,7 @@ mod tests {
     use super::*;
 
     fn boxed(b: &mut Vec<f32>, c: [f32; 3], h: [f32; 3], id: f32) {
-        b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.05, id]);
+        b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.05, id, 0.05, 0.05]);
     }
 
     /// A 10 x 10 x 4 m box room (walls 0.3 m), a 2 m door in its +x wall, open ground y < 0.
@@ -1150,7 +1171,7 @@ mod tests {
                 for v in tri {
                     t.extend_from_slice(&c(v));
                 }
-                t.extend_from_slice(&[0.05, id as f32]);
+                t.extend_from_slice(&[0.05, id as f32, 0.05, 0.05]);
             }
         }
         let grid = Grid { origin: v3(-5.0, 0.0, -4.0), cell: 1.0, n: [10, 3, 8] };

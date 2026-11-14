@@ -3,14 +3,15 @@
 // read from Rapier's fixed colliders (`geometryFromRapier`), later from RAA's level.
 import type { RayCast, RayHit, Reflection, Vec3 } from './acoustics.ts';
 import { v3 } from './acoustics.ts';
+import { absorptionTriple } from './absorption.ts';
 import type { DirectPath, ListenerTrace, VoiceReverb } from './raytrace.ts';
 import type { AcousticTracer, TracerListenerOptions, TracerVoiceOptions } from './tracer.ts';
 import { REFLECTION_OPTIONS, SOURCE_DIRS } from './tracer.ts';
 
-/** Floats per box: centre (3), half extents (3), rotation quaternion x y z w (4), absorption, surface id. */
-export const BOX_STRIDE = 12;
-/** Floats per triangle: three vertices (9), absorption, surface id. */
-export const TRI_STRIDE = 11;
+/** Floats per box: centre (3), half extents (3), rotation quaternion x y z w (4), α (mid band), surface id, α low, α high. */
+export const BOX_STRIDE = 14;
+/** Floats per triangle: three vertices (9), α (mid band), surface id, α low, α high. */
+export const TRI_STRIDE = 13;
 
 /**
  * The static level as the acoustic tracer reads it: oriented boxes and triangles, each with the
@@ -52,7 +53,7 @@ interface RWorldLike {
  */
 export function geometryFromRapier(
   world: RWorldLike,
-  absorptionOf: (c: RColliderLike) => number,
+  absorptionOf: (c: RColliderLike) => number | readonly number[],
   include: (c: RColliderLike) => boolean,
 ): SfxGeometry {
   const boxes: number[] = [];
@@ -60,7 +61,8 @@ export function geometryFromRapier(
   const ids: number[] = [];
   world.forEachCollider((c) => {
     if (!include(c)) return;
-    const a = absorptionOf(c);
+    // α per band (absorption.ts): the mid band's, then the low and high bands' after the surface id.
+    const [lo, a, hi] = absorptionTriple(absorptionOf(c));
     const id = ids.length;
     ids.push(c.handle);
     const t = c.translation();
@@ -69,7 +71,7 @@ export function geometryFromRapier(
     if (s.vertices && s.indices) {
       const v = s.vertices;
       const rot = (i: number): number[] => rotate(q, v[i * 3], v[i * 3 + 1], v[i * 3 + 2]).map((x, k) => x + [t.x, t.y, t.z][k]);
-      for (let i = 0; i + 2 < s.indices.length; i += 3) tris.push(...rot(s.indices[i]), ...rot(s.indices[i + 1]), ...rot(s.indices[i + 2]), a, id);
+      for (let i = 0; i + 2 < s.indices.length; i += 3) tris.push(...rot(s.indices[i]), ...rot(s.indices[i + 1]), ...rot(s.indices[i + 2]), a, id, lo, hi);
       return;
     }
     let h: Vec3 | null = s.halfExtents ?? null;
@@ -79,7 +81,7 @@ export function geometryFromRapier(
       h = s.halfHeight !== undefined ? v3(r, s.type === 2 ? hh : s.halfHeight, r) : v3(r, r, r);
     }
     if (!h) return;
-    boxes.push(t.x, t.y, t.z, h.x, h.y, h.z, q.x, q.y, q.z, q.w, a, id);
+    boxes.push(t.x, t.y, t.z, h.x, h.y, h.z, q.x, q.y, q.z, q.w, a, id, lo, hi);
   });
   return { boxes: new Float32Array(boxes), triangles: new Float32Array(tris), ids };
 }
@@ -142,10 +144,12 @@ export function createWasmTracer(module: WebAssembly.Module, geometry: SfxGeomet
   };
   setGeometry(geometry);
   let traced = false;
+  // The bands' decay ratios of the last listener trace (the space a voice's reverb is read in).
+  let bands = { rtLo: 1, rtHi: 1 };
   const reverb = (s: Vec3, stride: number, ref: number): VoiceReverb => {
     x.trace_voice_reverb(s.x, s.y, s.z, stride, 99, ref, 0.985, 0.005, 0.35);
     const o = out();
-    return { energy: o[0], rt60: o[1], direction: v3(o[2], o[3], o[4]), predelay: o[5], absorption: o[6], hits: o[7] };
+    return { energy: o[0], rt60: o[1], direction: v3(o[2], o[3], o[4]), predelay: o[5], absorption: o[6], hits: o[7], ...bands };
   };
   const tracer: WasmTracer = {
     exports: x,
@@ -170,9 +174,10 @@ export function createWasmTracer(module: WebAssembly.Module, geometry: SfxGeomet
         origin: position,
         rays: [],
         candidates: [],
-        space: { escape: r[0], leak: r[1], meanFreePath: r[2], decayPerBounce: r[3], rt60: r[4], volume: r[5], absorption: r[6] },
+        space: { escape: r[0], leak: r[1], meanFreePath: r[2], decayPerBounce: r[3], rt60: r[4], volume: r[5], absorption: r[6], rtLo: r[9] || 1, rtHi: r[10] || 1 },
       };
       traced = true;
+      bands = { rtLo: trace.space.rtLo ?? 1, rtHi: trace.space.rtHi ?? 1 };
       if (segments) {
         const n = x.trace_listener_rays(4);
         const s = out();

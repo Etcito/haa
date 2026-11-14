@@ -23,6 +23,7 @@ interface MixExports {
   mix_voice(v: number, n: number): void;
   mix_finish(n: number): void;
   mix_clear(): void;
+  mix_bands(lo: number, hi: number): void;
 }
 
 interface Voice {
@@ -343,6 +344,9 @@ scope.onmessage = (e) => {
         m.slots.forEach((s, i) => portParams.set(s, m.data.slice(i * MIX_PARAMS, i * MIX_PARAMS + MIX_PARAMS)));
         break;
       }
+      case 'bands':
+        mx?.mix_bands(m.lo, m.hi);
+        break;
       case 'dispose':
         disposed = true;
         for (const v of voices.values()) v.voice.free();

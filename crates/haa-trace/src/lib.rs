@@ -148,13 +148,13 @@ mod abi {
     }
 
     /// The listener trace; out = [escape, leak, meanFreePath, decayPerBounce, rt60, volume,
-    /// absorption, candidates, nodes].
+    /// absorption, candidates, nodes, rtLo, rtHi] (the low and high bands' decay times re the mid).
     #[unsafe(no_mangle)]
     pub extern "C" fn trace_listener(lx: f64, ly: f64, lz: f64, rays: u32, bounces: u32, max_dist: f64, scatter: f64) {
         with(|s| {
             let sp = s.tracer.listener(v3(lx, ly, lz), rays as usize, bounces.min(32) as usize, max_dist, scatter);
             let t = &s.tracer.trace;
-            s.out[..9].copy_from_slice(&[sp.escape, sp.leak, sp.mean_free_path, sp.decay_per_bounce, sp.rt60, sp.volume, sp.absorption, t.candidates.len() as f64, t.nodes.len() as f64]);
+            s.out[..11].copy_from_slice(&[sp.escape, sp.leak, sp.mean_free_path, sp.decay_per_bounce, sp.rt60, sp.volume, sp.absorption, t.candidates.len() as f64, t.nodes.len() as f64, sp.rt_lo, sp.rt_hi]);
         })
     }
 
@@ -228,7 +228,7 @@ mod tests {
     /// A closed 10 x 4 x 10 m concrete room (6 slabs) with a 2 m door in its +x wall, as box records.
     fn room() -> Vec<f32> {
         let mut b = Vec::new();
-        let mut slab = |c: [f32; 3], h: [f32; 3]| b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.02, (b.len() / BOX_STRIDE) as f32]);
+        let mut slab = |c: [f32; 3], h: [f32; 3]| b.extend_from_slice(&[c[0], c[1], c[2], h[0], h[1], h[2], 0.0, 0.0, 0.0, 1.0, 0.02, (b.len() / BOX_STRIDE) as f32, 0.01, 0.04]);
         slab([0.0, -0.1, 0.0], [5.2, 0.1, 5.2]); // floor
         slab([0.0, 4.1, 0.0], [5.2, 0.1, 5.2]); // roof
         slab([-5.1, 2.0, 0.0], [0.1, 2.0, 5.2]);

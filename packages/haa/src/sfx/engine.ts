@@ -43,7 +43,7 @@ export interface SfxEngineOptions {
   occlusionStrength?: number;
   /** Reverb amount, 0..2: 0 dry, 1 the level estimated from the room, 2 exaggerated. */
   reverbAmount?: number;
-  /** Diffuse level relative to the physical estimate (dB): 0 is physical, default `WET_OFFSET_DB` (-7). */
+  /** Diffuse level relative to the physical estimate (dB): 0 is physical, the default (`WET_OFFSET_DB`). */
   reverbLevelDb?: number;
   /** Swarms of small impacts (slots with a `cluster` preset): grouping options, or false to give every impact its own voice. */
   swarm?: SwarmOptions | false;
@@ -311,14 +311,14 @@ const TAU_WET = 0.2;
 const TAU_RT = 0.35;
 const TAU_TAP = 0.1;
 /**
- * The diffuse field is computed physically (dB re the direct sound at 2 m), then mixed: lowered by
- * `WET_OFFSET_DB`, and above 0 dB it grows at half the rate. A bare wooden shed or a concrete hall
- * is 10 dB wetter than a footstep's direct sound at the feet (critical distance under half a metre):
- * true, and it turned the step into a wash. A constant offset keeps every contrast between places
- * (hall centre, in front of the door, the doorway, outside); the knee only tames the wettest rooms.
- * The former hard cap made every closed room the same.
+ * The diffuse field is computed physically (dB re the direct sound at 2 m), then mixed: shifted by
+ * the Reverb level (`setReverbLevel`), default `WET_OFFSET_DB`. The default is the physical level:
+ * measured with a click at 4 m in the hall and at 4 and 12 m in the 6000 m3 building, the direct-to-
+ * reverberant ratio at 0 dB is Barron's for those rooms within 1.3 dB (-15.2 for -15.2, -6.8 for -7.6,
+ * -15.6 for -16.9). The former -7 dB default compensated a reverb rendered 8 dB too loud (5 dB of
+ * diffuse gain from the convolver bank, 3 dB in the mix thread's bank); it is 7 dB drier than a room.
  */
-export const WET_OFFSET_DB = -7;
+export const WET_OFFSET_DB = 0;
 /**
  * Largest reverb send amplitude (+18 dB re the direct sound at 2 m): the hall's field is +10 dB, so
  * the former +12 dB cap left the Reverb slider without effect above -1 dB there (0 and +6 dB gave the
@@ -807,6 +807,25 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     if (immediate || !ac.primed) prime(ac);
   }
 
+  /**
+   * The reverb steps are shared by every voice: their low and high bands follow the surfaces' α per
+   * band of the spaces the voices excite, each voice's ratios weighted by its diffuse energy.
+   */
+  function mixBands(): void {
+    let w = 0;
+    let lo = 0;
+    let hi = 0;
+    for (const s of slots) {
+      const r = s.ac.reverb;
+      if (!s.busy || s.stopping || !r) continue;
+      const e = 10 ** (s.ac.wetDb / 10);
+      w += e;
+      lo += e * Math.log(r.rtLo ?? 1);
+      hi += e * Math.log(r.rtHi ?? 1);
+    }
+    if (w > 1e-9) mixPool!.setBands(Math.exp(lo / w), Math.exp(hi / w));
+  }
+
   /** Jump the smoothed values to the targets (a voice that starts). */
   function prime(ac: Acoustic): void {
     const p = ac.path;
@@ -1286,6 +1305,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       geometry(s, now, false);
       applyChain(s, dt, false);
     }
+    if (mixPool) mixBands();
     if (orch) {
       orch.tick(now, slots.reduce((a, s) => a + (s.busy && !s.stopping ? s.cost : 0), 0));
       if (mixPool) {

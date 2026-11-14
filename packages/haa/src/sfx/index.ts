@@ -16,6 +16,7 @@ export * from './worker-pool.ts';
 export * from './mix-pool.ts';
 export * from './mix-protocol.ts';
 export * from './tracer.ts';
+export * from './absorption.ts';
 // The tracer's geometry helpers carry surface ids (field-wasm.ts has its own without them).
 export { createWasmTracer, geometryFromRapier as tracerGeometryFromRapier } from './trace-wasm.ts';
 export type { SfxGeometry as TracerGeometry, WasmTracer } from './trace-wasm.ts';

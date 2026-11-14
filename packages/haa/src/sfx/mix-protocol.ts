@@ -56,6 +56,8 @@ export type MixWorkerIn =
   | { t: 'stop'; slot: number; id: number }
   /** Transport 'port': the parameters of some slots (`slots.length` records of MIX_PARAMS). */
   | { t: 'params'; slots: number[]; data: Float32Array }
+  /** The low and high bands' decay times relative to the mid's, for every reverb step (haa-mix `mix_bands`). */
+  | { t: 'bands'; lo: number; hi: number }
   | { t: 'dispose' };
 
 export type MixWorkerOut =

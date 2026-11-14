@@ -70,6 +70,19 @@ pub struct Space {
     pub rt60: f64,
     pub volume: f64,
     pub absorption: f64,
+    /// The low (125-250 Hz) and high (2-4 kHz) bands' decay times relative to the mid band's: the
+    /// rays' energy carried with each band's α (escapes are lost in every band).
+    pub rt_lo: f64,
+    pub rt_hi: f64,
+}
+
+/// Ratio of two bands' decay times from their decays per bounce (RT is proportional to
+/// 1 / -log(decay) at a given mean free path), within 0.25..4.
+pub fn band_ratio(decay_mid: f64, decay_band: f64) -> f64 {
+    if !(decay_mid > 0.0 && decay_mid < 1.0) || !(decay_band > 0.0) {
+        return 1.0;
+    }
+    (decay_mid.ln() / decay_band.min(0.9995).ln()).clamp(0.25, 4.0)
 }
 
 /// The listener trace: rays (their nodes in one flat list), candidates, the space estimate.
@@ -105,6 +118,8 @@ pub fn trace_listener<C: Caster>(c: &mut C, out: &mut ListenerTrace, listener: V
     out.rays.clear();
     out.candidates.clear();
     let mut energy_at = vec![0.0f64; bounces + 1];
+    let mut energy_lo = vec![0.0f64; bounces + 1];
+    let mut energy_hi = vec![0.0f64; bounces + 1];
     let (mut escaped0, mut leaked, mut seg_sum, mut seg_count, mut vol_sum, mut abs_sum, mut hits0) = (0usize, 0usize, 0.0, 0usize, 0.0, 0.0, 0usize);
     for i in 0..n {
         let first = out.nodes.len() as u32;
@@ -112,6 +127,7 @@ pub fn trace_listener<C: Caster>(c: &mut C, out: &mut ListenerTrace, listener: V
         let mut origin = listener;
         let mut dir = out.dirs[i];
         let (mut path, mut throughput) = (0.0f64, 1.0f64);
+        let (mut thr_lo, mut thr_hi) = (1.0f64, 1.0f64);
         for k in 1..=bounces {
             let hit = c.cast(origin, dir, max_dist);
             if k == 1 {
@@ -149,8 +165,12 @@ pub fn trace_listener<C: Caster>(c: &mut C, out: &mut ListenerTrace, listener: V
                 seg_count += 1;
             }
             energy_at[k] += throughput;
+            energy_lo[k] += thr_lo;
+            energy_hi[k] += thr_hi;
             out.nodes.push(TraceNode { point: h.point, normal: nrm, absorption: h.absorption, path, throughput, order: k as u32 });
             throughput *= (1.0 - h.absorption).max(0.0);
+            thr_lo *= (1.0 - h.abs_lo).max(0.0);
+            thr_hi *= (1.0 - h.abs_hi).max(0.0);
             let spec = dir - nrm * (2.0 * dir.dot(nrm));
             let diffuse = cosine_around(nrm, hash(i as f64, k as f64), hash(k as f64 + 17.0, i as f64 + 3.0));
             dir = (spec * (1.0 - scatter) + diffuse * scatter).normalize();
@@ -170,7 +190,9 @@ pub fn trace_listener<C: Caster>(c: &mut C, out: &mut ListenerTrace, listener: V
         max_dist
     };
     let (first, last) = (energy_at[1], energy_at[bounces]);
+    let per_bounce = |e: &[f64]| if e[1] > 0.0 && bounces > 1 { (e[bounces].max(1e-9) / e[1]).powf(1.0 / (bounces as f64 - 1.0)) } else { 0.0 };
     let decay = if first > 0.0 && bounces > 1 { (last.max(1e-9) / first).powf(1.0 / (bounces as f64 - 1.0)).min(0.995) } else { 0.0 };
+    let decay_raw = per_bounce(&energy_at);
     out.space = Space {
         escape,
         leak: leaked as f64 / n as f64,
@@ -179,6 +201,8 @@ pub fn trace_listener<C: Caster>(c: &mut C, out: &mut ListenerTrace, listener: V
         rt60: rt60_from(decay, mfp),
         volume: if hits0 > 0 { (vol_sum / hits0 as f64) * (1.0 - escape) } else { 0.0 },
         absorption: if hits0 > 0 { abs_sum / hits0 as f64 } else { 1.0 },
+        rt_lo: band_ratio(decay_raw, per_bounce(&energy_lo)),
+        rt_hi: band_ratio(decay_raw, per_bounce(&energy_hi)),
     };
 }
 
