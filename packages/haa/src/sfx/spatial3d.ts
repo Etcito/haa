@@ -298,9 +298,11 @@ export function setListener(ctx: BaseAudioContext, pos: Vec3, forward: Vec3, up:
  * Two decays a factor 2 apart did not blend into the one between: the longer one set the tail (a
  * 0.86 s shed measured 1.37 s).
  */
-export const BANK_RT60: readonly number[] = [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0];
+export const BANK_RT60: readonly number[] = [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0, 5.6, 8.0];
 /** Longest decay the `space` node renders faithfully (s); longer ones are stretched from it. */
 const SPACE_MAX_RT60 = 1.6;
+/** Longest render (s) of the IR patch; a longer response continues its tail. */
+const RENDER_MAX_S = 5;
 const BANK_DAMPING = 0.15;
 
 /**
@@ -375,8 +377,11 @@ export function reverbIrPatch(rt60: number, absorption: number, duration = Math.
  */
 export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: number, absorption: number): AudioBuffer {
   const rendered = Math.min(rt60, SPACE_MAX_RT60);
-  const duration = Math.min(5.5, rt60 * 1.25 + 0.15);
-  const patch = reverbIrPatch(rendered, absorption, duration);
+  const duration = Math.min(10.5, rt60 * 1.25 + 0.15);
+  // The engine renders this patch cleanly up to about 5 s (longer timelines came out NaN after
+  // 1.9 s); a longer response continues the render's own tail (see below).
+  const renderS = Math.min(duration, RENDER_MAX_S);
+  const patch = reverbIrPatch(rendered, absorption, renderS);
   const voice = engine.createVoice(ctx.sampleRate, 11);
   const sr = ctx.sampleRate;
   try {
@@ -386,14 +391,56 @@ export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: n
     if (!playable) return buffer;
     const l = buffer.getChannelData(0);
     const r = buffer.getChannelData(1);
-    for (let f = 0; f < frames; f += 128) {
-      const n = Math.min(128, frames - f);
+    const rendFrames = Math.min(frames, Math.round(renderS * sr));
+    for (let f = 0; f < rendFrames; f += 128) {
+      const n = Math.min(128, rendFrames - f);
       voice.process(n);
       l.set(voice.left().subarray(0, n), f);
       r.set(voice.right().subarray(0, n), f);
     }
-    // Once per IR, at start-up: slow the decay to the target (measured, since the FDN's slower
-    // modes grow with the gain), fade in, unit energy.
+    // A decay longer than `space` renders: its first 0.3 s (the onset and colour of the room),
+    // slowed to the target, then a late tail of decorrelated noise, low-passed like the render's
+    // tail and decaying exactly at the target, matched in level over 0.25-0.3 s and cross-faded
+    // in by 0.35 s. (Stretching the whole render amplified its floor: an 8 s target measured 6.8 s.)
+    if (rt60 > rendered) {
+      const slow = 6.9078 * (1 / rendered - 1 / rt60);
+      const a0 = Math.round(0.25 * sr);
+      const a1 = Math.round(0.3 * sr);
+      const b1 = Math.round(0.35 * sr);
+      let ref = 0;
+      for (let i = a0; i < a1; i++) ref += (l[i] * l[i] + r[i] * r[i]) / 2 * Math.exp((2 * slow * i) / sr);
+      ref = Math.sqrt(ref / Math.max(1, a1 - a0));
+      let seed = 0x2545f491;
+      const noise = (): number => {
+        seed ^= seed << 13;
+        seed ^= seed >>> 17;
+        seed ^= seed << 5;
+        return (seed >>> 0) / 2147483648 - 1;
+      };
+      const k = Math.exp((-2 * Math.PI * 6000) / sr);
+      const decay = 6.9078 / rt60;
+      const tail = [new Float32Array(frames), new Float32Array(frames)];
+      for (const t of tail) {
+        let y = 0;
+        let rms = 0;
+        for (let i = 0; i < frames; i++) {
+          y = (1 - k) * noise() + k * y;
+          t[i] = y;
+        }
+        // Unit RMS, then the target envelope, starting at the matched level at 0.275 s.
+        for (let i = a0; i < a1; i++) rms += t[i] * t[i];
+        rms = Math.sqrt(rms / Math.max(1, a1 - a0)) || 1;
+        for (let i = 0; i < frames; i++) t[i] = (t[i] / rms) * ref * Math.exp(-decay * (i / sr - 0.275));
+      }
+      for (let i = 0; i < frames; i++) {
+        const early = i < b1 ? Math.exp((slow * i) / sr) : 0;
+        const x = i < a1 ? 0 : i >= b1 ? 1 : (i - a1) / (b1 - a1);
+        l[i] = l[i] * early * (1 - x) + tail[0][i] * x;
+        r[i] = r[i] * early * (1 - x) + tail[1][i] * x;
+      }
+    }
+    // A render that leaves a non-finite sample (seen past 7 s) must not poison the whole bank.
+    for (const ch of [l, r]) for (let i = 0; i < frames; i++) if (!Number.isFinite(ch[i])) ch[i] = 0;
     const raw = [l.slice(), r.slice()];
     const fade = Math.round(0.003 * sr);
     const shape = (rate: number): void => {
@@ -405,15 +452,23 @@ export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: n
     };
     // Calibrated on the late decay (from 50 ms): the `space` tail bends, its later slope read 20 %
     // longer than its T20 from the onset, and the late slope is what a listener hears as the room.
-    let rate = rt60 > rendered ? 6.9078 * (1 / rendered - 1 / rt60) : 0;
+    let rate = 0;
     shape(rate);
-    for (let pass = 0; pass < 4; pass++) {
+    let good = rate;
+    for (let pass = 0; pass < 10; pass++) {
       const measured = decayTime(l, r, sr, 0.05);
       if (!(measured > 0)) break;
-      if (Math.abs(measured / rt60 - 1) < 0.02) break;
-      rate += 6.9078 * (1 / measured - 1 / rt60);
+      if (Math.abs(measured / rt60 - 1) < 0.02) {
+        good = rate;
+        break;
+      }
+      const next = rate + 6.9078 * (1 / measured - 1 / rt60);
+      if (!Number.isFinite(next) || Math.abs(next) > 8) break;
+      good = rate;
+      rate = next;
       shape(rate);
     }
+    if (!l.every(Number.isFinite)) shape(good);
     let energy = 0;
     for (let i = 0; i < frames; i++) energy += (l[i] * l[i] + r[i] * r[i]) / 2;
     if (energy > 0) {

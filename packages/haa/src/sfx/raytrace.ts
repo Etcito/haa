@@ -107,7 +107,7 @@ export interface ListenerTrace {
 }
 
 /** Reverb times are clamped to this range (s). */
-export const TRACE_RT60_RANGE: readonly [number, number] = [0.1, 4.5];
+export const TRACE_RT60_RANGE: readonly [number, number] = [0.1, 8.5];
 const CANDIDATE_STEPS = [0.6, 1.2, 2, 3, 4.5, 6.5, 9, 13, 18];
 
 export function traceListener(listener: Vec3, cast: RayCast, o: TraceOptions = {}, segments?: RaySegment[]): ListenerTrace {

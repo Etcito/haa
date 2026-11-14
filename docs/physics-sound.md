@@ -257,7 +257,7 @@ inside the room sounded like the middle of the room. Causes, measured on the stu
 specular with 35 % scattering, deterministic (the same place gives the same paths). It gives the
 listener's space (`stats().room`): share of rays that hit nothing, share that leave within the 6
 bounces (openings, sky), mean free path, energy kept per bounce (absorption and leaks together),
-RT60 = 60·l / (c·dB lost per bounce), clamped to 0.1-4.5 s, and a volume estimate. It keeps every
+RT60 = 60·l / (c·dB lost per bounce), clamped to 0.1-8.5 s, and a volume estimate. It keeps every
 bounce point, and the points the listener sees along its rays (for the direct path search).
 Recomputed every 0.1 s (≈ 1500 casts, 3-4 ms; a Rapier cast costs 2-2.7 µs from JS).
 
@@ -289,15 +289,19 @@ the bank's output and lengthens RT60 above 1.)
 
 ### Reverb bank
 
-9 convolvers, always running, with impulse responses rendered once by the HAA engine (a burst into
-the `space` node at full wet) at RT60 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8 and 4.0 s, √2 apart,
-each at unit energy and calibrated on its late decay (Schroeder T20 from 50 ms: the `space` tail
-bends, its late slope read 20 % longer than its T20 from the onset); from 2 s up they are a 1.6 s
-render slowed by an exponential gain, also calibrated (measured 1.98, 2.77, 3.97 s). A voice sends to
-the two neighbours of its RT60 (sine law, equal power): a voice walking from the shed into the hall
-glides from one IR to the next. Two decays a factor 2 apart did not blend (a 0.86 s shed measured
-1.37 s). Start-up: 380 ms for the 9 renders. The hall's computed decay (clamped at 4.5 s) now plays
-at the bank's 4 s: a click at its centre measures T20 3.99 s (it was held at 2 s).
+11 convolvers, always running, with impulse responses at RT60 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0,
+2.8, 4.0, 5.6 and 8.0 s, √2 apart, each at unit energy and calibrated on its late decay (Schroeder
+T20 from 50 ms: the `space` tail bends, its late slope read 20 % longer than its T20 from the onset).
+Up to 1.6 s they are rendered by the HAA engine (a burst into the `space` node at full wet). A longer
+one keeps the render's first 0.3 s (the onset and colour of the room), slowed to the target, and
+continues with a decorrelated noise tail low-passed at 6 kHz, decaying exactly at the target,
+level-matched over 0.25-0.3 s and cross-faded in by 0.35 s. Stretching the whole render amplified
+its floor (an 8 s target measured 6.8 s), and the engine renders this patch cleanly only up to about
+5 s (longer timelines came out NaN after 1.9 s; samples that are not finite are zeroed). Measured:
+2.00, 2.75, 4.02, 5.60, 8.01 s. A voice sends to the two neighbours of its RT60 (sine law, equal
+power): a voice walking from the shed into the hall glides from one IR to the next. Two decays a
+factor 2 apart did not blend (a 0.86 s shed measured 1.37 s). Start-up: 1.55 s on the main thread
+for the 11 responses (the long noise tails), once, when the engine is created.
 
 ### Voice chain
 
@@ -373,12 +377,21 @@ door, its roof material chosen in the panel: tiles, metal sheet, wood boards, co
 wooden shed under a metal sheet roof (4 x 4 x 2.6 m, wooden floor) give two spaces to walk between,
 and two open shelters side by side (tiles, wood boards) compare roofs in the rain. Every object
 declares its body by hand. The panel's Rain tilt tilts the rain toward −x.
+Two large concrete buildings, 30 x 20 m and 10 m high with a 3 m door, one empty and one with 40
+fixed crates and blocks (0.7-2.4 m wide, up to 3 m high, an aisle from the door), compare size and
+clutter. The objects thrown are held in the hand (number keys 1-6: crate, bottle, ball, a handful
+of pebbles, a gun whose rounds ricochet, a grenade that explodes after 2.5 s), shown at the bottom
+right of the view; a click in the view throws along the view (hold to throw up to twice as hard),
+and the panel's item buttons select and throw once, so they work without the pointer lock.
+Concrete is α 0.05 in the scene (0.02 made every concrete room ring past the bank).
 Pointer lock could not be granted to an automated Chrome window (`WrongDocumentError`, the window
 is not the focused one); drag-to-look works there, and Esc stops the walk.
 
 A 1 ms click, energy per ear in windows from its arrival, dB relative to the dry click's direct
 sound at 2 m. Studio hall (12 x 8 x 5 m concrete, 2 m door), the listener's own click 1.5 m ahead
 on the floor; both builds on the same geometry.
+
+(Measured with the scene's concrete at α 0.02; at 0.05, its value now, the hall centre gives T20 3.59 s.)
 
 | listener            | before: late (50 ms-2 s), T20 | now (reverb level −7 dB): late, T20 |
 |---------------------|-------------------------------|-------------------------------------|
@@ -397,6 +410,21 @@ A footstep (`footstep-concrete`, at the feet) against the same step dry (no ray,
 50 ms: shed +5.5 dB (before +12.5), same three band levels (before −6 dB bass, +2 dB highs),
 spectral ripple 1.7 dB (before 4.6); snow step in the shed +3.7 dB, bands unchanged, ripple 1.6
 (before +11.6 dB, +4 dB highs, ripple 3.8).
+
+Size and clutter (own click 1.5 m ahead along the aisle, 11 s renders, concrete α 0.05):
+
+| place                      | late (50 ms-2 s) | early (3-50 ms) | T20    | EDT    | slap (peak / median, 40-300 ms) |
+|----------------------------|------------------|-----------------|--------|--------|---------------------------------|
+| wooden shed, centre        | +6.1 dB          | +7.7 dB         | 1.07 s | 0.85 s | 12.6 dB                         |
+| hall 12 x 8 x 5, centre    | +5.8 dB          | +0.5 dB         | 3.59 s | 2.54 s | 9.2 dB                          |
+| big empty, centre          | −1.9 dB          | −16.6 dB        | 8.03 s | 6.44 s | 10.7 dB                         |
+| big empty, 3 m from door   | −1.1 dB          | −17.9 dB        | 8.03 s | 6.37 s | 11.0 dB                         |
+| big with cubes, centre     | −0.5 dB          | −8.1 dB         | 7.45 s | 5.28 s | 9.7 dB                          |
+| big with cubes, near door  | +0.4 dB          | −6.1 dB         | 6.74 s | 4.77 s | 8.7 dB                          |
+
+The cubes give 8-12 dB more early energy (denser reflections), an EDT 18-25 % shorter, a decay
+7-16 % shorter and less distinct slaps; the empty building's first reflections arrive 50-70 ms
+after the direct sound (pre-delay), the cluttered one's 25-35 ms.
 
 Steadiness (pink noise loop, 100 ms RMS): moving at 1.5 m/s from the open behind the free wall,
 largest step 2.2 dB per 100 ms (before 5.5); the listener walking at 1.4 m/s from the hall centre
