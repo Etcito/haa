@@ -2,8 +2,8 @@
 //! measured on the spectrum itself and on every note, not on a few band levels.
 //!
 //! Global terms (means over the cells/frames where the target is audible, about 0..1 each):
-//! - `mel`: multi-resolution log-mel distance (Hann 512/2048/4096, hop n/4, 64 bands 40 Hz..16 kHz),
-//!   mean |dB| / 20 per resolution;
+//! - `mel`: multi-resolution log-mel distance (Hann 512/2048/4096, hop n/4, 64 bands 20 Hz..16 kHz:
+//!   a sub-bass the stem lacks is seen), mean |dB| / 20 per resolution;
 //! - `lin`: log-magnitude distance on the linear 4096 spectrum up to 5 kHz (harmonic lines show
 //!   there; mel bands blur them), mean |dB| / 20.
 //!
@@ -16,6 +16,10 @@
 //! - `flatness`: mean |dB difference| / 20 of the per-frame spectral flatness;
 //! - `mfcc`: mean |difference| / 20 of MFCC 1..12 (orthonormal DCT of the 2048 log-mel in dB).
 //!   These four read the 2048 log-mel above the stem's noise floor (see below).
+//! - `extra`: energy the render makes where the stem is silent (2048 log-mel cells under the stem's
+//!   noise floor + 3 dB: a stretch where the stem rests, a band it lacks, the sub-bass included),
+//!   over the stem's whole energy; `extra_db` is that ratio in dB and the term is
+//!   (extra_db + 50) / 50, clamped to 0..1.2 (-50 dB or less costs nothing).
 //!
 //! Note terms (one value per note, then their mean), from the note list the render plays:
 //! - `harm`: relative harmonic amplitudes, harmonics 1..12 at the note's start (peak of each
@@ -55,11 +59,12 @@ pub struct SpectralWeights {
     pub lines: f64,
     pub env: f64,
     pub attack: f64,
+    pub extra: f64,
 }
 
 impl Default for SpectralWeights {
     fn default() -> Self {
-        SpectralWeights { mel: 1.0, lin: 0.5, centroid: 0.5, flatness: 0.25, rolloff: 0.25, mfcc: 0.5, harm: 1.0, lines: 0.5, env: 1.0, attack: 0.5 }
+        SpectralWeights { mel: 1.0, lin: 0.5, centroid: 0.5, flatness: 0.25, rolloff: 0.25, mfcc: 0.5, harm: 1.0, lines: 0.5, env: 1.0, attack: 0.5, extra: 1.0 }
     }
 }
 
@@ -86,6 +91,9 @@ pub struct SpectralTerms {
     pub lines: f64,
     pub env: f64,
     pub attack: f64,
+    pub extra: f64,
+    /// Render energy where the stem is silent over the stem's energy, dB.
+    pub extra_db: f64,
     pub notes: Vec<NoteTerms>,
 }
 
@@ -98,6 +106,7 @@ impl SpectralTerms {
             "total": r(self.total), "mel": r(self.mel), "lin": r(self.lin), "centroid": r(self.centroid),
             "flatness": r(self.flatness), "rolloff": r(self.rolloff), "mfcc": r(self.mfcc),
             "harm": r(self.harm), "lines": r(self.lines), "env": r(self.env), "attack": r(self.attack),
+            "extra": r(self.extra), "extraDb": r(self.extra_db),
             "notes": self.notes.iter().map(|n| serde_json::json!([o(n.harm), o(n.lines), o(n.env), o(n.attack)])).collect::<Vec<_>>(),
         })
     }
@@ -118,6 +127,10 @@ const FLOOR_DB: f64 = 80.0;
 /// A cell counts when either side stands this far over the noise floor.
 const ABOVE_FLOOR_DB: f64 = 3.0;
 const ENV_FLOOR_DB: f64 = -50.0;
+/// Lowest mel band edge (Hz).
+const MEL_FMIN: f64 = 20.0;
+/// `extra_db` at which the extra term starts to cost.
+const EXTRA_FROM_DB: f64 = -50.0;
 const MAG_FLOOR: f64 = 1e-7;
 
 struct Res {
@@ -494,14 +507,17 @@ impl SpectralTarget {
         let mut lin = Vec::new();
         let mut frames = Frames::default();
         let mut cand_mel = Vec::new();
+        let mut extra_db = -120.0;
         for r in 0..self.res.len() {
             self.analyse(r, &mut cand_mel, if r == LIN_RES { Some(&mut lin) } else { None }, if r == FRAME_RES { Some(&mut frames) } else { None });
             let res = &self.res[r];
             mel_sum += floor_db_distance(&res.target_mel, &cand_mel, &res.target_floor);
             if r == FRAME_RES {
+                extra_db = extra_energy_db(&res.target_mel, &cand_mel, &res.target_floor);
                 self.describe(&cand_mel, &mut frames);
             }
         }
+        let extra = ((extra_db - EXTRA_FROM_DB) / -EXTRA_FROM_DB).clamp(0.0, 1.2);
         let mel = mel_sum / self.res.len() as f64;
         let lin_d = floor_db_distance(&self.target_lin, &lin, &self.lin_floor);
 
@@ -568,8 +584,9 @@ impl SpectralTarget {
             + w.harm * harm
             + w.lines * lines
             + w.env * env
-            + w.attack * attack;
-        SpectralTerms { total, mel, lin: lin_d, centroid, flatness, rolloff, mfcc, harm, lines, env, attack, notes: per_note }
+            + w.attack * attack
+            + w.extra * extra;
+        SpectralTerms { total, mel, lin: lin_d, centroid, flatness, rolloff, mfcc, harm, lines, env, attack, extra, extra_db, notes: per_note }
     }
 }
 
@@ -640,6 +657,22 @@ fn floor_db_distance(t: &[f64], c: &[f64], floor: &[f64]) -> f64 {
     if k == 0 { 0.0 } else { s / k as f64 / 20.0 }
 }
 
+/// Render energy in the cells where the target is silent (under its per-column floor + ABOVE_FLOOR_DB), above that
+/// floor, over the target's whole energy, in dB (-120 when there is none).
+fn extra_energy_db(t: &[f64], c: &[f64], floor: &[f64]) -> f64 {
+    let width = floor.len().max(1);
+    let n = t.len().min(c.len());
+    let (mut extra, mut total) = (0.0f64, 0.0f64);
+    for i in 0..n {
+        let fl = floor[i % width];
+        total += 10f64.powf(t[i] / 10.0);
+        if t[i] < fl + ABOVE_FLOOR_DB && c[i] > fl + ABOVE_FLOOR_DB {
+            extra += 10f64.powf(c[i] / 10.0) - 10f64.powf(fl / 10.0);
+        }
+    }
+    if extra <= 0.0 || total <= 0.0 { -120.0 } else { (10.0 * (extra / total).log10()).max(-120.0) }
+}
+
 /// |log2(c / t)| in octaves, capped at 2 (a silent side counts 2).
 fn octaves(t: f64, c: f64) -> f64 {
     if t <= 0.0 || c <= 0.0 {
@@ -652,23 +685,23 @@ fn octaves(t: f64, c: f64) -> f64 {
 fn mel_centres(sr: f64) -> Vec<f64> {
     let hz_to_mel = |f: f64| 2595.0 * (1.0 + f / 700.0).log10();
     let mel_to_hz = |m: f64| 700.0 * (10f64.powf(m / 2595.0) - 1.0);
-    let (lo, hi) = (hz_to_mel(40.0), hz_to_mel((sr / 2.0).min(16_000.0)));
+    let (lo, hi) = (hz_to_mel(MEL_FMIN), hz_to_mel((sr / 2.0).min(16_000.0)));
     (1..=MEL_BANDS).map(|i| mel_to_hz(lo + (hi - lo) * i as f64 / (MEL_BANDS + 1) as f64)).collect()
 }
 
-/// Sparse mel triangles (MEL_BANDS, 40 Hz .. min(16 kHz, Nyquist)) for an `n`-point FFT.
+/// Sparse mel triangles (MEL_BANDS, MEL_FMIN .. min(16 kHz, Nyquist)) for an `n`-point FFT; never the DC bin.
 fn mel_bank(n: usize, sr: f64) -> Vec<(usize, Vec<f64>)> {
     let bins = n / 2 + 1;
     let hz_to_mel = |f: f64| 2595.0 * (1.0 + f / 700.0).log10();
     let mel_to_hz = |m: f64| 700.0 * (10f64.powf(m / 2595.0) - 1.0);
-    let (lo, hi) = (hz_to_mel(40.0), hz_to_mel((sr / 2.0).min(16_000.0)));
+    let (lo, hi) = (hz_to_mel(MEL_FMIN), hz_to_mel((sr / 2.0).min(16_000.0)));
     let edges: Vec<f64> = (0..MEL_BANDS + 2)
         .map(|i| mel_to_hz(lo + (hi - lo) * i as f64 / (MEL_BANDS + 1) as f64) * n as f64 / sr)
         .collect();
     (0..MEL_BANDS)
         .map(|b| {
             let (l, c, r) = (edges[b], edges[b + 1], edges[b + 2]);
-            let first = l.floor().max(0.0) as usize;
+            let first = l.floor().max(1.0) as usize;
             let last = (r.ceil() as usize).min(bins - 1);
             let w: Vec<f64> = (first..=last)
                 .map(|k| {
@@ -677,7 +710,7 @@ fn mel_bank(n: usize, sr: f64) -> Vec<(usize, Vec<f64>)> {
                     v.clamp(0.0, 1.0)
                 })
                 .collect();
-            if w.iter().all(|v| *v == 0.0) { ((c.round() as usize).min(bins - 1), vec![1.0]) } else { (first, w) }
+            if w.iter().all(|v| *v == 0.0) { ((c.round() as usize).clamp(1, bins - 1), vec![1.0]) } else { (first, w) }
         })
         .collect()
 }

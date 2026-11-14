@@ -42,7 +42,10 @@
 //! Score: `[{"start","duration","midi","level"}]` (the `notes` node's format, overlaps allowed).
 //! Each note plucks the free string nearest in pitch (or steals the oldest) with velocity x level
 //! and is released at its end; `frequency`, `gate` and `autoStrike` are then unused. A string under
-//! -120 dB with nothing to play is skipped.
+//! -120 dB with nothing to play is skipped. A note may carry its own timbre around the node's:
+//! `brightness` is added to the node's `brightness` for that note (-1..1, default 0) and `decay`
+//! multiplies the node's `decay` (0.05..20, default 1), so measured per-note tone and sustain ride
+//! on the values a fit tunes for the whole node.
 
 use crate::catalog::{Category, NodeTypeDef, ParamDef, ParamKind, Scale};
 use crate::dsp::biquad::{Biquad, BiquadKind};
@@ -474,6 +477,9 @@ struct StringVoice {
     active: bool,
     /// The raw inputs of the last retune.
     inputs: [f64; 10],
+    /// Score mode: the playing note's brightness offset and decay factor.
+    bright_offset: f64,
+    decay_scale: f64,
 }
 
 impl StringVoice {
@@ -503,6 +509,8 @@ impl StringVoice {
             level: 0.0,
             active: true,
             inputs: [f64::NAN; 10],
+            bright_offset: 0.0,
+            decay_scale: 1.0,
         }
     }
 
@@ -514,7 +522,7 @@ impl StringVoice {
         let inputs = [
             hz,
             bend + vibrato,
-            p[DECAY],
+            p[DECAY] * self.decay_scale,
             p[DECAY_TILT],
             p[MUTE],
             if self.released { p[RELEASE] } else { -1.0 },
@@ -534,7 +542,7 @@ impl StringVoice {
         }
         let mute = p[MUTE].clamp(0.0, 1.0);
         let tilt = p[DECAY_TILT].clamp(0.0, 1.0);
-        let mut t60 = p[DECAY].clamp(0.05, 30.0) * (110.0 / f).powf(tilt) * (1.0 - 0.96 * mute);
+        let mut t60 = (p[DECAY] * self.decay_scale).clamp(0.05, 30.0) * (110.0 / f).powf(tilt) * (1.0 - 0.96 * mute);
         if self.released {
             t60 = t60.min(p[RELEASE].clamp(0.01, 5.0));
         }
@@ -589,7 +597,8 @@ impl StringVoice {
         let vb = p[VELOCITY_BRIGHTNESS].clamp(0.0, 1.0);
         let mute = p[MUTE].clamp(0.0, 1.0);
         let opening = (1.0 - vb + vb * velocity) * (1.0 - 0.6 * mute);
-        let cutoff = (150.0 * 2f64.powf(p[BRIGHTNESS].clamp(0.0, 1.0) * 7.0) * opening).clamp(40.0, 0.45 * sample_rate);
+        let brightness = (p[BRIGHTNESS] + self.bright_offset).clamp(0.0, 1.0);
+        let cutoff = (150.0 * 2f64.powf(brightness * 7.0) * opening).clamp(40.0, 0.45 * sample_rate);
         let pole = (-TAU * cutoff / sample_rate).exp();
         let (mut s1, mut s2, mut peak) = (0.0f64, 0.0f64, 0.0f64);
         for value in &mut self.excitation[..total] {
@@ -704,6 +713,12 @@ struct ScoreNote {
     midi: f64,
     #[serde(default = "full_level")]
     level: f64,
+    /// Added to the node's brightness for this note.
+    #[serde(default)]
+    brightness: f64,
+    /// Multiplies the node's decay (T60) for this note.
+    #[serde(default = "full_level")]
+    decay: f64,
 }
 
 fn full_level() -> f64 {
@@ -722,7 +737,13 @@ fn parse_score(text: &str) -> Vec<ScoreNote> {
             && n.duration >= 0.005
             && (0.0..=127.0).contains(&n.midi)
             && (0.0..=1.0).contains(&n.level)
+            && n.brightness.is_finite()
+            && n.decay.is_finite()
     });
+    for n in &mut notes {
+        n.brightness = n.brightness.clamp(-1.0, 1.0);
+        n.decay = n.decay.clamp(0.05, 20.0);
+    }
     notes.truncate(MAX_SCORE_NOTES);
     notes.sort_by(|a, b| a.start.total_cmp(&b.start));
     notes
@@ -852,6 +873,8 @@ impl Pluck {
             voice.until = note.start + note.duration;
             voice.released = false;
             voice.since_pluck = 0.0;
+            voice.bright_offset = note.brightness;
+            voice.decay_scale = note.decay;
             voice.retune(sr, p, voice.hz, 0.0);
             voice.excite(sr, p[VELOCITY].clamp(0.0, 1.0) * note.level, p, &mut self.rng);
             voice.retune(sr, p, voice.hz, 0.0);

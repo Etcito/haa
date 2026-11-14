@@ -34,3 +34,22 @@ fn judge_is_zero_on_the_stem_and_sees_harmonic_balance_and_decay() {
     assert!(long.harm < bright.harm, "same harmonic balance: harm {} vs {}", long.harm, bright.harm);
     assert_eq!(bright.notes.len(), 1);
 }
+
+#[test]
+fn energy_where_the_stem_is_silent_is_extra() {
+    // the stem rests for its first second, then plays A2; one render adds a note in the rest, one a 30 Hz hum
+    let mut stem = vec![0.0f32; SR as usize];
+    stem.extend(tone(110.0, 1.0, 1.2, 1.5));
+    let notes = [NoteSpan { start: 1.0, end: 2.5, midi: 45.0 }];
+    let mut judge = SpectralTarget::new(&stem, SR, &notes, SpectralWeights::default());
+    let same = judge.score(&stem);
+    assert!(same.extra == 0.0 && same.extra_db <= -100.0, "{same:?}");
+    let mut in_rest = stem.clone();
+    for (i, v) in tone(147.0, 1.0, 1.2, 0.9).iter().enumerate() {
+        in_rest[i] += 0.3 * v;
+    }
+    let hum: Vec<f32> = stem.iter().enumerate().map(|(i, v)| v + 0.05 * (std::f64::consts::TAU * 30.0 * i as f64 / SR).sin() as f32).collect();
+    let (a, b) = (judge.score(&in_rest), judge.score(&hum));
+    assert!(a.extra_db > -25.0 && a.extra > 0.4, "a note in the rest: {} dB", a.extra_db);
+    assert!(b.extra_db > -30.0 && b.extra > 0.3, "a 30 Hz hum: {} dB", b.extra_db);
+}

@@ -1,0 +1,199 @@
+{
+  "haa": 1,
+  "id": "bass-gated",
+  "title": "Bass guitar \u00b7 gated finger line (high-pass + note gate)",
+  "inputs": [],
+  "graph": {
+    "duration": 6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "strPitch",
+        "type": "notes",
+        "x": 40,
+        "y": 40,
+        "label": "Corde \u00b7 hauteur",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":1,\"midi\":27.9986,\"level\":0.95},{\"start\":1.5,\"duration\":0.22,\"midi\":27.9986,\"level\":0.8},{\"start\":1.75,\"duration\":0.22,\"midi\":27.9986,\"level\":0.75},{\"start\":2,\"duration\":0.45,\"midi\":31.0002,\"level\":0.85},{\"start\":2.5,\"duration\":0.45,\"midi\":33,\"level\":0.85},{\"start\":3,\"duration\":0.22,\"midi\":33,\"level\":0.75},{\"start\":3.25,\"duration\":0.22,\"midi\":35.0013,\"level\":0.8},{\"start\":3.5,\"duration\":0.45,\"midi\":38.0009,\"level\":0.85},{\"start\":4,\"duration\":0.7,\"midi\":40.0007,\"level\":0.9},{\"start\":4.75,\"duration\":0.9,\"midi\":27.9986,\"level\":0.9}]",
+          "channel": "pitch",
+          "low": 20,
+          "high": 2020,
+          "phrase": "str"
+        }
+      },
+      {
+        "id": "strGate",
+        "type": "notes",
+        "x": 40,
+        "y": 130,
+        "label": "Corde \u00b7 attaque",
+        "params": {
+          "score": "[{\"start\":0.2,\"duration\":1,\"midi\":27.9986,\"level\":0.95},{\"start\":1.5,\"duration\":0.22,\"midi\":27.9986,\"level\":0.8},{\"start\":1.75,\"duration\":0.22,\"midi\":27.9986,\"level\":0.75},{\"start\":2,\"duration\":0.45,\"midi\":31.0002,\"level\":0.85},{\"start\":2.5,\"duration\":0.45,\"midi\":33,\"level\":0.85},{\"start\":3,\"duration\":0.22,\"midi\":33,\"level\":0.75},{\"start\":3.25,\"duration\":0.22,\"midi\":35.0013,\"level\":0.8},{\"start\":3.5,\"duration\":0.45,\"midi\":38.0009,\"level\":0.85},{\"start\":4,\"duration\":0.7,\"midi\":40.0007,\"level\":0.9},{\"start\":4.75,\"duration\":0.9,\"midi\":27.9986,\"level\":0.9}]",
+          "channel": "gate",
+          "low": 20,
+          "high": 2020,
+          "phrase": "str"
+        }
+      },
+      {
+        "id": "str",
+        "type": "pluck",
+        "x": 300,
+        "y": 40,
+        "label": "Corde",
+        "params": {
+          "frequency": 20,
+          "gate": 0,
+          "autoStrike": false,
+          "decay": 8,
+          "release": 0.12,
+          "damping": 0.6,
+          "brightness": 0.45,
+          "pickPosition": 0.2,
+          "pickHardness": 0.35,
+          "stiffness": 0.2,
+          "body": 0,
+          "pickup": "single",
+          "pickupPosition": 0.18,
+          "gain": 1,
+          "velocity": 0.9,
+          "dampingFreq": 900,
+          "decayTilt": 0.4,
+          "polarization": 0.2,
+          "detune": 1,
+          "pickNoise": 0.15,
+          "attackBend": 0.1,
+          "mute": 0,
+          "bodySize": 1
+        }
+      },
+      {
+        "id": "comp",
+        "type": "compressor",
+        "x": 560,
+        "y": 40,
+        "label": "Compresseur",
+        "params": {
+          "threshold": -20,
+          "ratio": 4,
+          "attack": 0.01,
+          "release": 0.15,
+          "makeup": 4
+        }
+      },
+      {
+        "id": "eq",
+        "type": "equalizer",
+        "x": 760,
+        "y": 40,
+        "label": "\u00c9galiseur",
+        "params": {
+          "low": 3,
+          "mid": -2,
+          "high": 1,
+          "frequency": 800
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 960,
+        "y": 40,
+        "label": "Sortie",
+        "params": {
+          "gain": 0.75
+        }
+      },
+      {
+        "id": "hp",
+        "type": "filter",
+        "label": "High-pass",
+        "x": 430,
+        "y": 150,
+        "params": {
+          "cutoff": 29,
+          "resonance": 0.6,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "gate",
+        "type": "gate",
+        "label": "Note gate",
+        "x": 960,
+        "y": 150,
+        "params": {
+          "threshold": -40,
+          "ratio": 20,
+          "range": 90,
+          "attack": 0.002,
+          "hold": 0.02,
+          "release": 0.08,
+          "key": 0,
+          "detector": "key"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strPitch",
+        "to": "str",
+        "target": "frequency",
+        "amount": 2000
+      },
+      {
+        "id": "c2",
+        "from": "strGate",
+        "to": "str",
+        "target": "gate",
+        "amount": 1
+      },
+      {
+        "id": "c3",
+        "from": "str",
+        "to": "hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c-hp",
+        "from": "hp",
+        "to": "comp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c4",
+        "from": "comp",
+        "to": "eq",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c5",
+        "from": "eq",
+        "to": "gate",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c-gate-out",
+        "from": "gate",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "c-gate-key",
+        "from": "strGate",
+        "to": "gate",
+        "target": "key",
+        "amount": 1
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}

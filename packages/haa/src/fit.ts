@@ -276,7 +276,8 @@ export interface SpectralNote {
  * The spectral judge's terms (crates/haa-fit/src/spectral.rs), each about 0..1: multi-resolution log-mel,
  * linear log-spectrum, centroid / flatness / roll-off, MFCC, and per note the relative harmonic amplitudes,
  * the harmonic line positions, the attack/decay envelope and the pick transient (`notes`: `[harm, lines, env, attack]`,
- * null = unmeasured).
+ * null = unmeasured), and `extra`: the energy the render makes where the stem is silent (`extraDb`: that energy over
+ * the stem's, dB).
  */
 export interface SpectralTerms {
   total: number;
@@ -290,6 +291,8 @@ export interface SpectralTerms {
   lines: number;
   env: number;
   attack: number;
+  extra: number;
+  extraDb: number;
   notes: [number | null, number | null, number | null, number | null][];
 }
 

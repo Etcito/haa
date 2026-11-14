@@ -117,3 +117,19 @@ fn polarization_lengthens_the_tail_and_a_palm_mute_shortens_it() {
     assert!(double > 1.5 * single, "two polarizations decay in two stages: tail {double} vs {single}");
     assert!(muted < 0.1 * single, "palm mute: tail {muted} vs {single}");
 }
+
+#[test]
+fn a_score_note_carries_its_own_decay_and_brightness() {
+    // the same A2 twice: the second note sustains a quarter as long and is darker
+    let tail_and_tone = |note: &str| {
+        let out = render(&params(&[("decay", 2.0), ("decayTilt", 0.0), ("polarization", 0.0)]), Some(&format!("[{note}]")));
+        let head = &out[(0.05 * SR) as usize..(0.25 * SR) as usize];
+        let tail = rms(&out[(1.2 * SR) as usize..(1.6 * SR) as usize]) / rms(head);
+        let hz = 110.0;
+        (tail, goertzel(head, 8.0 * hz) / goertzel(head, hz))
+    };
+    let (tail, tone) = tail_and_tone(r#"{"start":0.0,"duration":1.95,"midi":45,"level":1}"#);
+    let (tail_short, tone_dark) = tail_and_tone(r#"{"start":0.0,"duration":1.95,"midi":45,"level":1,"decay":0.25,"brightness":-0.4}"#);
+    assert!(tail_short < 0.2 * tail, "decay x0.25: tail {tail_short} vs {tail}");
+    assert!(tone_dark < 0.5 * tone, "brightness -0.4: 8th harmonic share {tone_dark} vs {tone}");
+}
