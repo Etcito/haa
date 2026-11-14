@@ -380,7 +380,8 @@ impl Fdn {
             alive: 0,
             hf: (1.0, 1.0),
             early: Vec::new(),
-            hist: vec![[0.0; 8]; early_len],
+            // One block more than the taps reach: a block is written whole before the taps read it.
+            hist: vec![[0.0; 8]; early_len + BLOCK],
             hpos: 0,
             early_alive: 0,
             base: ([1.0; 8], [1.0; 8], [1.0; 8], [1.0; 8], 1.0),
@@ -459,7 +460,7 @@ impl Fdn {
             return;
         }
         let e0 = acc / n as f64;
-        let len = self.hist.len();
+        let len = self.hist.len() - BLOCK;
         let blocks = len / BLOCK + 1;
         let deficit: Vec<f64> = (0..blocks).map(|b| {
             let t = (b as f32 + 0.5) * tb;
@@ -617,21 +618,40 @@ impl Fdn {
             self.early_alive = hl + n;
         }
         let early = !self.early.is_empty() && self.early_alive > 0;
-        for i in 0..n {
-            if early {
+        if early {
+            // The early taps, a block at a time (a modulo per tap and sample made them 3/4 of a step's
+            // cost): the block's input is written, then each tap reads a run of the history.
+            let mut hp = self.hpos;
+            for i in 0..n {
                 for j in 0..8 {
-                    self.hist[self.hpos][j] = self.input[j][i];
+                    self.hist[hp][j] = self.input[j][i];
                 }
-                let mut sum = [0.0f32; 8];
-                for &(d, src, dst, g) in &self.early {
-                    sum[dst] += g * self.hist[(self.hpos + hl - d) % hl][src];
+                hp += 1;
+                if hp == hl {
+                    hp = 0;
                 }
-                for j in 0..8 {
-                    self.early_lp[j] += self.k_early * (sum[j] - self.early_lp[j]);
+            }
+            let mut sum = [[0.0f32; BLOCK]; 8];
+            for &(d, src, dst, g) in &self.early {
+                let mut idx = (self.hpos + hl - d) % hl;
+                let row = &mut sum[dst];
+                for x in row.iter_mut().take(n) {
+                    *x += g * self.hist[idx][src];
+                    idx += 1;
+                    if idx == hl {
+                        idx = 0;
+                    }
+                }
+            }
+            for (j, row) in sum.iter().enumerate() {
+                for (i, &x) in row.iter().take(n).enumerate() {
+                    self.early_lp[j] += self.k_early * (x - self.early_lp[j]);
                     bus[j * BLOCK + i] += self.out_gain * self.early_lp[j];
                 }
-                self.hpos = (self.hpos + 1) % hl;
             }
+            self.hpos = hp;
+        }
+        for i in 0..n {
             let mut v = [0.0f32; 8];
             for j in 0..8 {
                 let l = &self.lines[j];

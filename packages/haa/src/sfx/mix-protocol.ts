@@ -66,4 +66,15 @@ export type MixWorkerOut =
   | { t: 'ended'; slot: number; id: number }
   | { t: 'error'; message: string }
   /** Every second: busy share, and (transport 'port') the counters. */
-  | { t: 'load'; busy: number; rendered: number; thinned: number; silenced: number };
+  | { t: 'load'; busy: number; rendered: number; thinned: number; silenced: number; diag?: MixWorkerDiag };
+
+/** A worker's last second: the worst reverb cost per block (ms), the lowest ring fill (0..1), the blocks thinned
+ * for a low ring or for the voices' costs, the largest voice cost estimate (ms), the blocks rendered. */
+export interface MixWorkerDiag {
+  mixMsMax: number;
+  fillMin: number;
+  thinLowRing: number;
+  thinCost: number;
+  costMax: number;
+  blocks: number;
+}

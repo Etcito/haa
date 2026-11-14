@@ -72,6 +72,20 @@ let busyMs = 0;
 let since = performance.now();
 /** The reverb bank's cost per block (ms, moving average). */
 let mixMs = 0;
+/**
+ * A voice's cost per block, learnt per preset (ms): a new voice starts from its preset's, not from a
+ * guess. A sample counts at most 3 times the estimate (plus 0.02 ms): the worker is sometimes
+ * descheduled in the middle of a voice or of the reverb, and one such block (6 ms for a 0.13 ms voice)
+ * made the estimates 2-20 times too high; the budget then thinned 23-33 % of the voice-blocks of a
+ * shotgun shot or an SMG burst while the workers' load read 0.03-0.7.
+ */
+const presetCost = new Map<string, number>();
+const SAMPLE_COST_MS = 0.02;
+const NEW_VOICE_COST_MS = 0.15;
+const capped = (sample: number, estimate: number): number => Math.min(sample, estimate * 3 + 0.02);
+/** This second's diagnostics: the worst reverb cost, the lowest ring fill, the thinned blocks whose cause was a
+ * low ring (budget cut) or the voices' costs, the largest voice cost estimate. */
+const diag = { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0 };
 
 function paramsOf(slot: number): Float32Array | null {
   if (params) return params.subarray(slot * MIX_PARAMS, slot * MIX_PARAMS + MIX_PARAMS);
@@ -115,6 +129,8 @@ function renderBlock(w: number, fill: number): Float32Array {
     const fits = i === 0 || spent + v.costMs <= budget;
     if (fits) spent += v.costMs;
     if (!fits) {
+      if (fill < 0.5) diag.thinLowRing++;
+      else diag.thinCost++;
       count('thinned');
       v.thinned += Q;
       if (v.oneShot && v.thinned > 0.25 * sr) {
@@ -165,13 +181,18 @@ function renderBlock(w: number, fill: number): Float32Array {
       if (!playing) v.drain = Math.ceil(((p[P.DELAY] + 0.06) * sr) / Q) * Q;
     }
     mx.mix_voice(v.local, Q);
-    v.costMs += (performance.now() - t0 - v.costMs) * 0.1;
+    v.costMs += (capped(performance.now() - t0, v.costMs) - v.costMs) * 0.1;
+    if (v.key && !v.sample) presetCost.set(v.key, v.costMs);
+    diag.costMax = Math.max(diag.costMax, v.costMs);
     count('rendered');
     if (ended) finish(v, w + Q);
   }
   const t1 = performance.now();
   mx.mix_finish(Q);
-  mixMs += (performance.now() - t1 - mixMs) * 0.1;
+  mixMs += (capped(performance.now() - t1, mixMs) - mixMs) * 0.1;
+  diag.mixMsMax = Math.max(diag.mixMsMax, performance.now() - t1);
+  diag.fillMin = Math.min(diag.fillMin, fill);
+  diag.blocks++;
   return new Float32Array(mx.memory.buffer, mx.mix_bus(), MIX_BUSES * Q);
 }
 
@@ -213,7 +234,8 @@ function fill(): void {
   busyMs += performance.now() - t0;
   const now = performance.now();
   if (now - since >= 1000) {
-    scope.postMessage({ t: 'load', busy: busyMs / (now - since), ...counters });
+    scope.postMessage({ t: 'load', busy: busyMs / (now - since), ...counters, diag: { ...diag } });
+    Object.assign(diag, { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0 });
     busyMs = 0;
     since = now;
   }
@@ -312,6 +334,7 @@ scope.onmessage = (e) => {
         v.framesLeft = Math.max(1, Math.round(seconds * sr));
         v.sample = null;
         startVoice(v, m.id, m.oneShot);
+        v.costMs = presetCost.get(m.key) ?? NEW_VOICE_COST_MS;
         v.active = playable;
         scope.postMessage({ t: 'started', slot: m.slot, id: m.id, playable, loadMs });
         if (!playable) scope.postMessage({ t: 'ended', slot: m.slot, id: m.id });
@@ -322,6 +345,7 @@ scope.onmessage = (e) => {
         if (!v) break;
         startVoice(v, m.id, true);
         v.sample = { l: m.l, r: m.r, pos: 0, gain: m.gain };
+        v.costMs = SAMPLE_COST_MS;
         scope.postMessage({ t: 'started', slot: m.slot, id: m.id, playable: true, loadMs: 0 });
         break;
       }

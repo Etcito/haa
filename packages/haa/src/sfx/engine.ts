@@ -283,6 +283,12 @@ export interface SfxEngine {
    * an orchestrator).
    */
   prewarm(energies?: readonly number[]): Promise<number>;
+  /**
+   * Queue the bakes of one-shots the game plays itself (`play`: a weapon's round, its action, an
+   * explosion) at the inputs it plays them with, so a first shot plays a buffer, not a live voice.
+   * Resolves with the cells queued.
+   */
+  prewarmPlays(items: ReadonlyArray<{ preset: string; inputs: Partial<SfxInputs> }>): Promise<number>;
   /** Occlusion strength, 0..2 (default 1); the running voices follow at their next geometry update. */
   setOcclusionStrength(strength: number): void;
   /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
@@ -1409,6 +1415,18 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     return items.length;
   }
 
+  async function prewarmPlays(list: ReadonlyArray<{ preset: string; inputs: Partial<SfxInputs> }>): Promise<number> {
+    if (!orch) return 0;
+    const items: Array<{ rec: PresetRecord; declared: Record<string, number> }> = [];
+    for (const { preset: name, inputs } of list) {
+      const rec = await preset(name);
+      if (!rec || !rec.playable) continue;
+      items.push({ rec, declared: declaredInputs(rec, fullInputs(inputs)) });
+    }
+    orch.prewarm(items);
+    return items.length;
+  }
+
   /** Connect the bank's convolvers the busy voices feed; the others leave after their tail. */
   function useBank(): void {
     const n = reverb.inputs.length;
@@ -1434,6 +1452,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     loop,
     update,
     prewarm,
+    prewarmPlays,
     setTracer(t) {
       tracer = t;
       trace = null;

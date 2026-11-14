@@ -1052,3 +1052,47 @@ same octave filters and metrics as our rooms:
 DRR against distance (AIR, binaural, a directional source so its level is not comparable, its slope
 is): Aula Carolina (~3.5 s) +5.0 dB at 2 m, -6.7 at 10 m (-16.7 dB per decade); lecture room (0.85 s)
 +7.3 at 2.25 m, -7.2 at 10.2 m (-22 per decade); ours -21 per decade (building, 4 to 12 m).
+
+### Bursts in the mix thread, and the references by distance (mix3)
+
+**Frozen voices in bursts.** A shotgun shot (8 pellets: 15 ricochets and 15 impacts on top of the round)
+and an SMG burst had 23-33 % of their voice-blocks thinned while the workers read 0.03-0.7 load. The
+budget per block is 75 % of the block minus the reverb, voices loudest first at their estimated cost;
+the estimates were wall-clock moving averages, and a worker descheduled in the middle of a voice or of
+the reverb (one block of 6 ms for a 0.13 ms voice, 2.7-6 ms of reverb) made them 2-20 times too high.
+Now: a sample counts at most 3 times the estimate (+0.02 ms); a new voice starts from its preset's
+learnt cost (0.15 ms unknown, 0.02 ms for a baked buffer); the early taps run a block at a time (the
+reverb's cost per fed step 0.057 -> 0.023 ms, 11 steps 0.73 -> 0.30 ms per block); the studio runs a
+third of the cores in mix workers, up to 8 (4 before on a 24-thread machine), and prewarms what it
+plays itself (`prewarmPlays`: the rounds at their energies, the pump, the cases, the grenade).
+Shotgun shot, cluttered building, cache cold but prewarmed: thinned 24 % -> 1.6 %, silenced 38 -> 1,
+0 stolen, 0 underruns. 30 balls landing (deterministic impacts): 24 % thinned cold with 4 workers,
+8.4 % cold with 8, 0 % once their cells are baked.
+
+**Impacts against real rooms at known distances.** Our dry ball, crate, step and 9 mm round (recorded
+outdoors with the reverb off) convolved with AIR's Aula Carolina (a former church, ~3.5 s at 500 Hz,
+9 s at 125 Hz) at 3, 5 and 10 m, against our 6000 m3 building at the same distances (late = after
+200 ms over the first 50 ms, dB; share below 150 Hz of the late energy):
+
+| sound | real 3 / 5 / 10 m | ours 3 / 5 / 10 m | late below 150 Hz, real / ours |
+|-------|-------------------|-------------------|--------------------------------|
+| ball | +2.1 / +4.2 / +5.0 | -1.0 / +4.4 / +10.1 | 50-51 % / 37-41 % |
+| crate | +4.2 / +4.7 / +5.9 | -1.6 / +2.9 / +8.7 | 60-62 % / 57-64 % |
+| step | +1.3 / +3.7 / +5.8 | +2.2 / +6.9 / +11.6 | 40 % / 26 % |
+| 9 mm | +7.3 / +10.0 / +13.4 | +7.6 / +9.6 / +18.6 | 31-32 % / 22-27 % |
+
+The R1 reactor hall gives +1.9 (ball) to +13.9 (9 mm), an underground garage (7 s) +8.7 to +21.3 (both
+at an unknown distance). Our reverb never carries more low end than the real halls (the "thunder" is
+not a low-frequency excess); within 5 m it is within the Aula's values, at 10 m 3-6 dB more late-heavy
+(our reverberant level does not fall with distance; the Aula's does, -16.7 dB per decade of DRR against
+our -21).
+
+**EDT / T20 rises with distance in the real rooms** (Aula Carolina at 500 Hz: 0.08 at 1 m, 0.56 at 3 m,
+0.76 at 5 m, 0.95 at 10 m, 0.93 at 15 m; the lecture room 0.72 at 2.25 m, 1.02 at 10.2 m). Ours (0.93 at
+4 m in the building, 0.99 at 12 m, 1.03 at 4 m in the hall, all several critical distances away) follow
+that trend: no change.
+
+**Small rooms**: MIT IR survey cabins and stores give 4k/500 Hz decay ratios of 0.35 (a furnished living
+room) to 1.41 (an empty campground cabin), 8k/500 0.24 to 1.27 (a suburban garage 0.48 / 0.27, an A-frame
+cabin 0.74 / 0.74, a basement store 1.27 / 1.27). The empty shed (1.01 / 0.79) is inside; the hall's
+8k/500 0.39 is between the large halls (0.10-0.37) and the lecture room (0.55-0.75).

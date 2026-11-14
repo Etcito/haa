@@ -12,7 +12,7 @@ import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
 import { CTRL_HEAD, CTRL_STRIDE, ctrlIndex, STARVED } from './ring-protocol.ts';
 import { MIX_BUSES, MIX_PARAMS, MIX_PRIORITY, MIX_PROCESSOR, MIX_SPEAKERS, P, STAT_STRIDE } from './mix-protocol.ts';
-import type { MixProcessorOptions, MixWorkerIn, MixWorkerOut } from './mix-protocol.ts';
+import type { MixProcessorOptions, MixWorkerDiag, MixWorkerIn, MixWorkerOut } from './mix-protocol.ts';
 import type { ChainState, TapState } from './spatial3d.ts';
 import { REF_DISTANCE, TAPS_PER_VOICE } from './spatial3d.ts';
 import { canUseWorkerPool } from './worker-pool.ts';
@@ -40,6 +40,8 @@ export interface MixStats {
   rendered: number;
   thinned: number;
   silenced: number;
+  /** Each worker's last second (see `MixWorkerDiag`). */
+  workers?: Array<MixWorkerDiag | null>;
 }
 
 export interface MixPool extends SfxPool {
@@ -191,6 +193,7 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
   });
   const listeners = new Set<(msg: SfxPoolOutMsg) => void>();
   const loads = o.workers.map(() => 0);
+  const diags: Array<MixWorkerDiag | null> = o.workers.map(() => null);
   const portCounters = o.workers.map(() => ({ rendered: 0, thinned: 0, silenced: 0 }));
   let portStarved = 0;
   const bands: [number, number] = [1, 1];
@@ -205,6 +208,7 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
       if (m.t === 'ready') return resolve();
       if (m.t === 'load') {
         loads[wi] = m.busy;
+        if (m.diag) diags[wi] = m.diag;
         portCounters[wi] = { rendered: m.rendered, thinned: m.thinned, silenced: m.silenced };
         return;
       }
@@ -303,7 +307,7 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
           thinned += Atomics.load(statsArr, w * STAT_STRIDE + 1);
           silenced += Atomics.load(statsArr, w * STAT_STRIDE + 2);
         }
-        return { transport, rendered, thinned, silenced };
+        return { transport, rendered, thinned, silenced, workers: [...diags] };
       }
       return { transport, ...portCounters.reduce((a, c) => ({ rendered: a.rendered + c.rendered, thinned: a.thinned + c.thinned, silenced: a.silenced + c.silenced }), { rendered: 0, thinned: 0, silenced: 0 }) };
     },
