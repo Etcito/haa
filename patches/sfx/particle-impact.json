@@ -1,0 +1,40 @@
+{
+  "haa": 1,
+  "id": "particle-impact",
+  "title": "Particle impact",
+  "inputs": [
+    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0, "curve": "lin" },
+    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.3, "smooth": 0, "curve": "lin" },
+    { "name": "hardness", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0, "curve": "lin" }
+  ],
+  "graph": {
+    "duration": 0.4,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      { "id": "in-energy", "type": "input", "label": "Energy", "x": 20, "y": 20, "params": { "name": "energy" } },
+      { "id": "in-size", "type": "input", "label": "Size", "x": 20, "y": 100, "params": { "name": "size" } },
+      { "id": "in-hardness", "type": "input", "label": "Hardness", "x": 20, "y": 180, "params": { "name": "hardness" } },
+
+      { "id": "map-freq-hardness", "type": "map", "label": "Hardness -> tone (thud..tick)", "x": 220, "y": 140, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 220, "outMax": 4200 } },
+      { "id": "map-freq-size", "type": "map", "label": "Size -> pitch offset", "x": 220, "y": 220, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 150, "outMax": -80 } },
+      { "id": "map-decay", "type": "map", "label": "Hardness -> decay (long..short)", "x": 220, "y": 60, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.065, "outMax": 0.004 } },
+      { "id": "map-level", "type": "map", "label": "Energy -> level", "x": 220, "y": 300, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.08, "outMax": 0.9 } },
+
+      { "id": "particle", "type": "grain", "label": "Particle contact", "x": 460, "y": 140, "params": { "wave": "filtered-noise", "frequency": 1000, "resonance": 2.4, "rate": 0, "attack": 0.0002, "decay": 0.02, "spread": 0, "jitter": 0, "variation": 0.1, "glide": 0, "delay": 0, "width": 0.15, "level": 0 } },
+      { "id": "out", "type": "output", "label": "Output", "x": 700, "y": 140, "params": { "gain": 0.9 } }
+    ],
+    "connections": [
+      { "id": "e-hardness-freq", "from": "map-freq-hardness", "to": "particle", "target": "frequency", "amount": 1 },
+      { "id": "e-hardness-freq-in", "from": "in-hardness", "to": "map-freq-hardness", "target": "in", "amount": 1 },
+      { "id": "e-size-freq", "from": "map-freq-size", "to": "particle", "target": "frequency", "amount": 1 },
+      { "id": "e-size-freq-in", "from": "in-size", "to": "map-freq-size", "target": "in", "amount": 1 },
+      { "id": "e-hardness-decay-in", "from": "in-hardness", "to": "map-decay", "target": "in", "amount": 1 },
+      { "id": "e-decay-particle", "from": "map-decay", "to": "particle", "target": "decay", "amount": 1 },
+      { "id": "e-energy-level-in", "from": "in-energy", "to": "map-level", "target": "in", "amount": 1 },
+      { "id": "e-level-particle", "from": "map-level", "to": "particle", "target": "level", "amount": 1 },
+      { "id": "e-particle-out", "from": "particle", "to": "out", "target": "audio", "amount": 1 }
+    ]
+  },
+  "master": 1
+}

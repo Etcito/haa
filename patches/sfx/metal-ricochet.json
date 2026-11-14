@@ -1,0 +1,76 @@
+{
+  "haa": 1,
+  "id": "metal-ricochet",
+  "title": "Metal ricochet",
+  "inputs": [
+    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.7, "smooth": 0, "curve": "lin" },
+    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.3, "smooth": 0, "curve": "lin" },
+    { "name": "hardness", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.9, "smooth": 0, "curve": "lin" },
+    { "name": "speed", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.6, "smooth": 0, "curve": "lin" }
+  ],
+  "graph": {
+    "duration": 1.4,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      { "id": "in-energy", "type": "input", "label": "Energy", "x": 20, "y": 20, "params": { "name": "energy" } },
+      { "id": "in-size", "type": "input", "label": "Size", "x": 20, "y": 100, "params": { "name": "size" } },
+      { "id": "in-hardness", "type": "input", "label": "Hardness", "x": 20, "y": 180, "params": { "name": "hardness" } },
+      { "id": "in-speed", "type": "input", "label": "Speed", "x": 20, "y": 260, "params": { "name": "speed" } },
+
+      { "id": "map-ping-freq", "type": "map", "label": "Size -> ping pitch", "x": 220, "y": 100, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 1720, "outMax": 820 } },
+      { "id": "map-ping-decay", "type": "map", "label": "Hardness -> ring decay", "x": 220, "y": 180, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.115, "outMax": 0.545 } },
+      { "id": "map-ping-cutoff", "type": "map", "label": "Hardness -> ping brightness", "x": 220, "y": 220, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 1990, "outMax": 6990 } },
+      { "id": "map-ping-level", "type": "map", "label": "Energy -> ping level", "x": 220, "y": 20, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.1, "outMax": 1.0 } },
+
+      { "id": "map-whine-pitch-range", "type": "map", "label": "Speed -> whine pitch range", "x": 220, "y": 320, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 150, "outMax": 1750 } },
+      { "id": "map-whine-level-range", "type": "map", "label": "Speed -> whine level", "x": 220, "y": 400, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.04, "outMax": 0.85 } },
+      { "id": "map-whine-decay", "type": "map", "label": "Speed -> whine fall time", "x": 220, "y": 460, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.249, "outMax": 0.899 } },
+
+      { "id": "ping", "type": "grain", "label": "Impact spark", "x": 460, "y": 20, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 0, "attack": 0.0003, "decay": 0.006, "spread": 0, "jitter": 0, "variation": 0.15, "glide": 0, "delay": 0, "width": 0.2, "level": 0 } },
+      { "id": "ping-filter", "type": "filter", "label": "Ping brightness", "x": 680, "y": 20, "params": { "cutoff": 10, "resonance": 1.1, "mode": "bandpass" } },
+      { "id": "ping-resonator", "type": "resonator", "label": "Metal ping modes", "x": 900, "y": 20, "params": { "frequency": 80, "decay": 0.005, "color": 0.95, "mix": 0.65 } },
+
+      { "id": "whine-env", "type": "envelope", "label": "Zing fall-off", "x": 460, "y": 320, "params": { "attack": 0.003, "decay": 0.001, "sustain": 0, "hold": 0.02, "release": 0.08, "clock": "patch", "retrigger": 0 } },
+      { "id": "whine-pitch-math", "type": "math", "label": "Pitch sweep", "x": 680, "y": 320, "params": { "a": 0, "b": 0, "operation": "multiply", "edge0": 0, "edge1": 1 } },
+      { "id": "whine-level-math", "type": "math", "label": "Level sweep", "x": 680, "y": 400, "params": { "a": 0, "b": 0, "operation": "multiply", "edge0": 0, "edge1": 1 } },
+      { "id": "whine", "type": "whistle", "label": "Falling whine / zing", "x": 900, "y": 360, "params": { "pitch": 280, "breath": 0.4, "vibrato": 0.25, "gain": 0 } },
+
+      { "id": "mixbus", "type": "gain", "label": "Mix", "x": 1140, "y": 160, "params": { "gain": 1 } },
+      { "id": "out", "type": "output", "label": "Output", "x": 1340, "y": 160, "params": { "gain": 0.85 } }
+    ],
+    "connections": [
+      { "id": "e-size-pingfreq", "from": "in-size", "to": "map-ping-freq", "target": "in", "amount": 1 },
+      { "id": "e-hardness-pingdecay", "from": "in-hardness", "to": "map-ping-decay", "target": "in", "amount": 1 },
+      { "id": "e-hardness-pingcutoff", "from": "in-hardness", "to": "map-ping-cutoff", "target": "in", "amount": 1 },
+      { "id": "e-energy-pinglevel", "from": "in-energy", "to": "map-ping-level", "target": "in", "amount": 1 },
+      { "id": "e-speed-pitchrange", "from": "in-speed", "to": "map-whine-pitch-range", "target": "in", "amount": 1 },
+      { "id": "e-speed-levelrange", "from": "in-speed", "to": "map-whine-level-range", "target": "in", "amount": 1 },
+      { "id": "e-speed-decayrange", "from": "in-speed", "to": "map-whine-decay", "target": "in", "amount": 1 },
+      { "id": "e-whinedecay-env", "from": "map-whine-decay", "to": "whine-env", "target": "decay", "amount": 1 },
+
+      { "id": "e-level-ping", "from": "map-ping-level", "to": "ping", "target": "level", "amount": 1 },
+      { "id": "e-ping-pingfilter", "from": "ping", "to": "ping-filter", "target": "audio", "amount": 1 },
+      { "id": "e-cutoff-pingfilter", "from": "map-ping-cutoff", "to": "ping-filter", "target": "cutoff", "amount": 1 },
+
+      { "id": "e-pingfilter-pingres", "from": "ping-filter", "to": "ping-resonator", "target": "audio", "amount": 1 },
+      { "id": "e-freq-pingres", "from": "map-ping-freq", "to": "ping-resonator", "target": "frequency", "amount": 1 },
+      { "id": "e-decay-pingres", "from": "map-ping-decay", "to": "ping-resonator", "target": "decay", "amount": 1 },
+
+      { "id": "e-env-pitchmath", "from": "whine-env", "to": "whine-pitch-math", "target": "a", "amount": 1 },
+      { "id": "e-pitchrange-pitchmath", "from": "map-whine-pitch-range", "to": "whine-pitch-math", "target": "b", "amount": 1 },
+      { "id": "e-pitchmath-whine", "from": "whine-pitch-math", "to": "whine", "target": "pitch", "amount": 1 },
+
+      { "id": "e-env-levelmath", "from": "whine-env", "to": "whine-level-math", "target": "a", "amount": 1 },
+      { "id": "e-levelrange-levelmath", "from": "map-whine-level-range", "to": "whine-level-math", "target": "b", "amount": 1 },
+      { "id": "e-levelmath-whine", "from": "whine-level-math", "to": "whine", "target": "gain", "amount": 1 },
+
+      { "id": "e-pingres-mix", "from": "ping-resonator", "to": "mixbus", "target": "audio", "amount": 1 },
+      { "id": "e-pingfilter-mix", "from": "ping-filter", "to": "mixbus", "target": "audio", "amount": 0.1 },
+      { "id": "e-whine-mix", "from": "whine", "to": "mixbus", "target": "audio", "amount": 4.0 },
+
+      { "id": "e-mix-out", "from": "mixbus", "to": "out", "target": "audio", "amount": 1 }
+    ]
+  },
+  "master": 1
+}
