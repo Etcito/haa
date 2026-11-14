@@ -1,0 +1,637 @@
+{
+  "haa": 1,
+  "id": "explosion",
+  "title": "Explosion",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.6,
+      "smooth": 0.01,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0.01,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 4.5,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "crack",
+        "type": "grain",
+        "x": 40,
+        "y": 40,
+        "label": "Initial crack",
+        "compact": true,
+        "params": {
+          "wave": "filtered-noise",
+          "frequency": 5200,
+          "resonance": 1.1,
+          "rate": 0,
+          "attack": 0.0003,
+          "decay": 0.022,
+          "spread": 10,
+          "jitter": 0,
+          "variation": 0,
+          "glide": -0.6,
+          "delay": 0,
+          "width": 0.3,
+          "level": 1.0
+        }
+      },
+      {
+        "id": "crack-hp",
+        "type": "filter",
+        "x": 320,
+        "y": 40,
+        "label": "Crack brightness",
+        "compact": true,
+        "params": {
+          "cutoff": 1500,
+          "resonance": 0.7,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "crack-shaper",
+        "type": "shaper",
+        "x": 600,
+        "y": 40,
+        "label": "Crack bite",
+        "compact": true,
+        "params": {
+          "drive": 7,
+          "bias": 0,
+          "fold": 0.15,
+          "output": 1,
+          "mix": 1
+        }
+      },
+      {
+        "id": "boom-src",
+        "type": "noise",
+        "x": 40,
+        "y": 320,
+        "label": "Rumble source",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.95,
+          "width": 0
+        }
+      },
+      {
+        "id": "boom-lpf",
+        "type": "filter",
+        "x": 320,
+        "y": 320,
+        "label": "Low boom band",
+        "compact": true,
+        "params": {
+          "cutoff": 165,
+          "resonance": 0.8,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "boom-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 420,
+        "label": "Boom envelope",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.01,
+            1
+          ],
+          [
+            0.05,
+            0.85
+          ],
+          [
+            0.3,
+            0.4
+          ],
+          [
+            0.7,
+            0.12
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "boom-gain",
+        "type": "gain",
+        "x": 600,
+        "y": 320,
+        "label": "Boom level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "boom-resonator",
+        "type": "resonator",
+        "x": 880,
+        "y": 320,
+        "label": "Chest/boom body",
+        "compact": true,
+        "params": {
+          "frequency": 95,
+          "decay": 0.22,
+          "color": 0.85,
+          "mix": 0.22
+        }
+      },
+      {
+        "id": "debris",
+        "type": "grain",
+        "x": 40,
+        "y": 620,
+        "label": "Debris clicks",
+        "compact": true,
+        "params": {
+          "wave": "filtered-noise",
+          "frequency": 2800,
+          "resonance": 1.0,
+          "rate": 7,
+          "attack": 0.001,
+          "decay": 0.02,
+          "spread": 22,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": -0.3,
+          "delay": 0.03,
+          "width": 0.6,
+          "level": 0.3
+        }
+      },
+      {
+        "id": "debris-curve",
+        "type": "curve",
+        "x": 40,
+        "y": 720,
+        "label": "Debris tail thinning",
+        "compact": true,
+        "params": {
+          "amount": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.04,
+            1
+          ],
+          [
+            0.3,
+            0.55
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      {
+        "id": "debris-gain",
+        "type": "gain",
+        "x": 320,
+        "y": 620,
+        "label": "Debris level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "mix",
+        "type": "gain",
+        "x": 1160,
+        "y": 320,
+        "label": "Dry mix",
+        "compact": true,
+        "params": {
+          "gain": 1
+        }
+      },
+      {
+        "id": "output",
+        "type": "output",
+        "x": 1440,
+        "y": 320,
+        "label": "Sortie audio",
+        "compact": true,
+        "params": {
+          "gain": 0.9
+        }
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "x": 40,
+        "y": 980,
+        "label": "energy",
+        "compact": true,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "x": 40,
+        "y": 1040,
+        "label": "size",
+        "compact": true,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "map-energy-output",
+        "type": "map",
+        "x": 340,
+        "y": 980,
+        "label": "energy -> loudness",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -0.45,
+          "outMax": 0.3
+        }
+      },
+      {
+        "id": "map-energy-boomdecay",
+        "type": "map",
+        "x": 340,
+        "y": 1010,
+        "label": "energy -> longer rumble",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -0.3,
+          "outMax": 0.2
+        }
+      },
+      {
+        "id": "map-energy-crackdecay",
+        "type": "map",
+        "x": 340,
+        "y": 1040,
+        "label": "energy -> longer crack",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -0.012,
+          "outMax": 0.008
+        }
+      },
+      {
+        "id": "map-energy-crackdrive",
+        "type": "map",
+        "x": 340,
+        "y": 1070,
+        "label": "energy -> sharper crack",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -8.4,
+          "outMax": 5.6
+        }
+      },
+      {
+        "id": "map-energy-debrisrate",
+        "type": "map",
+        "x": 340,
+        "y": 1100,
+        "label": "energy -> more debris",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -5,
+          "outMax": 4
+        }
+      },
+      {
+        "id": "map-size-boomfreq",
+        "type": "map",
+        "x": 340,
+        "y": 1130,
+        "label": "size -> deeper boom pitch",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 45,
+          "outMax": -45
+        }
+      },
+      {
+        "id": "map-size-debrisfreq",
+        "type": "map",
+        "x": 340,
+        "y": 1160,
+        "label": "size -> bigger chunks (lower pitch)",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 900,
+          "outMax": -900
+        }
+      },
+      {
+        "id": "map-size-boomdecay",
+        "type": "map",
+        "x": 340,
+        "y": 1190,
+        "label": "size -> longer rumble (scale)",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -0.15,
+          "outMax": 0.15
+        }
+      },
+      {
+        "id": "map-size-boomlpf",
+        "type": "map",
+        "x": 340,
+        "y": 1220,
+        "label": "size -> deeper low band",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 30,
+          "outMax": -30
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "crack-crackhp",
+        "from": "crack",
+        "to": "crack-hp",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "crackhp-crackshaper",
+        "from": "crack-hp",
+        "to": "crack-shaper",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "crackshaper-mix",
+        "from": "crack-shaper",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.1
+      },
+      {
+        "id": "boomsrc-boomlpf",
+        "from": "boom-src",
+        "to": "boom-lpf",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "boomlpf-boomgain",
+        "from": "boom-lpf",
+        "to": "boom-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "boomcurve-boomgain",
+        "from": "boom-curve",
+        "to": "boom-gain",
+        "target": "gain",
+        "amount": 1.8
+      },
+      {
+        "id": "boomgain-boomresonator",
+        "from": "boom-gain",
+        "to": "boom-resonator",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "boomresonator-mix",
+        "from": "boom-resonator",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.3
+      },
+      {
+        "id": "debris-debrisgain",
+        "from": "debris",
+        "to": "debris-gain",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "debriscurve-debrisgain",
+        "from": "debris-curve",
+        "to": "debris-gain",
+        "target": "gain",
+        "amount": 1.5
+      },
+      {
+        "id": "debrisgain-mix",
+        "from": "debris-gain",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "mix-output",
+        "from": "mix",
+        "to": "output",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-map-output",
+        "from": "in-energy",
+        "to": "map-energy-output",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-output",
+        "from": "map-energy-output",
+        "to": "output",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-map-boomdecay",
+        "from": "in-energy",
+        "to": "map-energy-boomdecay",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-boomdecay",
+        "from": "map-energy-boomdecay",
+        "to": "boom-resonator",
+        "target": "decay",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-map-crackdecay",
+        "from": "in-energy",
+        "to": "map-energy-crackdecay",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-crackdecay",
+        "from": "map-energy-crackdecay",
+        "to": "crack",
+        "target": "decay",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-map-crackdrive",
+        "from": "in-energy",
+        "to": "map-energy-crackdrive",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-crackdrive",
+        "from": "map-energy-crackdrive",
+        "to": "crack-shaper",
+        "target": "drive",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-map-debrisrate",
+        "from": "in-energy",
+        "to": "map-energy-debrisrate",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-debrisrate",
+        "from": "map-energy-debrisrate",
+        "to": "debris",
+        "target": "rate",
+        "amount": 1
+      },
+      {
+        "id": "e-size-map-boomfreq",
+        "from": "in-size",
+        "to": "map-size-boomfreq",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-size-boomfreq",
+        "from": "map-size-boomfreq",
+        "to": "boom-resonator",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "e-size-map-debrisfreq",
+        "from": "in-size",
+        "to": "map-size-debrisfreq",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-size-debrisfreq",
+        "from": "map-size-debrisfreq",
+        "to": "debris",
+        "target": "frequency",
+        "amount": 1
+      },
+      {
+        "id": "e-size-map-boomdecay",
+        "from": "in-size",
+        "to": "map-size-boomdecay",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-size-boomdecay",
+        "from": "map-size-boomdecay",
+        "to": "boom-resonator",
+        "target": "decay",
+        "amount": 1
+      },
+      {
+        "id": "e-size-map-boomlpf",
+        "from": "in-size",
+        "to": "map-size-boomlpf",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-size-boomlpf",
+        "from": "map-size-boomlpf",
+        "to": "boom-lpf",
+        "target": "cutoff",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}
