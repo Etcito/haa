@@ -32,9 +32,9 @@
 
       { "id": "resonator", "type": "resonator", "x": 1000, "y": 90, "label": "Glass body modes", "params": { "frequency": 1000, "decay": 0.3, "color": 0.3, "mix": 0.55 } },
 
-      { "id": "debris-1", "type": "grain", "x": 420, "y": 220, "label": "Shard cloud A", "params": { "wave": "filtered-noise", "frequency": 0, "resonance": 2.0, "rate": 0, "attack": 0.0006, "decay": 0.1, "spread": 9, "jitter": 0.85, "variation": 0.65, "glide": -0.04, "delay": 0.0, "width": 0.7, "level": 0.5 } },
-      { "id": "debris-2", "type": "grain", "x": 420, "y": 300, "label": "Shard cloud B", "params": { "wave": "filtered-noise", "frequency": 0, "resonance": 1.7, "rate": 0, "attack": 0.0008, "decay": 0.16, "spread": 11, "jitter": 0.9, "variation": 0.7, "glide": -0.05, "delay": 0.015, "width": 0.75, "level": 0.4 } },
-      { "id": "debris-3", "type": "grain", "x": 420, "y": 380, "label": "Shard cloud C", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.001, "decay": 0.22, "spread": 7, "jitter": 0.75, "variation": 0.5, "glide": -0.03, "delay": 0.03, "width": 0.6, "level": 0.28 } },
+      { "id": "debris-1", "type": "grain", "x": 420, "y": 220, "label": "Shard cloud A", "params": { "wave": "filtered-noise", "frequency": 40, "resonance": 2.0, "rate": 0, "attack": 0.0006, "decay": 0.1, "spread": 9, "jitter": 0.85, "variation": 0.65, "glide": -0.04, "delay": 0.0, "width": 0.7, "level": 0.5 } },
+      { "id": "debris-2", "type": "grain", "x": 420, "y": 300, "label": "Shard cloud B", "params": { "wave": "filtered-noise", "frequency": 40, "resonance": 1.7, "rate": 0, "attack": 0.0008, "decay": 0.16, "spread": 11, "jitter": 0.9, "variation": 0.7, "glide": -0.05, "delay": 0.015, "width": 0.75, "level": 0.4 } },
+      { "id": "debris-3", "type": "grain", "x": 420, "y": 380, "label": "Shard cloud C", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.001, "decay": 0.22, "spread": 7, "jitter": 0.75, "variation": 0.5, "glide": -0.03, "delay": 0.03, "width": 0.6, "level": 0.28 } },
 
       { "id": "mix-gain", "type": "gain", "x": 1200, "y": 150, "label": "Final mix", "params": { "gain": 0 } },
       { "id": "out", "type": "output", "x": 1400, "y": 150, "label": "Output", "params": { "gain": 0.9 } }

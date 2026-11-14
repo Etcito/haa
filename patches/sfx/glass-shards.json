@@ -18,9 +18,9 @@
       { "id": "map-freq", "type": "map", "x": 200, "y": 90, "label": "Size -> pitch", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 9000, "outMax": 3400 } },
       { "id": "map-decay", "type": "map", "x": 200, "y": 160, "label": "Size -> decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.03, "outMax": 0.12 } },
 
-      { "id": "mode-1", "type": "grain", "x": 400, "y": 20, "label": "Mode 1", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.055, "spread": 0.4, "jitter": 0, "variation": 0.1, "glide": -0.04, "delay": 0.0, "width": 0.3, "level": 0.45 } },
-      { "id": "mode-2", "type": "grain", "x": 400, "y": 90, "label": "Mode 2", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.05, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.06, "delay": 0.0015, "width": 0.4, "level": 0.32 } },
-      { "id": "mode-3", "type": "grain", "x": 400, "y": 160, "label": "Mode 3", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.045, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.08, "delay": 0.003, "width": 0.5, "level": 0.24 } },
+      { "id": "mode-1", "type": "grain", "x": 400, "y": 20, "label": "Mode 1", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.055, "spread": 0.4, "jitter": 0, "variation": 0.1, "glide": -0.04, "delay": 0.0, "width": 0.3, "level": 0.45 } },
+      { "id": "mode-2", "type": "grain", "x": 400, "y": 90, "label": "Mode 2", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.05, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.06, "delay": 0.0015, "width": 0.4, "level": 0.32 } },
+      { "id": "mode-3", "type": "grain", "x": 400, "y": 160, "label": "Mode 3", "params": { "wave": "sine", "frequency": 40, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.045, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.08, "delay": 0.003, "width": 0.5, "level": 0.24 } },
       { "id": "click", "type": "grain", "x": 400, "y": 230, "label": "Contact click", "params": { "wave": "filtered-noise", "frequency": 7000, "resonance": 2.2, "rate": 0, "attack": 0.0002, "decay": 0.02, "spread": 3, "jitter": 0, "variation": 0.2, "glide": -0.1, "delay": 0.0, "width": 0.5, "level": 0.45 } },
 
       { "id": "final-gain", "type": "gain", "x": 620, "y": 100, "label": "Final level", "params": { "gain": 0 } },
