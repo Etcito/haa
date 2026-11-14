@@ -3,14 +3,17 @@
 // frame it calls `update(listener)`. Browser-only (Web Audio + AudioWorklet).
 import { HaaEngine, patchBytes } from '../engine.ts';
 import type { HaaInput, HaaPatch, VoiceInfo } from '../types.ts';
-import type { Occlusion, RayCast, RaySegment, Reflection, RoomEstimate, Vec3 } from './acoustics.ts';
-import { earlyReflections, estimateRoom, length, occlusion, occlusionLevels, sub, v3 } from './acoustics.ts';
+import type { RayCast, RaySegment, Reflection, Vec3 } from './acoustics.ts';
+import { add, cross, dot, earlyReflections, length, normalize, scale, SPEED_OF_SOUND_M_S, sub, v3, WET_MAX } from './acoustics.ts';
+import type { DirectPath, ListenerTrace, SpaceEstimate, VoiceReverb } from './raytrace.ts';
+import { diffractionLevels, directPath, sphereDirections, traceListener, voiceReverb } from './raytrace.ts';
 import type { InteractionKind, SfxEvent, SfxInputs, SoundMaterial, SoundMaterialSpec } from './contract.ts';
 import { defineMaterial, fallbackGain, fullInputs, isContinuous, resolveInteraction, SFX_INPUTS } from './contract.ts';
 import { createSfxPool } from './pool.ts';
 import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
-import { REF_DISTANCE, ReverbBus, setListener, VoiceChain } from './spatial3d.ts';
+import type { ChainState } from './spatial3d.ts';
+import { bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, TAPS_PER_VOICE, VoiceChain } from './spatial3d.ts';
 import type { SwarmOptions } from './swarm.ts';
 import { SwarmTracker } from './swarm.ts';
 
@@ -36,6 +39,21 @@ export interface SfxEngineOptions {
   reverbAmount?: number;
   /** Swarms of small impacts (slots with a `cluster` preset): grouping options, or false to give every impact its own voice. */
   swarm?: SwarmOptions | false;
+  /** Ray budget of the acoustics (docs/physics-sound.md): more rays, smoother and slower. */
+  acoustics?: AcousticsOptions;
+}
+
+export interface AcousticsOptions {
+  /** Rays traced from the listener. Default 256. */
+  traceRays?: number;
+  /** Bounces followed per ray. Default 6. */
+  bounces?: number;
+  /** Every n-th traced ray feeds each voice's diffuse field. Default 2. */
+  reverbStride?: number;
+  /** Listener trace period (s). Default 0.1. */
+  traceEvery?: number;
+  /** Geometry period of each voice (s). Default 0.15. */
+  voiceEvery?: number;
 }
 
 export interface PresetRecord {
@@ -66,6 +84,8 @@ export interface PlayOptions {
   priority?: number;
   /** Label for the debug log. */
   label?: string;
+  /** Radius (m) of a large source (rain, an explosion): it spreads around the listener up close. */
+  extent?: number;
 }
 
 /** A running continuous voice started with `loop`. */
@@ -104,7 +124,53 @@ export interface SfxStats {
   /** Patch loads done on the audio thread, and the slowest (ms). */
   loads: number;
   maxLoadMs: number;
-  room: RoomEstimate | null;
+  /** The listener's space, from the ray trace. */
+  room: SfxRoom | null;
+  /** Acoustics of each busy voice as it is heard now (smoothed values). */
+  voices: SfxVoiceAcoustics[];
+}
+
+export interface SfxVoiceAcoustics {
+  slot: number;
+  preset: string;
+  distance: number;
+  /** Visible share of the source (direct path). */
+  visible: number;
+  /** Extra length of the path around the obstacles (m). */
+  excess: number;
+  /** Direct-path loss (dB) at 250 Hz, 1 kHz, 4 kHz. */
+  directDb: [number, number, number];
+  /** Diffuse field energy relative to the direct sound at 2 m (dB), its reverb time and pre-delay. */
+  wetDb: number;
+  rt60: number;
+  predelay: number;
+  /** Left/right of the diffuse field (-1..1). */
+  pan: number;
+  taps: number;
+}
+
+/** The listener's space, plus the diffuse level a footstep at the listener's feet gets (`wet`, amplitude at 2 m). */
+export interface SfxRoom extends SpaceEstimate {
+  wet: number;
+  /** Reverb time of that footstep's diffuse field (s). */
+  wetRt60: number;
+}
+
+/** Smoothed acoustic state of a voice: targets from the geometry, values glided toward them every frame. */
+interface Acoustic {
+  path: DirectPath | null;
+  reverb: VoiceReverb | null;
+  visible: number;
+  excess: number;
+  found: number;
+  via: Vec3;
+  wetDb: number;
+  rtLog: number;
+  rdir: Vec3;
+  predelay: number;
+  sendHz: number;
+  taps: Array<{ key: string; refl: Reflection; w: number; target: number } | null>;
+  primed: boolean;
 }
 
 interface Slot {
@@ -117,10 +183,11 @@ interface Slot {
   priority: number;
   started: number;
   position: Vec3;
+  /** Radius of a large source (m), 0 for a point. */
+  extent: number;
   level: number;
   energy: number;
-  occ: Occlusion;
-  reflections: Reflection[];
+  ac: Acoustic;
   nextGeo: number;
   key: string | null;
   stopping: boolean;
@@ -158,11 +225,35 @@ export interface SfxEngine {
   dispose(): void;
 }
 
-const ROOM_EVERY_S = 0.25;
-const GEO_EVERY_S = 0.2;
+/** Rays from a source that find its reflecting planes. */
+const SOURCE_DIRS = sphereDirections(64);
+const WET_FLOOR_DB = -90;
+// Glide time constants (s) of the per-frame smoothing: the geometry updates every 0.1-0.15 s and
+// each value follows it continuously, so nothing jumps when a ray starts or stops hitting.
+const TAU_DIRECT = 0.12;
+const TAU_VIA = 0.15;
+const TAU_WET = 0.2;
+const TAU_RT = 0.35;
+const TAU_TAP = 0.1;
+/**
+ * The diffuse field is computed physically (dB re the direct sound at 2 m), then mixed: lowered by
+ * `WET_OFFSET_DB`, and above 0 dB it grows at half the rate. A bare wooden shed or a concrete hall
+ * is 10 dB wetter than a footstep's direct sound at the feet (critical distance under half a metre):
+ * true, and it turned the step into a wash. A constant offset keeps every contrast between places
+ * (hall centre, in front of the door, the doorway, outside); the knee only tames the wettest rooms.
+ * The former hard cap made every closed room the same.
+ */
+export const WET_OFFSET_DB = -5;
+export const WET_RATIO = 0.5;
+
+/** Diffuse level as mixed (dB) from the physical one. */
+export function mixedWetDb(db: number): number {
+  const x = db + WET_OFFSET_DB;
+  return x <= 0 ? x : x * WET_RATIO;
+}
 const CONTINUOUS_FADE_S = 0.08;
-/** Audio-thread cost of one voice's 3D chain (HRTF panner, 4 taps), measured in Chrome: ≈ 0.6 % of real time. */
-const CHAIN_COST = 0.006;
+/** Audio-thread cost of one voice's 3D chain (5 HRTF panners, 6 delays, 4 biquads, the bank sends), measured in Chrome: ≈ 1.5-2 % of real time. */
+const CHAIN_COST = 0.018;
 /** A one-shot estimated below this level at the listener (−60 dB) is not started. */
 const AUDIBLE = 1e-3;
 /** A slide/roll voice (its measured RMS, not a proxy) estimated below −70 dB at the listener is not started. */
@@ -185,6 +276,32 @@ export function levelAtSpeed(levels: readonly number[], speed: number): number {
   return levels[levels.length - 1];
 }
 
+function newAcoustic(): Acoustic {
+  return {
+    path: null, reverb: null, visible: 1, excess: 0, found: 1, via: v3(0, 0, 0), wetDb: WET_FLOOR_DB, rtLog: Math.log(0.5),
+    rdir: v3(0, 0, 0), predelay: 0, sendHz: 16000, taps: Array.from({ length: TAPS_PER_VOICE }, () => null), primed: false,
+  };
+}
+
+/** Low-pass of the early reflections from their surfaces' absorption (16 kHz off concrete, ~3 kHz off snow), weighted by their levels. */
+function tapCutoff(ac: Acoustic): number {
+  let w = 0;
+  let a = 0;
+  for (const t of ac.taps) {
+    if (!t) continue;
+    const g = t.refl.gain * t.w;
+    w += g;
+    a += g * t.refl.absorption;
+  }
+  const alpha = w > 0 ? a / w : 0.05;
+  return 16000 * (1 - alpha) ** 2 + 2000;
+}
+
+/** Low-pass of the reverb send: a room of absorbent surfaces is darker (16 kHz off concrete, ~4 kHz off snow). */
+function sendCutoff(absorption: number): number {
+  return 16000 * (1 - Math.min(1, Math.max(0, absorption))) ** 2 + 1500;
+}
+
 /** Map a 0..1 contract value onto the range the preset declares for that input. */
 export function toDeclared(input: HaaInput | undefined, v: number): number {
   if (!input || input.kind !== 'continuous') return v;
@@ -200,12 +317,15 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const budget = o.cpuBudget ?? 0.6;
   let raycast = o.raycast;
   let occlusionStrength = o.occlusionStrength ?? 1;
+  const ao = o.acoustics ?? {};
+  const traceEvery = ao.traceEvery ?? 0.1;
+  const voiceEvery = ao.voiceEvery ?? 0.15;
 
   // Mix: voices -> dry + reverb -> master -> limiter -> output, with per-ear analysers.
   const dry = ctx.createGain();
   const mix = ctx.createGain();
   dry.connect(mix);
-  const reverb = new ReverbBus(ctx, haa, mix);
+  const reverb = new ReverbBank(ctx, haa, mix);
   if (o.reverbAmount !== undefined) reverb.setAmount(o.reverbAmount);
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -3;
@@ -227,10 +347,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   const slots: Slot[] = [];
   for (let i = 0; i < pool.slots; i++) {
-    const chain = new VoiceChain(ctx, dry, reverb.input);
+    const chain = new VoiceChain(ctx, dry, reverb.inputs);
     slots.push({
       index: i, chain, busy: false, id: 0, preset: '', oneShot: true, priority: 0, started: 0,
-      position: v3(0, 0, 0), level: 0, energy: 0, occ: occlusionLevels(0), reflections: [], nextGeo: 0,
+      position: v3(0, 0, 0), extent: 0, level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
       key: null, stopping: false, cost: 0, speed: 0, quietSince: -1,
     });
   }
@@ -272,8 +392,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const continuous = new Map<string, Slot>();
   const logs = new Set<(e: SfxLogEntry) => void>();
   let listener: SfxListener = { position: v3(0, 1.6, 0), forward: v3(0, 0, -1), up: v3(0, 1, 0) };
-  let room: RoomEstimate | null = null;
+  let room: SfxRoom | null = null;
+  let trace: ListenerTrace | null = null;
   let nextRoom = 0;
+  let lastFrame = -1;
   let roomRays: RaySegment[] = [];
   const voiceRays = new Map<number, RaySegment[]>();
   let nextId = 1;
@@ -398,18 +520,147 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     return out;
   }
 
+  function retrace(now: number): void {
+    if (!raycast) return;
+    const rays: RaySegment[] = [];
+    trace = traceListener(listener.position, raycast, { rays: ao.traceRays ?? 256, bounces: ao.bounces ?? 6 }, rays);
+    roomRays = rays;
+    const feet = voiceReverb(trace, sub(listener.position, v3(0, 1.5, 0)), raycast, { stride: (ao.reverbStride ?? 2) * 2, ref: REF_DISTANCE });
+    room = { ...trace.space, wet: feet.energy > 0 ? Math.min(WET_MAX, 10 ** (mixedWetDb(10 * Math.log10(feet.energy)) / 20)) : 0, wetRt60: feet.rt60 };
+    nextRoom = now + traceEvery;
+  }
+
+  /** Recompute a voice's geometry (direct path, its diffuse field, its echoes) when due. */
   function geometry(s: Slot, now: number, immediate: boolean): void {
-    const d = dist(s.position);
-    if (raycast && (immediate || now >= s.nextGeo)) {
-      const rays: RaySegment[] = [];
-      s.occ = occlusion(s.position, listener.position, raycast, 0.2, rays);
-      s.reflections = earlyReflections(s.position, listener.position, raycast, { max: 4 }, rays);
-      voiceRays.set(s.index, rays);
-      s.nextGeo = now + GEO_EVERY_S * (0.8 + 0.4 * ((s.index * 0.618) % 1));
-      s.chain.setReflections(s.reflections, immediate);
+    if (!raycast || !(immediate || now >= s.nextGeo)) return;
+    if (!trace) retrace(now);
+    const rays: RaySegment[] = [];
+    const ac = s.ac;
+    ac.path = directPath(s.position, listener.position, trace, raycast, { extent: s.extent }, rays);
+    ac.reverb = trace ? voiceReverb(trace, s.position, raycast, { stride: ao.reverbStride ?? 2, ref: REF_DISTANCE }) : null;
+    const refl = earlyReflections(s.position, listener.position, raycast, {
+      max: TAPS_PER_VOICE, directions: SOURCE_DIRS, soft: 0.35, minDelay: 0.0015, scattering: 0.35,
+    }, rays);
+    // A tap keeps its plane while the plane reflects; a new plane takes a free tap from silence.
+    const keep = new Set(refl.map((r) => r.key));
+    for (const t of ac.taps) if (t && !keep.has(t.key)) t.target = 0;
+    for (const r of refl) {
+      const held = ac.taps.find((t) => t && t.key === r.key);
+      if (held) {
+        held.refl = r;
+        held.target = r.weight;
+        continue;
+      }
+      const free = ac.taps.findIndex((t) => !t || (t.target === 0 && t.w < 1e-3));
+      if (free >= 0) ac.taps[free] = { key: r.key, refl: r, w: immediate ? r.weight : 0, target: r.weight };
     }
-    const occ = occlusionLevels(s.occ.blocked, occlusionStrength);
-    if (!s.stopping) s.chain.setLevels(s.level, occ, d, immediate);
+    voiceRays.set(s.index, rays);
+    s.nextGeo = now + voiceEvery * (0.8 + 0.4 * ((s.index * 0.618) % 1));
+    if (immediate || !ac.primed) prime(ac);
+  }
+
+  /** Jump the smoothed values to the targets (a voice that starts). */
+  function prime(ac: Acoustic): void {
+    const p = ac.path;
+    if (p) {
+      ac.visible = p.visible;
+      ac.excess = p.excess;
+      ac.found = p.found ? 1 : 0;
+      ac.via = p.via;
+    }
+    const r = ac.reverb;
+    ac.wetDb = r && r.energy > 0 ? Math.max(WET_FLOOR_DB, 10 * Math.log10(r.energy)) : WET_FLOOR_DB;
+    if (r) {
+      ac.rtLog = Math.log(r.rt60);
+      ac.rdir = r.direction;
+      ac.predelay = r.predelay;
+      ac.sendHz = sendCutoff(r.absorption);
+    }
+    for (const t of ac.taps) if (t) t.w = t.target;
+    ac.primed = true;
+  }
+
+  /** Glide a voice's smoothed acoustics by `dt` and write its chain. */
+  function applyChain(s: Slot, dt: number, immediate: boolean): void {
+    const ac = s.ac;
+    const L = listener.position;
+    const k = (tau: number): number => (immediate ? 1 : 1 - Math.exp(-dt / tau));
+    const p = ac.path;
+    if (p) {
+      ac.visible += (p.visible - ac.visible) * k(TAU_DIRECT);
+      ac.excess += (p.excess - ac.excess) * k(TAU_DIRECT);
+      ac.found += ((p.found ? 1 : 0) - ac.found) * k(TAU_DIRECT);
+      ac.via = add(ac.via, scale(sub(p.via, ac.via), k(TAU_VIA)));
+    }
+    const r = ac.reverb;
+    const wetTarget = r && r.energy > 0 ? Math.max(WET_FLOOR_DB, 10 * Math.log10(r.energy)) : WET_FLOOR_DB;
+    ac.wetDb += (wetTarget - ac.wetDb) * k(TAU_WET);
+    if (r) {
+      ac.rtLog += (Math.log(r.rt60) - ac.rtLog) * k(TAU_RT);
+      ac.rdir = add(ac.rdir, scale(sub(r.direction, ac.rdir), k(TAU_WET)));
+      ac.predelay += (r.predelay - ac.predelay) * k(TAU_WET);
+      ac.sendHz += (sendCutoff(r.absorption) - ac.sendHz) * k(TAU_WET);
+    }
+    // Direct sound: the source, or the edge it bends around, at the length of that path.
+    const toS = sub(s.position, L);
+    const d = Math.max(1e-3, length(toS));
+    const dEff = Math.max(0.3, d - 0.8 * s.extent);
+    const dirS = scale(toS, 1 / d);
+    const hidden = Math.min(1, Math.max(0, 1 - ac.visible));
+    let dir = dirS;
+    let len = dEff;
+    if (hidden > 0 && raycast) {
+      const toV = sub(ac.via, L);
+      const lv = length(toV);
+      if (lv > 1e-3) {
+        dir = normalize(add(scale(dirS, 1 - hidden), scale(toV, hidden / lv)));
+        if (length(dir) < 1e-3) dir = dirS;
+        const around = lv + length(sub(s.position, ac.via)) - 0.8 * s.extent;
+        len = dEff + (Math.max(dEff, around) - dEff) * hidden;
+      }
+    }
+    const levels = raycast
+      ? diffractionLevels({ visible: ac.visible, excess: ac.excess, found: ac.found > 0.5 }, occlusionStrength)
+      : { bandsDb: [0, 0, 0] as [number, number, number] };
+    const near = len < REF_DISTANCE ? REF_DISTANCE / Math.max(len, NEAR_MIN_DISTANCE) : 1;
+    const u = s.extent / Math.max(len, 0.01);
+    const spread = u >= 1 ? 1 : u * u;
+    const send = Math.min(WET_MAX, 10 ** (mixedWetDb(ac.wetDb) / 20));
+    const right = normalize(cross(listener.forward, listener.up));
+    const state: ChainState = {
+      level: s.stopping ? NaN : s.level,
+      delay: len / SPEED_OF_SOUND_M_S,
+      // Air absorption, exaggerated for a game-sized world: -0.3 dB per metre above 4 kHz (-6 dB at 20 m).
+      airShelfDb: -Math.min(24, 0.3 * len),
+      direct: near * 10 ** (levels.bandsDb[0] / 20),
+      shelvesDb: [levels.bandsDb[1] - levels.bandsDb[0], levels.bandsDb[2] - levels.bandsDb[1]],
+      panned: Math.sqrt(1 - spread),
+      wide: Math.sqrt(spread) * Math.min(1, REF_DISTANCE / Math.max(len, REF_DISTANCE)),
+      apparent: add(L, scale(dir, len)),
+      send: ac.wetDb <= WET_FLOOR_DB + 1 ? 0 : send,
+      predelay: ac.predelay,
+      sendHz: ac.sendHz,
+      // Half the lateral component: a field arriving through a door on the left still reaches the
+      // right ear (head shadow, room), 5-8 dB lower, not 25.
+      sendPan: 0.5 * dot(ac.rdir, right),
+      bank: bankWeights(reverb.stretched(Math.exp(ac.rtLog))),
+      tapHz: tapCutoff(ac),
+    };
+    s.chain.apply(state, immediate);
+    ac.taps.forEach((t, i) => {
+      if (!t) {
+        s.chain.setTap(i, null, immediate);
+        return;
+      }
+      t.w += (t.target - t.w) * k(TAU_TAP);
+      const path = length(sub(L, t.refl.image));
+      s.chain.setTap(i, {
+        image: t.refl.image,
+        delay: Math.max(0, (path - len) / SPEED_OF_SOUND_M_S),
+        gain: t.refl.gain * t.w,
+      }, immediate);
+      if (t.target === 0 && t.w < 1e-3) ac.taps[i] = null;
+    });
     // A preset that declares `_dist` gets the distance in metres (a far explosion rumbles more).
     if (presets.get(s.preset)?.info.inputs.some((i) => i.name === '_dist')) pool.set(s.index, s.id, { _dist: d });
   }
@@ -460,6 +711,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     label: string,
     kind: SfxLogEntry['kind'],
     key: string | null,
+    extent?: number,
   ): Slot | null {
     const d = dist(position);
     const prio = priority ?? (inputs.energy + 0.05) / (1 + d / 8) + (oneShot ? 0 : 0.25);
@@ -492,15 +744,15 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     counters.started++;
     const id = nextId++;
     Object.assign(slot, {
-      busy: true, id, preset: rec.name, oneShot, priority: prio, started: ctx.currentTime, position,
+      busy: true, id, preset: rec.name, oneShot, priority: prio, started: ctx.currentTime, position, extent: extent ?? 0, ac: newAcoustic(),
       level: gain * levelTrim(rec, inputs.energy, kind), energy: inputs.energy,
       key, stopping: false, cost: rec.cost, speed: inputs.speed, quietSince: -1,
     });
     const maxSeconds = rec.info.mode === 'timeline' ? rec.info.duration : 3;
     slot.chain.attach(pool.node, slot.index);
-    slot.chain.setPosition(position, true);
     pool.start(slot.index, id, rec.name, declaredInputs(rec, inputs), oneShot, maxSeconds);
     geometry(slot, ctx.currentTime, true);
+    applyChain(slot, 0, true);
     log({ ...base, slot: slot.index, result: stole ? `stole ${stole}` : 'started' });
     return slot;
   }
@@ -560,7 +812,6 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const voice = clusterVoices.get(sw.id);
     if (voice && voice.slot.busy && voice.slot.id === voice.id && !voice.slot.stopping) {
       voice.slot.position = sw.center;
-      voice.slot.chain.setPosition(sw.center, false);
       voice.slot.energy = cin.energy;
       pool.set(voice.slot.index, voice.id, declaredInputs(rec, cin));
       return true;
@@ -608,7 +859,6 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         const rec = presets.get(r.slot.preset);
         if (running && running.busy && !running.stopping && rec) {
           running.position = ev.position;
-          running.chain.setPosition(ev.position, false);
           running.level = r.gain * levelTrim(rec, r.inputs.energy, ev.kind);
           running.energy = r.inputs.energy;
           running.speed = r.inputs.speed;
@@ -629,7 +879,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
           log({ label, preset: r.slot.preset, kind: ev.kind, inputs: r.inputs, slot: -1, result: 'missing', distance: dist(ev.position) });
           continue;
         }
-        const s = start(rec, ev.position, r.inputs, false, r.gain, undefined, label, ev.kind, key);
+        const s = start(rec, ev.position, r.inputs, false, r.gain, undefined, label, ev.kind, key, ev.extent);
         if (s) continuous.set(key, s);
       }
       return;
@@ -642,7 +892,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         log({ label, preset: r.slot.preset, kind: ev.kind, inputs: r.inputs, slot: -1, result: 'missing', distance: dist(ev.position) });
         continue;
       }
-      start(rec, ev.position, r.inputs, true, r.gain, undefined, label, ev.kind, null);
+      start(rec, ev.position, r.inputs, true, r.gain, undefined, label, ev.kind, null, ev.extent);
     }
   }
 
@@ -650,11 +900,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const full = fullInputs(inputs);
     const rec = presets.get(name);
     if (rec) {
-      start(rec, position, full, true, opt.gain ?? 1, opt.priority, opt.label ?? name, 'play', null);
+      start(rec, position, full, true, opt.gain ?? 1, opt.priority, opt.label ?? name, 'play', null, opt.extent);
       return;
     }
     void preset(name).then((r) => {
-      if (r) start(r, position, full, true, opt.gain ?? 1, opt.priority, opt.label ?? name, 'play', null);
+      if (r) start(r, position, full, true, opt.gain ?? 1, opt.priority, opt.label ?? name, 'play', null, opt.extent);
       else log({ label: opt.label ?? name, preset: name, kind: 'play', inputs: full, slot: -1, result: 'missing', distance: dist(position) });
     });
   }
@@ -669,7 +919,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const alive = (): boolean => !!slot && slot.busy && slot.id === id && !slot.stopping;
     void preset(name).then((rec) => {
       if (!rec || stopped) return;
-      slot = start(rec, pos, current, false, gain, opt.priority, opt.label ?? name, 'loop', null);
+      slot = start(rec, pos, current, false, gain, opt.priority, opt.label ?? name, 'loop', null, opt.extent);
       if (slot) id = slot.id;
     });
     return {
@@ -688,7 +938,6 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         pos = p;
         if (!alive()) return;
         slot!.position = p;
-        slot!.chain.setPosition(p, false);
       },
       setGain(g) {
         gain = g;
@@ -706,19 +955,16 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     listener = l;
     setListener(ctx, l.position, l.forward, l.up);
     const now = ctx.currentTime;
+    const dt = lastFrame < 0 ? 0 : Math.min(0.25, Math.max(0, now - lastFrame));
+    lastFrame = now;
     runDue();
     updateSwarms(now);
-    if (raycast && now >= nextRoom) {
-      const rays: RaySegment[] = [];
-      room = estimateRoom(l.position, raycast, {}, rays);
-      roomRays = rays;
-      reverb.setRoom(room);
-      nextRoom = now + ROOM_EVERY_S;
-    }
+    if (raycast && now >= nextRoom) retrace(now);
     for (const s of slots) {
       if (!s.busy) continue;
       s.priority = (s.energy + 0.05) / (1 + dist(s.position) / 8) + (s.oneShot ? 0 : 0.25);
       geometry(s, now, false);
+      applyChain(s, dt, false);
     }
   }
 
@@ -736,6 +982,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     update,
     setRaycast(cast) {
       raycast = cast;
+      trace = null;
+      nextRoom = 0;
     },
     setOcclusionStrength(strength) {
       occlusionStrength = Number.isFinite(strength) ? Math.min(2, Math.max(0, strength)) : 1;
@@ -751,6 +999,15 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         load: busy.reduce((a, s) => a + s.cost, 0),
         ...counters,
         room,
+        voices: busy.map((s) => {
+          const ac = s.ac;
+          const lv = diffractionLevels({ visible: ac.visible, excess: ac.excess, found: ac.found > 0.5 }, occlusionStrength);
+          return {
+            slot: s.index, preset: s.preset, distance: dist(s.position), visible: ac.visible, excess: ac.excess,
+            directDb: lv.bandsDb, wetDb: ac.wetDb, rt60: Math.exp(ac.rtLog), predelay: ac.predelay,
+            pan: 0.5 * dot(ac.rdir, normalize(cross(listener.forward, listener.up))), taps: ac.taps.filter((t) => t && t.w > 0.01).length,
+          };
+        }),
       };
     },
     rays() {

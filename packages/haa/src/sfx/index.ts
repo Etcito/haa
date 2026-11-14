@@ -1,6 +1,7 @@
 // `@etcito/haa/sfx`: physics-driven sound effects (docs/physics-sound.md).
 export * from './contract.ts';
 export * from './acoustics.ts';
+export * from './raytrace.ts';
 export * from './rapier.ts';
 export * from './pool-protocol.ts';
 export * from './pool.ts';

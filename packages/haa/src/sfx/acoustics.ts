@@ -27,7 +27,7 @@ export interface RaySegment {
   from: Vec3;
   to: Vec3;
   hit: boolean;
-  kind: 'room' | 'reflection' | 'occlusion';
+  kind: 'room' | 'reflection' | 'occlusion' | 'path';
 }
 
 export const SPEED_OF_SOUND_M_S = 343;
@@ -67,12 +67,28 @@ export interface Reflection {
   gain: number;
   absorption: number;
   id: number;
+  /** Stable key of the reflecting plane (surface id and normal): a tap follows its plane. */
+  key: string;
+  /**
+   * Share of the probes around the bounce point that are valid (`soft` option): an echo fades
+   * as its bounce point slides off the edge of a wall or into a door, instead of switching off.
+   */
+  weight: number;
 }
 
 export interface ReflectionOptions {
   max?: number;
   maxDist?: number;
   directions?: readonly Vec3[];
+  /** Probe 4 more bounce points this far (m) around the first, in the plane; the echo's weight is the valid share. */
+  soft?: number;
+  /**
+   * An echo arriving less than this (s) after the direct sound is dropped: it is part of the direct
+   * sound (a footstep's own floor) and as a separate tap it only comb-filters it. Default 0.
+   */
+  minDelay?: number;
+  /** Share of the reflected energy scattered (not specular): the tap keeps √(1 − scattering). Default 0. */
+  scattering?: number;
 }
 
 /**
@@ -108,16 +124,33 @@ export function earlyReflections(
     const di = -ds;
     const t = di / (di - dl);
     const point = add(image, scale(sub(listener, image), t));
-    if (!reaches(listener, point, hit.id, cast) || !reaches(source, point, hit.id, cast)) continue;
     const path = length(sub(listener, image));
+    const delay = Math.max(0, (path - direct) / SPEED_OF_SOUND_M_S);
+    if (delay < (o.minDelay ?? 0)) continue;
+    const valid = (p: Vec3): boolean => reaches(listener, p, hit.id, cast) && reaches(source, p, hit.id, cast);
+    let weight: number;
+    if (o.soft && o.soft > 0) {
+      // Probes around the bounce point in the plane: the centre counts double.
+      const t1 = normalize(cross(n, Math.abs(n.y) < 0.9 ? v3(0, 1, 0) : v3(1, 0, 0)));
+      const t2 = cross(n, t1);
+      let ok = valid(point) ? 2 : 0;
+      for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (valid(add(point, add(scale(t1, a * o.soft), scale(t2, b * o.soft))))) ok++;
+      weight = ok / 6;
+      if (weight <= 0) continue;
+    } else {
+      if (!valid(point)) continue;
+      weight = 1;
+    }
     out.push({
       image,
       point,
       path,
-      delay: Math.max(0, (path - direct) / SPEED_OF_SOUND_M_S),
-      gain: Math.sqrt(Math.max(0, 1 - hit.absorption)),
+      delay,
+      gain: Math.sqrt(Math.max(0, (1 - hit.absorption) * (1 - (o.scattering ?? 0)))),
       absorption: hit.absorption,
       id: hit.id,
+      key: planeKey,
+      weight,
     });
   }
   out.sort((a, b) => a.path - b.path);

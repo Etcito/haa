@@ -205,6 +205,8 @@ export interface SfxEvent {
   /** Identity of a continuous interaction (slide/roll): `start`, then `update`s, then `end`. */
   key?: string;
   phase?: 'start' | 'update' | 'end';
+  /** Radius (m) of a large source (rain over an area, an explosion): it spreads around the listener up close. */
+  extent?: number;
   /** Physical values behind the inputs, for logs. */
   joules?: number;
   normalSpeed?: number;
