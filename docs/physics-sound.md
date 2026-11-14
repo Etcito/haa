@@ -630,3 +630,82 @@ Before (orchestrator on main, in-worklet pool): the cluttered run had 34-233 und
 (a 0.9 s shed is a mix of the 0.5 and 1.4 s responses, not its own; the 2, 2.8, 5.6 and 8 s steps are
 gone), early reflections are left/right only, 10 of 16 voices are equal-power panned, and an input
 change of a continuous voice (a roll's speed) reaches the sound 43 ms later.
+
+## Mix thread (`createMixPool`, `src/sfx/mix-pool.ts`, `crates/haa-mix`)
+
+The owner: "est ce que le mix ne pourrait pas être un thread a part et il pre-mix tout ce qu'on lui
+envoie sur X piste de manière a ce que la carte son recoive exactement le nombre de piste qu'elle
+peut gérer ?" It does now. The render workers (`@etcito/haa/mix-worker`) synthesise their voices AND
+spatialise and pre-mix them, in wasm (`crates/haa-mix`, `@etcito/haa/mix-wasm`), onto **10 buses**:
+10 virtual speakers fixed in the world, a ring of 8 at ear level every 45 degrees plus straight up
+and straight down. The audio thread receives exactly those 10 tracks, whatever the number of voices.
+
+- **Per voice, in the worker (Rust)**: a delay line read at the propagation delay (glided: Doppler),
+  the air-absorption shelf (4 kHz), the occlusion bands (shelves at 600 Hz and 2.5 kHz from the
+  diffraction loss), the 1/r loss and the near field, the direct sound panned onto the speakers
+  (pairwise constant-power between the two ring speakers around its azimuth, the poles by its
+  elevation: a lateral source keeps its full interaural cues), its unpanned wide part (a large
+  source heard from inside), 4 early-reflection taps panned at their image directions (full 3D
+  again, from the same delay line), and the reverb send: pre-delay, low-pass (absorbent rooms
+  darker), weights over the decay steps, into an FDN.
+- **Reverb**: one 8-line FDN per decay step, all 11 steps of the bank (0.25-8 s: the 5.6 and 8 s tails
+  of the big buildings are back), each line feeding one ring speaker (decorrelated, no convolver),
+  normalised like the impulse responses it replaces (+3 dB: a diffuse field spread over the HRTF
+  speakers reaches each ear at about half the power a stereo response did); the input is biased
+  toward the diffuse field's arrival direction, so a hall heard through its door still comes from
+  the door. A step runs only while it is fed or ringing.
+- **The audio thread** (`haa-sfx-mixbus` + 10 PannerNodes): it sums the workers' 10-channel blocks
+  and decodes the 10 buses with 10 static HRTF panners at the speakers' directions. The engine keeps
+  the AudioListener at the origin and gives it the listener's orientation every frame, so a head
+  turn rotates the whole field at once; only the listener's translation waits for the lookahead.
+  Its cost is fixed: workers x 10 x 128 samples summed, 10 panners, the limiter.
+- **No voice cap but time**: 64 voices at once (the engine's slots; a voice costs the audio thread
+  nothing). Each worker measures what each of its voices costs and renders them loudest first within
+  75 % of each block's real time; the others are thinned that block (frozen: a loop resumes with a
+  10 ms fade, a one-shot thinned over 0.25 s is silenced). `stats().mix`: voice-blocks rendered and
+  thinned, voices silenced. Swarms still merge debris impacts into cluster voices (`clustered`).
+- **Without cross-origin isolation** (SDF Modeler today) the same path runs over MessagePorts: each
+  worker posts its blocks to the worklet and the worklet posts its read position back; lookahead 6144
+  frames (128 ms). No path is left where a scene sound's graph runs in the worklet.
+
+Measured in Chrome on this machine (24 threads, 4 render workers, 64 slots), playbackStats, 60 s
+each, cold cache from load:
+
+| run | underruns | starved quanta | voice-blocks rendered / thinned | voices silenced |
+|-----|-----------|----------------|----------------------------------|-----------------|
+| cluttered building, everything thrown at once, rain, walker, explosions | 0 | 0 | 495 017 / 29 343 | 61 |
+| rain + walker + a bottle every 0.8 s + 40 pebbles every 3 s | 0 | 0 | 523 433 / 205 | 0 |
+| the cluttered run with 20 workers spinning on the CPU | 0 | 299 | 334 568 / 249 906 | 1 372 |
+| the cluttered run over MessagePorts (no shared memory) | 0 | 0 | 929 852 / 62 518 | 92 |
+
+Up to 64 voices played at once (the slots: beyond them a voice is still dropped, 900-2 600 per run;
+the main thread's geometry per voice is what the slot count protects now, not the audio thread).
+
+Lookahead: 2048 frames by default; 1024 held the cluttered run with nothing starved, 512 starved
+(51 quanta) and thinned more. Eight render workers under 20 spinning CPU threads (28 busy threads on
+24) cost the audio thread itself 7 underruns: the default is a quarter of the hardware threads, at
+most 4.
+
+Spatial quality against the per-voice chains (`?orchestrator=0`: an HRTF panner and 4 HRTF taps per
+voice, the 11 rendered responses), the same cases in real time:
+
+| case | per-voice chains | mix thread |
+|------|------------------|------------|
+| T20 hall centre / 1 m inside the door / doorway / 4 m outside | 3.59 / 1.99 / 1.30 / 0.50 s | 3.43 / 1.96 / 1.12 / 0.55 s |
+| T20 shed / big empty / big cluttered | 1.08 / 5.44 / 5.53 s | 0.92 / 5.13 / 5.13 s |
+| noise behind the free wall (all / below 500 Hz / above 3 kHz) | -7.3 / -6.7 / -10.6 dB | -7.3 / -7.3 / -9.0 dB |
+| ILD at 45 / 90 / 135 degrees | 3.9 / 5.0 / 3.7 dB | 3.8 / 4.0 / 3.0 dB |
+| ITD at 45 / 90 / 135 degrees | 375 / 563 / 396 us | 417 / 750 / 417 us |
+
+A first layout on the 8 corners of a cube (first-order panning) compressed the lateral cues (ILD 3 dB
+and ITD 333 us at 90 degrees: the corners sit at 45 degrees) and summed the direct sound coherently
+over many speakers; the ring fixed both. The late-to-direct energy of a click moved by several dB
+from run to run in this real-time harness (the direct window is easily disturbed), so it is not
+given as a number; the decay per room is.
+
+What is lost: a source between two ring speakers is a phantom image of the pair, and a head turn
+moves it across speakers rather than through one HRTF; elevation is the ring and two poles only; the
+reverb is an FDN, not the rendered responses (its onset is the lines' first echoes, 12-36 ms); the
+wide part of a large source is spread over all speakers, not its own stereo; the listener's
+translation reaches the sound one lookahead later (43 ms); the diffuse field is shared per worker
+(its direction is a per-voice bias at the FDN input, not a per-voice pan).

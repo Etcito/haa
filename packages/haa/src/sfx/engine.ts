@@ -18,6 +18,7 @@ import type { FaceSource, FaceSourceOptions, SoundFace } from './faces.ts';
 import { createFaceSource } from './faces.ts';
 import type { SwarmOptions } from './swarm.ts';
 import type { OrchestratorStats, SfxOrchestrator } from './orchestrator.ts';
+import type { MixChain, MixPool, MixStats } from './mix-pool.ts';
 import { SwarmTracker } from './swarm.ts';
 
 export interface SfxEngineOptions {
@@ -56,7 +57,7 @@ export interface SfxEngineOptions {
    * The voice pool, made by the host: `createWorkerPool` synthesises the voices in render workers
    * and the audio thread only copies them (docs "Bounded audio thread"). Default: the in-worklet pool.
    */
-  pool?: SfxPool & { offThread?: boolean; starved?(): number; workerLoad?(): number[] };
+  pool?: SfxPool & { offThread?: boolean; mixer?: boolean; starved?(): number; workerLoad?(): number[] };
 }
 
 export interface AcousticsOptions {
@@ -162,6 +163,8 @@ export interface SfxStats {
   workerLoad: number[];
   /** Voices allowed at once now (the slots minus the spares, or the orchestrator's calibrated cap). */
   voiceCap: number;
+  /** Mix thread: voice-blocks rendered, thinned (frozen while a worker was behind), voices silenced. */
+  mix: MixStats | null;
 }
 
 export interface SfxVoiceAcoustics {
@@ -209,7 +212,7 @@ interface Acoustic {
 
 interface Slot {
   index: number;
-  chain: VoiceChain;
+  chain: VoiceChain | MixChain;
   busy: boolean;
   id: number;
   preset: string;
@@ -410,9 +413,25 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const dry = ctx.createGain();
   const mix = ctx.createGain();
   dry.connect(mix);
+  // Mix thread: the workers spatialise and the decoded buses arrive here; no chains, no bank.
+  const mixPool = (o.pool as { mixer?: boolean } | undefined)?.mixer ? (o.pool as unknown as MixPool) : null;
+  if (mixPool) mixPool.output.connect(dry);
   // With an orchestrator the impulse responses come from its worker (and its persistent cache):
   // creating the engine no longer renders 11 responses on this thread.
-  const reverb = new ReverbBank(ctx, haa, mix, BANK_RT60, orch ? (rt, a) => orch.ir(rt, a) : undefined);
+  let reverbAmount = 1;
+  // Mix thread: the reverb is the workers' FDN bank (all 11 decay steps); this stand-in keeps the
+  // amount and the bank's interface.
+  const reverb: Pick<ReverbBank, 'inputs' | 'setAmount' | 'stretched' | 'allowedMask' | 'allow' | 'setActive' | 'running'> = mixPool
+    ? {
+      inputs: [],
+      setAmount: (a: number) => { reverbAmount = Math.min(2, Math.max(0, Number.isFinite(a) ? a : 1)); },
+      stretched: (rt: number) => rt * (1 + Math.max(0, reverbAmount - 1) / 2),
+      allowedMask: BANK_RT60.map(() => true),
+      allow: () => undefined,
+      setActive: () => undefined,
+      running: 0,
+    }
+    : new ReverbBank(ctx, haa, mix, BANK_RT60, orch ? (rt, a) => orch.ir(rt, a) : undefined);
   if (o.reverbAmount !== undefined) reverb.setAmount(o.reverbAmount);
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -3;
@@ -434,7 +453,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   const slots: Slot[] = [];
   for (let i = 0; i < pool.slots; i++) {
-    const chain = new VoiceChain(ctx, dry, reverb.inputs, { cheapTaps: !!orch });
+    const chain = mixPool ? mixPool.chain(i, () => listener.position, () => reverbAmount) : new VoiceChain(ctx, dry, reverb.inputs, { cheapTaps: !!orch });
     // With a worker pool the graph is static: every chain stays fed by its ring output for good
     // and its quality is fixed (the first HRTF_SLOTS slots HRTF, the others equal power). A start,
     // a steal or a stop is then a message to a worker; nothing on the audio thread changes.
@@ -770,6 +789,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         ? activeBankWeights(offThread ? reverb.stretched(Math.exp(ac.rtLog)) : Math.min(orch.bankCap(), reverb.stretched(Math.exp(ac.rtLog))), reverb.allowedMask)
         : bankWeights(reverb.stretched(Math.exp(ac.rtLog))),
       tapHz: tapCutoff(ac),
+      rdir: ac.rdir,
+      priority: s.priority,
     };
     s.chain.apply(state, immediate);
     s.bankW = state.send > 0 ? state.bank : [];
@@ -881,7 +902,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     // only; otherwise it plays live and the orchestrator bakes that cell for the next time.
     const declared = declaredInputs(rec, inputs);
     const baked = oneShot && orch ? orch.oneShot(rec, declared, offThread) : null;
-    const audioCost = baked || offThread ? CHAIN_COST : rec.cost;
+    // Mix thread: a voice costs the audio thread nothing (it is in the workers' buses); the slots
+    // and the workers' time are the only limits.
+    const audioCost = mixPool ? 0 : baked || offThread ? CHAIN_COST : rec.cost;
     const { slot, stole } = allocate(rec, prio, audioCost);
     if (!slot) {
       counters.dropped++;
@@ -1128,7 +1151,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
 
   function update(l: SfxListener): void {
     listener = l;
-    setListener(ctx, l.position, l.forward, l.up);
+    // Mix thread: the decode panners sit around the origin; the workers place the voices relative
+    // to the listener, so only its orientation reaches the AudioListener (it rotates the field at once).
+    setListener(ctx, mixPool ? v3(0, 0, 0) : l.position, l.forward, l.up);
     const now = ctx.currentTime;
     const dt = lastFrame < 0 ? 0 : Math.min(0.25, Math.max(0, now - lastFrame));
     lastFrame = now;
@@ -1144,10 +1169,13 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     }
     if (orch) {
       orch.tick(now, slots.reduce((a, s) => a + (s.busy && !s.stopping ? s.cost : 0), 0));
-      if (offThread) roomBank();
+      if (mixPool) {
+        // The mix thread's bank has every step.
+      } else if (offThread) roomBank();
       else limitBank(orch.bankSize());
     }
     useBank();
+    (pool as { flush?(): void }).flush?.();
   }
 
   /**
@@ -1286,6 +1314,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         bakedVoices: busy.filter((s) => s.source).length,
         lightVoices: busy.filter((s) => s.chain.quality.taps < TAPS_PER_VOICE || !s.chain.quality.hrtf).length,
         convolvers: reverb.running,
+        mix: mixPool ? mixPool.mixStats() : null,
         allowedConvolvers: reverb.allowedMask.filter(Boolean).length,
         orchestrator: orch ? orch.stats() : null,
         offThread,

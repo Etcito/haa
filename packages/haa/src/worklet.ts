@@ -5,6 +5,8 @@ import { HaaEngine } from './engine.ts';
 import './sfx/pool-worklet.ts';
 // ... and the ring player of the worker pool (`haa-sfx-rings`).
 import './sfx/ring-worklet.ts';
+// ... and the mix thread's bus summer (`haa-sfx-mixbus`).
+import './sfx/mix-worklet.ts';
 import type { HaaVoice } from './engine.ts';
 import { BLOCK, PLAYER_PROCESSOR, TRACE_HZ } from './types.ts';
 import type { PatchIssue, PlayerInMsg, PlayerOutMsg, PlayerProcessorOptions, VoiceInfo } from './types.ts';

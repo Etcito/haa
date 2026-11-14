@@ -11,3 +11,5 @@ export * from './swarm.ts';
 export * from './engine.ts';
 export * from './orchestrator.ts';
 export * from './worker-pool.ts';
+export * from './mix-pool.ts';
+export * from './mix-protocol.ts';

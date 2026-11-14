@@ -53,6 +53,9 @@ export interface VoiceChainOptions {
 export interface ChainState {
   /** Voice trim (preset level law and slot gain). */
   level: number;
+  /** Mix thread: the diffuse field's arrival direction (length = directionality) and the voice's priority. */
+  rdir?: Vec3;
+  priority?: number;
   /** Propagation delay (s). */
   delay: number;
   airShelfDb: number;

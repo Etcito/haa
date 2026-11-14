@@ -1,0 +1,13 @@
+[package]
+name = "haa-mix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "The sfx mixer: per-voice spatialisation (distance delay and Doppler, air absorption, occlusion bands, early reflections, extent, reverb sends) pre-mixed onto 8 world-fixed virtual speakers, and an FDN reverb bank. Runs in the render workers."
+
+# Its own small wasm (packages/haa/pkg/haa-mix.wasm), no imports, next to the synthesis engine.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]

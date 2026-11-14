@@ -12,6 +12,12 @@ try {
     new URL('../target/wasm32-unknown-unknown/release/haa_wasm.wasm', import.meta.url),
     new URL('../packages/haa/pkg/haa.wasm', import.meta.url),
   );
+  // The mixer of the render workers (crates/haa-mix): its own small wasm.
+  execFileSync('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'haa-mix'], { stdio: 'inherit', cwd: ROOT });
+  copyFileSync(
+    new URL('../target/wasm32-unknown-unknown/release/haa_mix.wasm', import.meta.url),
+    new URL('../packages/haa/pkg/haa-mix.wasm', import.meta.url),
+  );
 } catch (error) {
   console.error(`[build-wasm] ${String(error instanceof Error ? error.message : error).replace(/\s*\r?\n\s*/g, ' ')}`);
   process.exit(1);
