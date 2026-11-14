@@ -1,0 +1,54 @@
+{
+  "haa": 1,
+  "id": "glass-shards",
+  "title": "Glass shard tinkle",
+  "inputs": [
+    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0.005, "curve": "lin" },
+    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.4, "smooth": 0.005, "curve": "lin" }
+  ],
+  "graph": {
+    "duration": 0.35,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      { "id": "in-energy", "type": "input", "x": 20, "y": 20, "label": "Energy", "params": { "name": "energy" } },
+      { "id": "in-size", "type": "input", "x": 20, "y": 90, "label": "Size", "params": { "name": "size" } },
+
+      { "id": "map-level", "type": "map", "x": 200, "y": 20, "label": "Energy -> level", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.12, "outMax": 1.0 } },
+      { "id": "map-freq", "type": "map", "x": 200, "y": 90, "label": "Size -> pitch", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 9000, "outMax": 3400 } },
+      { "id": "map-decay", "type": "map", "x": 200, "y": 160, "label": "Size -> decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.03, "outMax": 0.12 } },
+
+      { "id": "mode-1", "type": "grain", "x": 400, "y": 20, "label": "Mode 1", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.055, "spread": 0.4, "jitter": 0, "variation": 0.1, "glide": -0.04, "delay": 0.0, "width": 0.3, "level": 0.45 } },
+      { "id": "mode-2", "type": "grain", "x": 400, "y": 90, "label": "Mode 2", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.05, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.06, "delay": 0.0015, "width": 0.4, "level": 0.32 } },
+      { "id": "mode-3", "type": "grain", "x": 400, "y": 160, "label": "Mode 3", "params": { "wave": "sine", "frequency": 0, "resonance": 0.7, "rate": 0, "attack": 0.0004, "decay": 0.045, "spread": 0.4, "jitter": 0, "variation": 0.15, "glide": -0.08, "delay": 0.003, "width": 0.5, "level": 0.24 } },
+      { "id": "click", "type": "grain", "x": 400, "y": 230, "label": "Contact click", "params": { "wave": "filtered-noise", "frequency": 7000, "resonance": 2.2, "rate": 0, "attack": 0.0002, "decay": 0.02, "spread": 3, "jitter": 0, "variation": 0.2, "glide": -0.1, "delay": 0.0, "width": 0.5, "level": 0.45 } },
+
+      { "id": "final-gain", "type": "gain", "x": 620, "y": 100, "label": "Final level", "params": { "gain": 0 } },
+      { "id": "out", "type": "output", "x": 800, "y": 100, "label": "Output", "params": { "gain": 0.9 } }
+    ],
+    "connections": [
+      { "id": "c-in-level", "from": "in-energy", "to": "map-level", "target": "in", "amount": 1 },
+      { "id": "c-in-freq", "from": "in-size", "to": "map-freq", "target": "in", "amount": 1 },
+      { "id": "c-in-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
+
+      { "id": "c-level", "from": "map-level", "to": "final-gain", "target": "gain", "amount": 1 },
+
+      { "id": "c-freq-1", "from": "map-freq", "to": "mode-1", "target": "frequency", "amount": 1.0 },
+      { "id": "c-freq-2", "from": "map-freq", "to": "mode-2", "target": "frequency", "amount": 1.63 },
+      { "id": "c-freq-3", "from": "map-freq", "to": "mode-3", "target": "frequency", "amount": 2.29 },
+
+      { "id": "c-decay-1", "from": "map-decay", "to": "mode-1", "target": "decay", "amount": 1 },
+      { "id": "c-decay-2", "from": "map-decay", "to": "mode-2", "target": "decay", "amount": 0.85 },
+      { "id": "c-decay-3", "from": "map-decay", "to": "mode-3", "target": "decay", "amount": 0.7 },
+
+      { "id": "c-m1-out", "from": "mode-1", "to": "final-gain", "target": "audio", "amount": 1 },
+      { "id": "c-m2-out", "from": "mode-2", "to": "final-gain", "target": "audio", "amount": 1 },
+      { "id": "c-m3-out", "from": "mode-3", "to": "final-gain", "target": "audio", "amount": 1 },
+      { "id": "c-click-out", "from": "click", "to": "final-gain", "target": "audio", "amount": 1 },
+
+      { "id": "c-out", "from": "final-gain", "to": "out", "target": "audio", "amount": 1 }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
