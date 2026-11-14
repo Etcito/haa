@@ -97,8 +97,11 @@ material's α.
   absorption is a low-pass of 20 kHz / (1 + d/50).
 - **Occlusion**: three rays from the listener, one to the source and two to points 0.35 m beside and
   above it. The last 0.2 m of each ray is ignored, so the surface the sound comes from does not
-  count. With a blocked fraction b, the gain is 1 − 0.84·b (−16 dB when fully blocked) and the
-  low-pass cutoff is 20 kHz^(1−b)·700 Hz^b. The reverb send loses only half of that.
+  count. With a blocked fraction b and a strength s (0..2, default 1), the loss is 10·s·b dB
+  (−10 dB when fully blocked) and the low-pass cutoff is 20 kHz·(1.2 kHz / 20 kHz)^(s·b), so
+  1.2 kHz when fully blocked. The reverb send loses only half of that. `setOcclusionStrength(s)`
+  changes it live (the former −16 dB / 700 Hz made glass behind a wall lose 32 dB).
+- **Reverb amount**: `setReverbAmount(a)` (0..2, default 1) scales the wet level of the room.
 - **Early reflections**: first-order image sources.
   - 14 rays from the source (6 axes and 8 diagonals) find nearby surfaces.
   - Each surface plane mirrors the source. The bounce point is where the line from the image to the

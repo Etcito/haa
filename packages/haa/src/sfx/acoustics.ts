@@ -196,15 +196,19 @@ export function estimateRoom(listener: Vec3, cast: RayCast, o: RoomOptions = {},
 export interface Occlusion {
   /** Fraction of the probe rays blocked, 0..1. */
   blocked: number;
-  /** Linear gain to apply: −16 dB when fully blocked. */
+  /** Linear gain to apply: −10 dB when fully blocked (at strength 1). */
   gain: number;
-  /** Low-pass cutoff (Hz): 20 kHz open, 700 Hz fully blocked, log-interpolated. */
+  /** Low-pass cutoff (Hz): 20 kHz open, 1.2 kHz fully blocked (at strength 1), log-interpolated. */
   cutoff: number;
 }
 
-export const OCCLUDED_GAIN = 0.16;
-export const OCCLUDED_CUTOFF_HZ = 700;
+/** Gain of a fully blocked path at strength 1: −10 dB (a wall muffles, it does not mute). */
+export const OCCLUDED_GAIN = 0.316;
+/** Low-pass cutoff of a fully blocked path at strength 1. */
+export const OCCLUDED_CUTOFF_HZ = 1200;
 export const OPEN_CUTOFF_HZ = 20000;
+/** Range of the occlusion strength: 0 turns occlusion off, 1 is the default, 2 doubles the loss in dB. */
+export const OCCLUSION_STRENGTH_RANGE: readonly [number, number] = [0, 2];
 
 /**
  * Three rays from the listener: to the source and to two points 0.35 m beside it (a soft edge
@@ -233,12 +237,18 @@ export function occlusion(source: Vec3, listener: Vec3, cast: RayCast, endSkip =
   return occlusionLevels(blocked / targets.length);
 }
 
-export function occlusionLevels(blocked: number): Occlusion {
+/**
+ * Gain and cutoff for a blocked fraction. The loss is linear in dB: `strength · blocked` times
+ * −10 dB, and the cutoff falls on a log axis by the same amount (1.2 kHz at 1, 72 Hz at 2).
+ */
+export function occlusionLevels(blocked: number, strength = 1): Occlusion {
   const b = Math.min(1, Math.max(0, blocked));
+  const [lo, hi] = OCCLUSION_STRENGTH_RANGE;
+  const x = b * Math.min(hi, Math.max(lo, Number.isFinite(strength) ? strength : 1));
   return {
     blocked: b,
-    gain: 1 - (1 - OCCLUDED_GAIN) * b,
-    cutoff: OPEN_CUTOFF_HZ ** (1 - b) * OCCLUDED_CUTOFF_HZ ** b,
+    gain: OCCLUDED_GAIN ** x,
+    cutoff: OPEN_CUTOFF_HZ * (OCCLUDED_CUTOFF_HZ / OPEN_CUTOFF_HZ) ** x,
   };
 }
 

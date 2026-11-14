@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 
 import type { RayCast, RayHit, Vec3 } from '../src/sfx/acoustics.ts';
-import { earlyReflections, estimateRoom, occlusion, OCCLUDED_GAIN, SPEED_OF_SOUND_M_S, v3 } from '../src/sfx/acoustics.ts';
+import { earlyReflections, estimateRoom, occlusion, occlusionLevels, OCCLUDED_CUTOFF_HZ, OCCLUDED_GAIN, SPEED_OF_SOUND_M_S, v3 } from '../src/sfx/acoustics.ts';
 
 interface Plane {
   id: number;
@@ -89,7 +89,11 @@ test('occlusion: a wall between source and listener blocks all probes; the sourc
   const cast = planes([floor, wall]);
   const blocked = occlusion(v3(0, 1, 2), v3(0, 1.6, 9), cast);
   assert.equal(blocked.blocked, 1);
-  assert.ok(Math.abs(blocked.gain - OCCLUDED_GAIN) < 1e-12 && blocked.cutoff < 1000);
+  assert.ok(Math.abs(blocked.gain - OCCLUDED_GAIN) < 1e-12 && Math.abs(blocked.cutoff - OCCLUDED_CUTOFF_HZ) < 1e-6);
+  // Fully blocked is about -10 dB and 1.2 kHz by default; strength 0 turns occlusion off, 2 doubles the dB loss.
+  assert.ok(Math.abs(20 * Math.log10(blocked.gain) + 10) < 0.05);
+  assert.deepEqual(occlusionLevels(1, 0), { blocked: 1, gain: 1, cutoff: 20000 });
+  assert.ok(Math.abs(20 * Math.log10(occlusionLevels(1, 2).gain) + 20) < 0.1);
   // A source lying on the floor, heard from above: the floor under it is skipped.
   const onFloor = occlusion(v3(0, 0, 0), v3(3, 2, 0), planes([floor]));
   assert.equal(onFloor.blocked, 0);

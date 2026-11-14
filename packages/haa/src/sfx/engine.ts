@@ -28,6 +28,10 @@ export interface SfxEngineOptions {
   raycast?: RayCast;
   /** Where the mix goes; the context destination by default. */
   output?: AudioNode;
+  /** Occlusion strength, 0..2: 0 off, 1 the default (about -10 dB and 1.2 kHz behind a wall). */
+  occlusionStrength?: number;
+  /** Reverb amount, 0..2: 0 dry, 1 the level estimated from the room. */
+  reverbAmount?: number;
 }
 
 export interface PresetRecord {
@@ -127,6 +131,10 @@ export interface SfxEngine {
   loop(preset: string, position: Vec3, inputs?: Partial<SfxInputs>, o?: PlayOptions): SfxLoop;
   update(listener: SfxListener): void;
   setRaycast(cast: RayCast | undefined): void;
+  /** Occlusion strength, 0..2 (default 1); the running voices follow at their next geometry update. */
+  setOcclusionStrength(strength: number): void;
+  /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
+  setReverbAmount(amount: number): void;
   stats(): SfxStats;
   /** Rays cast during the last updates (room, reflections, occlusion), for a debug overlay. */
   rays(): RaySegment[];
@@ -157,12 +165,14 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const pool: SfxPool = await createSfxPool(ctx, { module: o.module, processorUrl: o.processorUrl, slots: o.slots ?? 16 });
   const budget = o.cpuBudget ?? 0.6;
   let raycast = o.raycast;
+  let occlusionStrength = o.occlusionStrength ?? 1;
 
   // Mix: voices -> dry + reverb -> master -> limiter -> output, with per-ear analysers.
   const dry = ctx.createGain();
   const mix = ctx.createGain();
   dry.connect(mix);
   const reverb = new ReverbBus(ctx, haa, mix);
+  if (o.reverbAmount !== undefined) reverb.setAmount(o.reverbAmount);
   const limiter = ctx.createDynamicsCompressor();
   limiter.threshold.value = -3;
   limiter.knee.value = 0;
@@ -311,7 +321,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       s.nextGeo = now + GEO_EVERY_S * (0.8 + 0.4 * ((s.index * 0.618) % 1));
       s.chain.setReflections(s.reflections, immediate);
     }
-    if (!s.stopping) s.chain.setLevels(s.level, s.occ, d, room ? room.wet : 0, immediate);
+    const occ = occlusionLevels(s.occ.blocked, occlusionStrength);
+    if (!s.stopping) s.chain.setLevels(s.level, occ, d, room ? room.wet : 0, immediate);
     // A preset that declares `_dist` gets the distance in metres (a far explosion rumbles more).
     if (presets.get(s.preset)?.info.inputs.some((i) => i.name === '_dist')) pool.set(s.index, s.id, { _dist: d });
   }
@@ -542,6 +553,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     update,
     setRaycast(cast) {
       raycast = cast;
+    },
+    setOcclusionStrength(strength) {
+      occlusionStrength = Number.isFinite(strength) ? Math.min(2, Math.max(0, strength)) : 1;
+    },
+    setReverbAmount(amount) {
+      reverb.setAmount(amount);
     },
     stats() {
       const busy = slots.filter((s) => s.busy);

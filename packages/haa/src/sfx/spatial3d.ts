@@ -268,6 +268,8 @@ export class ReverbBus {
   private active = 0;
   private current = '';
   private readonly cache = new Map<string, AudioBuffer>();
+  private amount = 1;
+  private wet = 0;
 
   constructor(ctx: BaseAudioContext, engine: HaaEngine, dest: AudioNode) {
     this.ctx = ctx;
@@ -315,6 +317,13 @@ export class ReverbBus {
         if (this.active !== prev) this.convolvers[prev].buffer = null;
       }, 500);
     }
-    this.output.gain.setTargetAtTime(room.wet, t, 0.1);
+    this.wet = room.wet;
+    this.output.gain.setTargetAtTime(room.wet * this.amount, t, 0.1);
+  }
+
+  /** Scale the reverb level of every room: 0 dry, 1 the estimated room, up to 2. */
+  setAmount(amount: number): void {
+    this.amount = Math.min(2, Math.max(0, Number.isFinite(amount) ? amount : 1));
+    this.output.gain.setTargetAtTime(this.wet * this.amount, this.ctx.currentTime, 0.05);
   }
 }
