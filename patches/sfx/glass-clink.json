@@ -1,0 +1,60 @@
+{
+  "haa": 1,
+  "id": "glass-clink",
+  "title": "Glass bottle clink",
+  "inputs": [
+    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.4, "smooth": 0.01, "curve": "lin" },
+    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.4, "smooth": 0.01, "curve": "lin" },
+    { "name": "hardness", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.6, "smooth": 0.01, "curve": "lin" }
+  ],
+  "graph": {
+    "duration": 0.9,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      { "id": "in-energy", "type": "input", "x": 20, "y": 20, "label": "Energy", "params": { "name": "energy" } },
+      { "id": "in-size", "type": "input", "x": 20, "y": 90, "label": "Size", "params": { "name": "size" } },
+      { "id": "in-hardness", "type": "input", "x": 20, "y": 160, "label": "Hardness", "params": { "name": "hardness" } },
+
+      { "id": "map-level", "type": "map", "x": 200, "y": 20, "label": "Energy -> level", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.6, "outMax": 2.4 } },
+      { "id": "map-freq", "type": "map", "x": 200, "y": 90, "label": "Size -> cavity pitch", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 1150, "outMax": 380 } },
+      { "id": "map-decay", "type": "map", "x": 200, "y": 160, "label": "Size -> decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.18, "outMax": 0.55 } },
+      { "id": "map-hard-cutoff", "type": "map", "x": 200, "y": 230, "label": "Hardness -> knock HP", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 700, "outMax": 4200 } },
+      { "id": "map-hard-color", "type": "map", "x": 200, "y": 300, "label": "Hardness -> color", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.1, "outMax": 0.45 } },
+
+      { "id": "knock-curve", "type": "curve", "x": 400, "y": 20, "label": "Knock envelope", "params": { "amount": 1 }, "curve": [ [0, 0], [0.006, 1], [0.03, 0.2], [0.08, 0] ] },
+      { "id": "knock-noise", "type": "noise", "x": 400, "y": 90, "label": "Knock burst", "params": { "color": "white", "level": 1.0, "width": 0.2 } },
+      { "id": "knock-gain", "type": "gain", "x": 600, "y": 90, "label": "Knock shape", "params": { "gain": 0 } },
+      { "id": "knock-filter", "type": "filter", "x": 800, "y": 90, "label": "Knock brightness", "params": { "cutoff": 1500, "resonance": 0.6, "mode": "highpass" } },
+
+      { "id": "resonator", "type": "resonator", "x": 1000, "y": 90, "label": "Bottle cavity", "params": { "frequency": 700, "decay": 0.3, "color": 0.2, "mix": 0.85 } },
+
+      { "id": "mix-gain", "type": "gain", "x": 1200, "y": 90, "label": "Final mix", "params": { "gain": 0 } },
+      { "id": "out", "type": "output", "x": 1400, "y": 90, "label": "Output", "params": { "gain": 1.0 } }
+    ],
+    "connections": [
+      { "id": "c-in-level", "from": "in-energy", "to": "map-level", "target": "in", "amount": 1 },
+      { "id": "c-in-freq", "from": "in-size", "to": "map-freq", "target": "in", "amount": 1 },
+      { "id": "c-in-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
+      { "id": "c-in-hardcut", "from": "in-hardness", "to": "map-hard-cutoff", "target": "in", "amount": 1 },
+      { "id": "c-in-hardcolor", "from": "in-hardness", "to": "map-hard-color", "target": "in", "amount": 1 },
+
+      { "id": "c-level", "from": "map-level", "to": "mix-gain", "target": "gain", "amount": 1 },
+      { "id": "c-freq", "from": "map-freq", "to": "resonator", "target": "frequency", "amount": 1 },
+      { "id": "c-decay", "from": "map-decay", "to": "resonator", "target": "decay", "amount": 1 },
+      { "id": "c-hardcut", "from": "map-hard-cutoff", "to": "knock-filter", "target": "cutoff", "amount": 1 },
+      { "id": "c-hardcolor", "from": "map-hard-color", "to": "resonator", "target": "color", "amount": 1 },
+
+      { "id": "c-env", "from": "knock-curve", "to": "knock-gain", "target": "gain", "amount": 1.0 },
+      { "id": "c-noise", "from": "knock-noise", "to": "knock-gain", "target": "audio", "amount": 1 },
+      { "id": "c-filt", "from": "knock-gain", "to": "knock-filter", "target": "audio", "amount": 1 },
+      { "id": "c-res", "from": "knock-gain", "to": "resonator", "target": "audio", "amount": 1 },
+
+      { "id": "c-res-mix", "from": "resonator", "to": "mix-gain", "target": "audio", "amount": 1 },
+      { "id": "c-click-mix", "from": "knock-filter", "to": "mix-gain", "target": "audio", "amount": 0.3 },
+      { "id": "c-out", "from": "mix-gain", "to": "out", "target": "audio", "amount": 1 }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
