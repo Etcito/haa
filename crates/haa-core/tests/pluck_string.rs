@@ -1,5 +1,6 @@
 //! The `pluck` string as an instrument: score mode (a polyphonic part in one node) and the decay
-//! shape of the two polarizations and the palm mute.
+//! shape of the two polarizations and the palm mute; a partial release, split air/bridge outputs and
+//! sympathetic open strings.
 
 use haa_core::catalog::{NodeTypeDef, ParamKind, find, param_index};
 use haa_core::node::{Node, NodeInit, SampleCtx};
@@ -30,8 +31,13 @@ fn params(overrides: &[(&str, f64)]) -> Vec<f64> {
     values
 }
 
-/// Renders the node for SECONDS in timeline time, with an optional score text.
+/// Renders the node for SECONDS in timeline time, with an optional score text (left channel).
 fn render(p: &[f64], score: Option<&str>) -> Vec<f64> {
+    render_stereo(p, score).into_iter().map(|(l, _)| l).collect()
+}
+
+/// Both channels (they differ only with `split`).
+fn render_stereo(p: &[f64], score: Option<&str>) -> Vec<(f64, f64)> {
     let d = def();
     let mut texts: Vec<Option<String>> = vec![None; p.len()];
     if let Some(s) = score {
@@ -63,7 +69,8 @@ fn render(p: &[f64], score: Option<&str>) -> Vec<f64> {
                 inputs: &[],
                 triggers: &[],
             };
-            node.process_sample(&ctx, (0.0, 0.0), p).l
+            let out = node.process_sample(&ctx, (0.0, 0.0), p);
+            (out.l, out.r)
         })
         .collect()
 }
@@ -132,4 +139,53 @@ fn a_score_note_carries_its_own_decay_and_brightness() {
     let (tail_short, tone_dark) = tail_and_tone(r#"{"start":0.0,"duration":1.95,"midi":45,"level":1,"decay":0.25,"brightness":-0.4}"#);
     assert!(tail_short < 0.2 * tail, "decay x0.25: tail {tail_short} vs {tail}");
     assert!(tone_dark < 0.5 * tone, "brightness -0.4: 8th harmonic share {tone_dark} vs {tone}");
+}
+
+fn span(x: &[f64], a: f64, b: f64) -> &[f64] {
+    &x[(a * SR) as usize..(b * SR) as usize]
+}
+
+#[test]
+fn a_partial_release_damps_by_its_depth_then_rings_on() {
+    // G2 held 0.3 s, released with a 0.1 s T60: a 20 dB release leaves the string ringing about
+    // 20 dB down at its fundamental, a full release (the default) silences it.
+    let score = r#"[{"start":0.05,"duration":0.3,"midi":43,"level":1}]"#;
+    let base = [("decay", 6.0), ("decayTilt", 0.0), ("polarization", 0.0), ("release", 0.1), ("pickNoise", 0.0)];
+    let drop = |depth: f64, from: f64| {
+        let mut o = base.to_vec();
+        o.push(("releaseDepth", depth));
+        let out = render(&params(&o), Some(score));
+        10.0 * (goertzel(span(&out, from, from + 0.15), 98.0) / goertzel(span(&out, 0.18, 0.33), 98.0)).log10()
+    };
+    let partial = drop(20.0, 0.45);
+    let full = drop(120.0, 0.9);
+    assert!((-28.0..-14.0).contains(&partial), "20 dB release: {partial} dB");
+    assert!(full < -60.0, "full release: {full} dB");
+}
+
+#[test]
+fn split_outputs_send_the_fast_polarization_to_the_bridge() {
+    // With fastDecay the right (bridge) side loses its loud attack quickly; the left (air) side
+    // hears the slow polarization and keeps ringing.
+    let score = r#"[{"start":0.0,"duration":1.9,"midi":43,"level":1}]"#;
+    let p = params(&[("split", 1.0), ("fastDecay", 0.25), ("polarization", 0.2), ("decay", 6.0), ("decayTilt", 0.0), ("pickNoise", 0.0)]);
+    let (l, r): (Vec<f64>, Vec<f64>) = render_stereo(&p, Some(score)).into_iter().unzip();
+    let fall = |x: &[f64]| 20.0 * (rms(span(x, 0.02, 0.1)) / rms(span(x, 0.8, 1.0))).log10();
+    assert!(fall(&r) > fall(&l) + 10.0, "bridge falls {} dB, air {} dB", fall(&r), fall(&l));
+    // Without split both channels are the same signal.
+    let mono = render_stereo(&params(&[("fastDecay", 0.25)]), Some(score));
+    assert!(mono.iter().all(|(a, b)| a == b));
+}
+
+#[test]
+fn sympathetic_open_strings_ring_after_the_played_note_is_damped() {
+    // D3 (the open D string's pitch) played 0.3 s then fully damped: only the sympathetic
+    // strings keep sounding at 146.8 Hz.
+    let score = r#"[{"start":0.05,"duration":0.3,"midi":50,"level":1}]"#;
+    let ring = |amount: f64| {
+        let out = render(&params(&[("release", 0.02), ("sympathetic", amount), ("pickNoise", 0.0)]), Some(score));
+        goertzel(span(&out, 0.8, 1.2), 146.83)
+    };
+    let (with, without) = (ring(1.0), ring(0.0));
+    assert!(with > 1e-10 && with > 1e4 * without, "with {with:e} without {without:e}");
 }
