@@ -520,7 +520,11 @@ export class AcousticField implements SfxFieldProvider {
       const w = ea / Math.max(1e-12, ea + eb);
       rt60 = Math.exp(w * lnRt(a) + (1 - w) * lnRt(b));
       direction = b.dir;
-      predelay = b.predelay;
+      // The cell's onset is timed from a source on the listener; a source r away has its direct sound
+      // r / c later and its room paths at most that much longer: the field starts that much sooner
+      // after the direct. (Timed from the cell, the hall's field began 36 ms after a ball 4 m away and
+      // its first 50 ms held 4 dB less than Barron's estimate for the room: C50 -9.9 dB for -5.7.)
+      predelay = b.predelay - length(sub(s, l)) / SPEED_OF_SOUND_M_S;
     } else {
       const at = fp.aperturePoint ?? path.via;
       const rl = Math.max(1, length(sub(l, at)));

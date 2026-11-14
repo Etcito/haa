@@ -7,7 +7,9 @@
 use crate::geom::{Hit, V3, v3};
 
 pub const SPEED_OF_SOUND_M_S: f64 = 343.0;
-pub const TRACE_RT60_RANGE: (f64, f64) = (0.1, 4.5);
+/// As raytrace.ts and the field (8.5 s): it was 4.5 s here, and a big concrete hall read 4.5 s on the
+/// rays against 7.2 s on the field.
+pub const TRACE_RT60_RANGE: (f64, f64) = (0.1, 8.5);
 const CANDIDATE_STEPS: [f64; 9] = [0.6, 1.2, 2.0, 3.0, 4.5, 6.5, 9.0, 13.0, 18.0];
 
 /// Anything that answers a ray cast: nearest hit along the unit `d` within `max`.

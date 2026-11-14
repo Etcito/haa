@@ -319,8 +319,12 @@ const TAU_TAP = 0.1;
  * The former hard cap made every closed room the same.
  */
 export const WET_OFFSET_DB = -7;
-/** Largest reverb send amplitude (+12 dB re the direct sound at 2 m). */
-export const SEND_MAX = 4;
+/**
+ * Largest reverb send amplitude (+18 dB re the direct sound at 2 m): the hall's field is +10 dB, so
+ * the former +12 dB cap left the Reverb slider without effect above -1 dB there (0 and +6 dB gave the
+ * same C50 at 4 m, -8.5 and -8.7 dB).
+ */
+export const SEND_MAX = 8;
 /** Voices fade out over this when stolen (a spare slot takes the new one meanwhile). */
 const STEAL_FADE_S = 0.06;
 /** Slots kept free for stealing with a fade instead of a cut. */
@@ -344,6 +348,16 @@ function ceilingCurve(n = 4097): Float32Array<ArrayBuffer> {
     c[i] = Math.sign(x) * y;
   }
   return c;
+}
+/**
+ * Air absorption of the mid band (1 kHz, ISO 9613-1 at 20 C, 50 % RH: 4.66 dB/km, m = 0.00107 /m):
+ * on its own a room would decay in 0.161 / 4m = 38 s; the field and the rays estimate the walls'
+ * decay only, so the decay played is 1 / (1 / RT + 1 / 38 s): 8 s becomes 6.6 s, 3 s 2.8 s. The
+ * upper bands' air loss is the mixer's (haa-mix AIR_RT_4K, AIR_RT_8K).
+ */
+const AIR_RT_MID = 38;
+function withAir(rt: number): number {
+  return 1 / (1 / Math.max(0.05, rt) + 1 / AIR_RT_MID);
 }
 const CONTINUOUS_FADE_S = 0.08;
 /** Priority bonus of a one-shot during its attack (s): above a continuous voice's +0.25. */
@@ -702,7 +716,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       if (due) nextRoom = now + traceEvery;
       if (res) {
         trace = res.trace;
-        if (rays.length) roomRays = rays;
+        roomRays = rays;
         setRoom(res.trace.space, res.feet);
       }
       return;
@@ -733,6 +747,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       ac.path = field.path(s.position, listener.position, s.extent);
       ac.reverb = field.reverb(s.position, listener.position, ac.path);
       refl = field.reflections(s.position, listener.position);
+      // The debug view draws what the field used: the direct line (red when partly hidden), or the
+      // path around the obstacles, and each reflection's bounce point.
+      const L = listener.position;
+      if (ac.path.excess > 0.01) rays.push({ from: L, to: ac.path.via, hit: false, kind: 'path' }, { from: ac.path.via, to: s.position, hit: false, kind: 'path' });
+      else rays.push({ from: L, to: s.position, hit: ac.path.visible < 0.99, kind: 'occlusion' });
+      for (const r of refl) rays.push({ from: s.position, to: r.point, hit: true, kind: 'reflection' }, { from: r.point, to: L, hit: true, kind: 'reflection' });
     } else {
       if (!trace) retrace(now);
       ac.path = directPath(s.position, listener.position, trace, raycast, { extent: s.extent }, rays);
@@ -882,8 +902,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       // right ear (head shadow, room), 5-8 dB lower, not 25.
       sendPan: 0.5 * dot(ac.rdir, right),
       bank: orch
-        ? activeBankWeights(offThread ? reverb.stretched(Math.exp(ac.rtLog)) : Math.min(orch.bankCap(), reverb.stretched(Math.exp(ac.rtLog))), reverb.allowedMask)
-        : bankWeights(reverb.stretched(Math.exp(ac.rtLog))),
+        ? activeBankWeights(offThread ? reverb.stretched(withAir(Math.exp(ac.rtLog))) : Math.min(orch.bankCap(), reverb.stretched(withAir(Math.exp(ac.rtLog)))), reverb.allowedMask)
+        : bankWeights(reverb.stretched(withAir(Math.exp(ac.rtLog)))),
       tapHz: tapCutoff(ac),
       rdir: ac.rdir,
       priority: s.priority,
@@ -1257,6 +1277,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     updateSwarms(now);
     ao.field?.listener(l.position);
     const fieldHere = !!ao.field && ao.field.ready(l.position);
+    if (fieldHere) roomRays = [];
     if (!fieldHere && (tracer || (raycast && now >= nextRoom))) retrace(now);
     for (const f of faceSources) f.tick(dt);
     for (const s of slots) {
@@ -1303,7 +1324,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const cap = orch ? orch.bankCap() : Infinity;
     for (const s of slots) {
       if (!s.busy || s.stopping) continue;
-      const w = bankWeights(Math.min(cap, reverb.stretched(Math.exp(s.ac.rtLog))));
+      const w = bankWeights(Math.min(cap, reverb.stretched(withAir(Math.exp(s.ac.rtLog)))));
       const send = 10 ** (s.ac.wetDb / 20);
       w.forEach((x, i) => (demand[i] += x * send));
     }

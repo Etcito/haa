@@ -384,7 +384,7 @@ impl Field {
         let o = ReverbOptions { stride: 1, max_order: 99, reference: 2.0, max_decay: 0.985, min_delay: 0.01, first_share: 0.0 };
         let vr = trace::voice_reverb(&mut self.scene, &self.trace, c, &o, &mut self.arrivals);
         let energy_db = if vr.energy > 0.0 { 10.0 * vr.energy.log10() } else { -80.0 };
-        // haa-trace clamps its reverb time at 4.5 s; the large buildings ring longer.
+        // The reverb time from the decay per bounce and the mean free path (as haa-trace, up to 8.5 s).
         cell.set(rt60(sp.decay_per_bounce, sp.mean_free_path), sp.mean_free_path, sp.absorption, sp.escape, energy_db, vr.direction, vr.predelay);
         let ci = self.grid.coords(idx);
         for (k, o) in OFFSETS.iter().enumerate() {
