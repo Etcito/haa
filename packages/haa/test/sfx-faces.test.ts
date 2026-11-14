@@ -68,3 +68,19 @@ test('rain on faces: the roof shields the ground under it, a wall gets rain only
   assert.ok(Math.abs(byLabel('wall').flux - Math.sin((40 * Math.PI) / 180)) < 1e-9, `wall ${byLabel('wall').flux}`);
   assert.ok(byLabel('wall').area > 0 && byLabel('roof').under === 0);
 });
+
+test('rain on faces: on wet ground the ground is heard right under the listener, whatever the cell size', () => {
+  const ground = withBody(defineMaterial({ name: 'concrete', hardness: 0.9 }), { shape: 'block', dim: 20, thickness: 0.5 });
+  const faces: SoundFace[] = [{ label: 'ground', center: v3(0, 0, 0), normal: v3(0, 1, 0), u: v3(10, 0, 0), v: v3(0, 0, 10), material: ground }];
+  const listener = v3(2.5, 1.6, 0.7);
+  const host: FaceHost = {
+    raycast: () => cast,
+    listener: () => listener,
+    loop: () => ({ alive: true, set: () => {}, move: () => {}, setGain: () => {}, setTransmission: () => {}, stop: () => {} }),
+  };
+  // 4 m cells: the cell centred under the roof (x, z in -2..2) is dry, but the listener stands just beside it.
+  const src = createFaceSource(host, faces, { preset: 'rain-on-face', direction: v3(0, -1, 0), intensity: 0.6, cell: 4 });
+  src.tick(0.1);
+  const p = src.emitters[0].position;
+  assert.ok(Math.abs(p.x - 2.5) < 1e-6 && Math.abs(p.z - 0.7) < 1e-6 && p.y < 0.1, JSON.stringify(p));
+});

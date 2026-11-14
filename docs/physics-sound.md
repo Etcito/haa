@@ -218,9 +218,13 @@ rain.stop(0.6);
   wind-driven rain the most). Exposure: a grid of cells (2 m, at most 40 × 40 per face), each casting
   one ray toward where the rain comes from; the exposed area is the cells whose ray escapes (the
   ground under a roof or under the snow patch is dry). Recomputed when the direction changes.
-- The emitter of a face sits at its nearest exposed part (the nearest exposed cell, refined by the
-  exposed cells around it), with `extent` = √(area/π) (at most 20 m) and `nearest`: standing on the
-  wet ground the rain is all around, a roof 10 m away comes from its edge. Under a face (behind it
+- The emitter of a face sits at its nearest exposed part, with `extent` = √(area/π) (at most 20 m)
+  and `nearest`: standing on the wet ground the rain is all around, a roof 10 m away comes from its
+  edge. Over the face (the rain reaches the listener's projection on it, its own ray, re-cast when
+  the projection moves by 0.5 m) that point is the projection itself; elsewhere it is the nearest
+  exposed cell, refined by the exposed cells around it. The cells alone (up to 4 m on the 160 m
+  ground) put the ground's rain 4.3 m away from a listener standing on it while a 6 m plank beside
+  it, cut in 2 m cells, played at 1.5 m: the plank was 9 dB louder than the ground it lies on. Under a face (behind it
   and within its footprint) it radiates from the solid's other surface through a loss by body
   (`FAR_SIDE_LOSS_DB`: a sheet 3/5/8 dB at 250 Hz/1 kHz/4 kHz, a plate 10/16/24, a block 28/38/50),
   ramped over the last metre of the footprint: inside the hall the rain is on the roof above you,
@@ -229,9 +233,19 @@ rain.stop(0.6);
   body's `shape`, `dim`, `thickness`. The 6 faces loudest at the listener play (estimated from
   intensity, flux, area, hardness, far-side loss and distance); a playing face leaves only for one
   3 dB louder, and faces fade in and out over 0.6 s.
-- `rain-on-face` sits about 35 dB under an energy-1 impact's peak at the listener (output gain 0.04):
-  at gain 1 rain on open ground measured −14 dBFS RMS, above a 160 J crate impact (−29 dBFS RMS over
-  100 ms) and 35 dB above footsteps.
+- `rain-on-face` is a bed under the footsteps and the impacts: built from the studio's rain presets
+  (rain-city-2's dense noise-grain beds and patter, light-rain's big drops: of the studio presets the
+  closest to the CC0 rain recordings), its drop density = intensity^1.3 · flux · min(area, 25 m²)/25
+  and its beds at √density, `hardness` (soft ground nearly silent, hard faces tick) and `shape` (a thin
+  sheet drums, it does not tick) for the material, plus the `rainOnFace` node for the face's ring.
+  Measured in the scene (offline replay, 100 ms RMS at the ears, tilt 0; footstep on concrete at the
+  feet −54.6 dB, a 20 kg crate at 2 m −37.9 dB), before → after: concrete ground (0, 3) −63.0 after
+  (the ground was 4.3 m away, see above), on the wooden plank −27.8 → −67.1, metal deck −30.8 → −63.1,
+  room corner −37.3 → −61.8, under the tile shelter −40.5 → −67.1, under the wood shelter −41.8 →
+  −67.7, in the shed under its metal roof −23.0 → −57.0, hall with tiles −31.6 → −62.3, with the metal
+  sheet −23.5 → −59.1, big buildings −50 → −74. At the plank the plank itself made it (−27.5 of the
+  −27.8; the walls around −64 and −68, the reverb under 0.3 dB): its wooden plate rang loudest of all
+  faces, louder than the concrete ground, and the whole rain was 27 dB over a footstep.
 - `rainOnFace` (Rust): drops are Poisson at 600·intensity^1.3·flux·min(area, 25 m²) per second
   (more area beyond 25 m² only adds density, the far parts are the chain's distance; above 4000
   drops/s each drop carries several). A drop is a short noise splash (bigger drops longer and
@@ -248,6 +262,9 @@ rain.stop(0.6);
   long-term spectrum 6.8 dB from the recordings' mean instead of 13.1). Tiles (refs 333509, 669487:
   centroid ~1.4 kHz) and concrete (street rain 93033, 470484, 470485, 527498: ~1.3 kHz) were already
   within the recordings' spread; no recording of rain on a wooden roof was found, wood stays as it was.
+- Known gap: the 6 playing faces are ranked by an estimate without occlusion, so inside the hall with
+  a wooden or concrete roof (plate / block far-side loss) six outdoor faces behind the walls outrank
+  the roof and the hall is nearly silent (−87 dB at tilt 0).
 - The same mechanism serves any source spread over the level's faces (hail, sand blown by the wind,
   sparks): a preset that reads `flux` and `area`.
 

@@ -2,7 +2,6 @@
   "haa": 1,
   "id": "rain-on-face",
   "title": "Rain on a face",
-  "description": "Rain on one face of the level, driven by the geometry: flux = max(0, -n.d) of the face under the rain direction, its exposed area, its material (hardness) and its hand-chosen resonator (shape, dim, thickness). The runtime places one per exposed face (docs/physics-sound.md, Rain on faces).",
   "inputs": [
     {
       "name": "energy",
@@ -20,7 +19,17 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 1,
+      "default": 1.0,
+      "smooth": 0.1,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.8,
       "smooth": 0.1,
       "curve": "lin"
     },
@@ -33,16 +42,6 @@
       "default": 4,
       "smooth": 0.1,
       "curve": "log"
-    },
-    {
-      "name": "hardness",
-      "kind": "continuous",
-      "unit": "",
-      "min": 0,
-      "max": 1,
-      "default": 0.8,
-      "smooth": 0.1,
-      "curve": "lin"
     },
     {
       "name": "shape",
@@ -70,82 +69,589 @@
       "unit": "m",
       "min": 0.0005,
       "max": 0.5,
-      "default": 0.01,
+      "default": 0.012,
       "smooth": 0.1,
       "curve": "log"
     }
   ],
   "graph": {
-    "duration": 1,
+    "duration": 8.0,
     "loop": true,
     "mode": "timeline",
     "nodes": [
       {
         "id": "in-energy",
         "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
         "params": {
           "name": "energy"
-        },
-        "x": 20,
-        "y": 20
+        }
       },
       {
         "id": "in-flux",
         "type": "input",
+        "label": "Flux",
+        "x": 20,
+        "y": 140,
         "params": {
           "name": "flux"
-        },
-        "x": 20,
-        "y": 140
-      },
-      {
-        "id": "in-area",
-        "type": "input",
-        "params": {
-          "name": "area"
-        },
-        "x": 20,
-        "y": 260
+        }
       },
       {
         "id": "in-hardness",
         "type": "input",
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
         "params": {
           "name": "hardness"
-        },
+        }
+      },
+      {
+        "id": "in-area",
+        "type": "input",
+        "label": "Area",
         "x": 20,
-        "y": 380
+        "y": 380,
+        "params": {
+          "name": "area"
+        }
       },
       {
         "id": "in-shape",
         "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 500,
         "params": {
           "name": "shape"
-        },
-        "x": 20,
-        "y": 500
+        }
       },
       {
         "id": "in-dim",
         "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 620,
         "params": {
           "name": "dim"
-        },
-        "x": 20,
-        "y": 620
+        }
       },
       {
         "id": "in-thickness",
         "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 740,
         "params": {
           "name": "thickness"
-        },
-        "x": 20,
-        "y": 740
+        }
       },
       {
-        "id": "rain",
+        "id": "m-int",
+        "type": "map",
+        "label": "Intensity^1.3",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.067
+          ],
+          [
+            0.25,
+            0.1649
+          ],
+          [
+            0.375,
+            0.2794
+          ],
+          [
+            0.5,
+            0.4061
+          ],
+          [
+            0.625,
+            0.5428
+          ],
+          [
+            0.75,
+            0.688
+          ],
+          [
+            0.875,
+            0.8406
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-area",
+        "type": "map",
+        "label": "min(area, 25 m²) / 25",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0.01,
+          "inMax": 25,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "if",
+        "type": "math",
+        "label": "Intensity x flux",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "density",
+        "type": "math",
+        "label": "Drop density (0..1)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-sqrt",
+        "type": "map",
+        "label": "sqrt(density): bed level",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.3536
+          ],
+          [
+            0.25,
+            0.5
+          ],
+          [
+            0.375,
+            0.6124
+          ],
+          [
+            0.5,
+            0.7071
+          ],
+          [
+            0.625,
+            0.7906
+          ],
+          [
+            0.75,
+            0.866
+          ],
+          [
+            0.875,
+            0.9354
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-loud",
+        "type": "map",
+        "label": "Hardness -> loudness",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0.0,
+            0.08
+          ],
+          [
+            0.125,
+            0.1207
+          ],
+          [
+            0.25,
+            0.195
+          ],
+          [
+            0.375,
+            0.2913
+          ],
+          [
+            0.5,
+            0.4053
+          ],
+          [
+            0.625,
+            0.5346
+          ],
+          [
+            0.75,
+            0.6776
+          ],
+          [
+            0.875,
+            0.833
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-body-band",
+        "type": "map",
+        "label": "Hardness -> patter band (+Hz)",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 650
+        }
+      },
+      {
+        "id": "m-fine",
+        "type": "map",
+        "label": "Hardness -> fine ticks",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.05,
+          "outMax": 0.4
+        }
+      },
+      {
+        "id": "m-shape-fine",
+        "type": "map",
+        "label": "Shape -> ticks (a sheet drums)",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 0.1,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            0.16666666666666666,
+            1.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            1.0
+          ],
+          [
+            0.6666666666666666,
+            0.5556
+          ],
+          [
+            0.8333333333333334,
+            0.7778
+          ],
+          [
+            1.0,
+            0.7778
+          ]
+        ]
+      },
+      {
+        "id": "fine-k",
+        "type": "math",
+        "label": "Ticks: hardness x shape",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "bed-low",
+        "type": "grain",
+        "label": "Low drops bed (dense grains)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "wave": "noise",
+          "frequency": 180,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0003,
+          "decay": 0.045,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.7,
+          "glide": 0,
+          "delay": 0,
+          "width": 1,
+          "level": 0
+        }
+      },
+      {
+        "id": "bed-low-hp",
+        "type": "filter",
+        "label": "Low bed high-pass",
+        "x": 800,
+        "y": 20,
+        "params": {
+          "cutoff": 55,
+          "resonance": 0.65,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "bed-low-lp",
+        "type": "filter",
+        "label": "Low bed low-pass",
+        "x": 800,
+        "y": 140,
+        "params": {
+          "cutoff": 170,
+          "resonance": 0.8,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "bed-mid",
+        "type": "noise",
+        "label": "Distant wash",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "color": "pink",
+          "level": 0,
+          "width": 0
+        }
+      },
+      {
+        "id": "bed-mid-filter",
+        "type": "filter",
+        "label": "Wash band",
+        "x": 800,
+        "y": 260,
+        "params": {
+          "cutoff": 720,
+          "resonance": 1.2,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "drift",
+        "type": "random",
+        "label": "Density drift",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "rate": 7,
+          "depth": 1,
+          "smooth": 0.8
+        }
+      },
+      {
+        "id": "body",
+        "type": "grain",
+        "label": "Patter (near drops)",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "wave": "noise",
+          "frequency": 1400,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.00015,
+          "decay": 0.006,
+          "spread": 0,
+          "jitter": 0.96,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.003,
+          "width": 0.95,
+          "level": 0.23
+        }
+      },
+      {
+        "id": "body-filter",
+        "type": "filter",
+        "label": "Patter band",
+        "x": 800,
+        "y": 380,
+        "params": {
+          "cutoff": 650,
+          "resonance": 0.7,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "fine",
+        "type": "grain",
+        "label": "Fine ticks",
+        "x": 540,
+        "y": 380,
+        "params": {
+          "wave": "noise",
+          "frequency": 6000,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0022,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.95,
+          "glide": 0,
+          "delay": 0.008,
+          "width": 1,
+          "level": 0.09
+        }
+      },
+      {
+        "id": "fine-hp",
+        "type": "filter",
+        "label": "Ticks high-pass",
+        "x": 800,
+        "y": 500,
+        "params": {
+          "cutoff": 2100,
+          "resonance": 0.6,
+          "mode": "highpass"
+        }
+      },
+      {
+        "id": "fine-lp",
+        "type": "filter",
+        "label": "Ticks low-pass",
+        "x": 800,
+        "y": 620,
+        "params": {
+          "cutoff": 14800,
+          "resonance": 0.7,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "fine-level",
+        "type": "gain",
+        "label": "Ticks level (hardness)",
+        "x": 800,
+        "y": 740,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "accent",
+        "type": "grain",
+        "label": "Big drops",
+        "x": 540,
+        "y": 500,
+        "params": {
+          "wave": "noise",
+          "frequency": 2700,
+          "resonance": 0.7,
+          "rate": 0,
+          "attack": 0.0001,
+          "decay": 0.0016,
+          "spread": 0,
+          "jitter": 1,
+          "variation": 0.9,
+          "glide": 0,
+          "delay": 0.12,
+          "width": 0.85,
+          "level": 0.28
+        }
+      },
+      {
+        "id": "accent-filter",
+        "type": "filter",
+        "label": "Big drops low-pass",
+        "x": 800,
+        "y": 860,
+        "params": {
+          "cutoff": 6500,
+          "resonance": 0.6,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "face",
         "type": "rainOnFace",
+        "label": "The face ringing (shape, size, thickness)",
+        "x": 540,
+        "y": 620,
         "params": {
           "intensity": 0,
           "flux": 0,
@@ -154,78 +660,371 @@
           "shape": 0,
           "dim": 0.01,
           "thickness": 0.0005,
-          "level": 0.5
-        },
-        "x": 320,
-        "y": 20
+          "level": 0.0
+        }
+      },
+      {
+        "id": "mix",
+        "type": "gain",
+        "label": "Rain level (hardness)",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "face-level",
+        "type": "gain",
+        "label": "Face ring level",
+        "x": 1060,
+        "y": 140,
+        "params": {
+          "gain": 1.6
+        }
       },
       {
         "id": "out",
         "type": "output",
+        "label": "Output",
+        "x": 1320,
+        "y": 20,
         "params": {
-          "gain": 0.04
-        },
-        "x": 620,
-        "y": 20
+          "gain": 0.0175
+        }
       }
     ],
     "connections": [
       {
-        "id": "c-energy",
+        "id": "e1-in-energy-m-int-in",
         "from": "in-energy",
-        "to": "rain",
-        "target": "intensity",
-        "amount": 1
+        "to": "m-int",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "c-flux",
-        "from": "in-flux",
-        "to": "rain",
-        "target": "flux",
-        "amount": 1
-      },
-      {
-        "id": "c-area",
+        "id": "e2-in-area-m-area-in",
         "from": "in-area",
-        "to": "rain",
-        "target": "area",
-        "amount": 1
+        "to": "m-area",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "c-hardness",
+        "id": "e3-m-int-if-a",
+        "from": "m-int",
+        "to": "if",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-flux-if-b",
+        "from": "in-flux",
+        "to": "if",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-if-density-a",
+        "from": "if",
+        "to": "density",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-area-density-b",
+        "from": "m-area",
+        "to": "density",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-density-m-sqrt-in",
+        "from": "density",
+        "to": "m-sqrt",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-in-hardness-m-loud-in",
         "from": "in-hardness",
-        "to": "rain",
-        "target": "hardness",
-        "amount": 1
+        "to": "m-loud",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "c-shape",
+        "id": "e9-in-hardness-m-body-band-in",
+        "from": "in-hardness",
+        "to": "m-body-band",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-in-hardness-m-fine-in",
+        "from": "in-hardness",
+        "to": "m-fine",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-in-shape-m-shape-fine-in",
         "from": "in-shape",
-        "to": "rain",
+        "to": "m-shape-fine",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-fine-fine-k-a",
+        "from": "m-fine",
+        "to": "fine-k",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-shape-fine-fine-k-b",
+        "from": "m-shape-fine",
+        "to": "fine-k",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-density-bed-low-rate",
+        "from": "density",
+        "to": "bed-low",
+        "target": "rate",
+        "amount": 1900
+      },
+      {
+        "id": "e15-m-sqrt-bed-low-level",
+        "from": "m-sqrt",
+        "to": "bed-low",
+        "target": "level",
+        "amount": 0.9
+      },
+      {
+        "id": "e16-bed-low-bed-low-hp-audio",
+        "from": "bed-low",
+        "to": "bed-low-hp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-bed-low-hp-bed-low-lp-audio",
+        "from": "bed-low-hp",
+        "to": "bed-low-lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-m-sqrt-bed-mid-level",
+        "from": "m-sqrt",
+        "to": "bed-mid",
+        "target": "level",
+        "amount": 0.32
+      },
+      {
+        "id": "e19-bed-mid-bed-mid-filter-audio",
+        "from": "bed-mid",
+        "to": "bed-mid-filter",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-density-body-rate",
+        "from": "density",
+        "to": "body",
+        "target": "rate",
+        "amount": 900
+      },
+      {
+        "id": "e21-drift-body-rate",
+        "from": "drift",
+        "to": "body",
+        "target": "rate",
+        "amount": 60
+      },
+      {
+        "id": "e22-body-body-filter-audio",
+        "from": "body",
+        "to": "body-filter",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-m-body-band-body-filter-cutoff",
+        "from": "m-body-band",
+        "to": "body-filter",
+        "target": "cutoff",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-density-fine-rate",
+        "from": "density",
+        "to": "fine",
+        "target": "rate",
+        "amount": 1500
+      },
+      {
+        "id": "e25-drift-fine-rate",
+        "from": "drift",
+        "to": "fine",
+        "target": "rate",
+        "amount": 100
+      },
+      {
+        "id": "e26-fine-fine-hp-audio",
+        "from": "fine",
+        "to": "fine-hp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-fine-hp-fine-lp-audio",
+        "from": "fine-hp",
+        "to": "fine-lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-fine-lp-fine-level-audio",
+        "from": "fine-lp",
+        "to": "fine-level",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e29-fine-k-fine-level-gain",
+        "from": "fine-k",
+        "to": "fine-level",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "e30-density-accent-rate",
+        "from": "density",
+        "to": "accent",
+        "target": "rate",
+        "amount": 4
+      },
+      {
+        "id": "e31-accent-accent-filter-audio",
+        "from": "accent",
+        "to": "accent-filter",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e32-in-energy-face-intensity",
+        "from": "in-energy",
+        "to": "face",
+        "target": "intensity",
+        "amount": 1.0
+      },
+      {
+        "id": "e33-in-flux-face-flux",
+        "from": "in-flux",
+        "to": "face",
+        "target": "flux",
+        "amount": 1.0
+      },
+      {
+        "id": "e34-in-area-face-area",
+        "from": "in-area",
+        "to": "face",
+        "target": "area",
+        "amount": 1.0
+      },
+      {
+        "id": "e35-in-hardness-face-hardness",
+        "from": "in-hardness",
+        "to": "face",
+        "target": "hardness",
+        "amount": 1.0
+      },
+      {
+        "id": "e36-in-shape-face-shape",
+        "from": "in-shape",
+        "to": "face",
         "target": "shape",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "c-dim",
+        "id": "e37-in-dim-face-dim",
         "from": "in-dim",
-        "to": "rain",
+        "to": "face",
         "target": "dim",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "c-thickness",
+        "id": "e38-in-thickness-face-thickness",
         "from": "in-thickness",
-        "to": "rain",
+        "to": "face",
         "target": "thickness",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "c-out",
-        "from": "rain",
+        "id": "e39-bed-low-lp-mix-audio",
+        "from": "bed-low-lp",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e40-bed-mid-filter-mix-audio",
+        "from": "bed-mid-filter",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e41-body-filter-mix-audio",
+        "from": "body-filter",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e42-fine-level-mix-audio",
+        "from": "fine-level",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e43-accent-filter-mix-audio",
+        "from": "accent-filter",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e44-m-loud-mix-gain",
+        "from": "m-loud",
+        "to": "mix",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "e45-face-face-level-audio",
+        "from": "face",
+        "to": "face-level",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e46-mix-out-audio",
+        "from": "mix",
         "to": "out",
         "target": "audio",
-        "amount": 1
+        "amount": 1.0
+      },
+      {
+        "id": "e47-face-level-out-audio",
+        "from": "face-level",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       }
     ]
-  }
+  },
+  "master": 1
 }

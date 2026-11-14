@@ -71,6 +71,12 @@ interface Sample {
 
 interface FaceState extends FaceEmitter {
   samples: Sample[];
+  /** Cells along u and v (samples[i * nv + j]). */
+  nu: number;
+  nv: number;
+  /** The listener's projection on the face, rounded (0.5 m), and whether the rain reaches it. */
+  projKey: string;
+  projExposed: boolean;
   cellArea: number;
   loop: ReturnType<FaceHost['loop']> | null;
 }
@@ -125,7 +131,7 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
       }
       return {
         face, flux: 0, area: 0, position: face.center, back: false, under: 0, score: 0, fade: 0, playing: false,
-        samples, cellArea: (4 * lu * lv) / samples.length, loop: null,
+        samples, nu, nv, projKey: '', projExposed: false, cellArea: (4 * lu * lv) / samples.length, loop: null,
       };
     });
     dirty = true;
@@ -138,6 +144,7 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
     for (const s of states) {
       const n = normalize(s.face.normal);
       s.flux = Math.max(0, dot(n, up));
+      s.projKey = '';
       let exposed = 0;
       for (const c of s.samples) {
         c.exposed = s.flux > 0 && (!cast || !cast(add(c.p, scale(n, 0.05)), up, 60));
@@ -201,7 +208,28 @@ export function createFaceSource(host: FaceHost, faces: SoundFace[], options: Fa
         w += k;
       }
       const n = normalize(s.face.normal);
-      const p = v3(wx / w, wy / w, wz / w);
+      let p = v3(wx / w, wy / w, wz / w);
+      // Over the face (the rain reaches the listener's projection on it), the nearest point is
+      // that projection: standing on wet ground the rain is right under the feet. The nearest cell
+      // centre alone put it up to half a cell away (4 m cells on the 160 m ground: the ground's rain
+      // 4.3 m away while a 6 m plank next to it, 2 m cells, played at 1.5 m: 9 dB louder).
+      {
+        const lu = length(s.face.u);
+        const lv = length(s.face.v);
+        const rel = sub(L, s.face.center);
+        const a = Math.max(-1, Math.min(1, dot(rel, s.face.u) / (lu * lu)));
+        const b = Math.max(-1, Math.min(1, dot(rel, s.face.v) / (lv * lv)));
+        const q = add(s.face.center, add(scale(s.face.u, a), scale(s.face.v, b)));
+        // Its own exposure ray (the cells are up to 4 m: a cell centre under the plank said the ground
+        // beside it was dry), cast again only when the projection moved by half a metre.
+        const key = `${Math.round(q.x * 2)},${Math.round(q.y * 2)},${Math.round(q.z * 2)}`;
+        if (key !== s.projKey) {
+          s.projKey = key;
+          const cast = host.raycast();
+          s.projExposed = s.flux > 0 && (!cast || !cast(add(q, scale(n, 0.05)), scale(normalize(o.direction), -1), 60));
+        }
+        if (s.projExposed) p = q;
+      }
       // Under a roof (behind the face and within its footprint) the face radiates from the solid's
       // other surface, through it. The share `under` ramps over the last metre of the footprint, so
       // walking in under the roof edge moves the emitter and its loss gradually.
