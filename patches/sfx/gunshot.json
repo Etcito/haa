@@ -1,0 +1,559 @@
+{
+  "haa": 1,
+  "id": "gunshot",
+  "title": "Gunshot",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.85,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 0.9,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-boom-f",
+        "type": "map",
+        "label": "Calibre -> punch pitch (Hz)",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 121.66666667,
+          "outMax": 42.5
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.04518
+          ],
+          [
+            0.0625,
+            0.08922
+          ],
+          [
+            0.0938,
+            0.13215
+          ],
+          [
+            0.125,
+            0.17399
+          ],
+          [
+            0.1562,
+            0.21478
+          ],
+          [
+            0.1875,
+            0.25454
+          ],
+          [
+            0.2188,
+            0.29329
+          ],
+          [
+            0.25,
+            0.33107
+          ],
+          [
+            0.2812,
+            0.36789
+          ],
+          [
+            0.3125,
+            0.40378
+          ],
+          [
+            0.3438,
+            0.43877
+          ],
+          [
+            0.375,
+            0.47287
+          ],
+          [
+            0.4062,
+            0.50611
+          ],
+          [
+            0.4375,
+            0.53851
+          ],
+          [
+            0.4688,
+            0.5701
+          ],
+          [
+            0.5,
+            0.60089
+          ],
+          [
+            0.5312,
+            0.63089
+          ],
+          [
+            0.5625,
+            0.66015
+          ],
+          [
+            0.5938,
+            0.68866
+          ],
+          [
+            0.625,
+            0.71645
+          ],
+          [
+            0.6562,
+            0.74354
+          ],
+          [
+            0.6875,
+            0.76995
+          ],
+          [
+            0.7188,
+            0.79569
+          ],
+          [
+            0.75,
+            0.82078
+          ],
+          [
+            0.7812,
+            0.84524
+          ],
+          [
+            0.8125,
+            0.86908
+          ],
+          [
+            0.8438,
+            0.89232
+          ],
+          [
+            0.875,
+            0.91497
+          ],
+          [
+            0.9062,
+            0.93705
+          ],
+          [
+            0.9375,
+            0.95857
+          ],
+          [
+            0.9688,
+            0.97955
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-body-fall",
+        "type": "map",
+        "label": "Calibre -> blast length (s)",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.015,
+          "outMax": 0.06
+        }
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.3,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "crack",
+        "type": "crackle",
+        "label": "Muzzle crack (N-wave)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "crack",
+          "rate": 20000,
+          "rise": 0,
+          "fall": 0.0025,
+          "frequency": 2800,
+          "spread": 3.2,
+          "sizePitch": 0.2,
+          "decay": 0.0025,
+          "contact": 0.0002,
+          "range": 12,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "blast",
+        "type": "crackle",
+        "label": "Blast body",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "crack",
+          "rate": 6000,
+          "rise": 0.001,
+          "fall": 0.1,
+          "frequency": 1300,
+          "spread": 2.6,
+          "sizePitch": 0.4,
+          "decay": 0.02,
+          "contact": 0.0002,
+          "range": 20,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "tail",
+        "type": "crackle",
+        "label": "Turbulent tail",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "crack",
+          "rate": 1500,
+          "rise": 0.01,
+          "fall": 0.12,
+          "frequency": 450,
+          "spread": 2.2,
+          "sizePitch": 0.3,
+          "decay": 0.05,
+          "contact": 0.0002,
+          "range": 24,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.6,
+          "delay": 0.008,
+          "level": 0
+        }
+      },
+      {
+        "id": "punch",
+        "type": "modal",
+        "label": "Low punch",
+        "x": 540,
+        "y": 380,
+        "params": {
+          "shape": "block",
+          "material": "stone",
+          "frequency": 20,
+          "modes": 10,
+          "decay": 0.5,
+          "damping": 1.0,
+          "contact": 0.0025,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.8,
+          "click": 0.4,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "action",
+        "type": "modal",
+        "label": "Action click",
+        "x": 540,
+        "y": 500,
+        "params": {
+          "shape": "bar",
+          "material": "metal",
+          "frequency": 1250.0,
+          "modes": 16,
+          "decay": 0.08,
+          "damping": 1.0,
+          "contact": 8.333e-05,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.9,
+          "click": 0.8,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.008,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.2426
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-size-m-boom-f-in",
+        "from": "in-size",
+        "to": "m-boom-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-in-size-m-body-fall-in",
+        "from": "in-size",
+        "to": "m-body-fall",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-m-level-crack-level",
+        "from": "m-level",
+        "to": "crack",
+        "target": "level",
+        "amount": 1.6
+      },
+      {
+        "id": "e6-m-body-fall-blast-fall",
+        "from": "m-body-fall",
+        "to": "blast",
+        "target": "fall",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-level-blast-level",
+        "from": "m-level",
+        "to": "blast",
+        "target": "level",
+        "amount": 0.9
+      },
+      {
+        "id": "e8-m-level-tail-level",
+        "from": "m-level",
+        "to": "tail",
+        "target": "level",
+        "amount": 0.25
+      },
+      {
+        "id": "e9-m-boom-f-punch-frequency",
+        "from": "m-boom-f",
+        "to": "punch",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-m-force-punch-force",
+        "from": "m-force",
+        "to": "punch",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-m-level-punch-level",
+        "from": "m-level",
+        "to": "punch",
+        "target": "level",
+        "amount": 0.8
+      },
+      {
+        "id": "e12-m-level-action-level",
+        "from": "m-level",
+        "to": "action",
+        "target": "level",
+        "amount": 0.08
+      },
+      {
+        "id": "e13-crack-out-audio",
+        "from": "crack",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-blast-out-audio",
+        "from": "blast",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-tail-out-audio",
+        "from": "tail",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-punch-out-audio",
+        "from": "punch",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-action-out-audio",
+        "from": "action",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}

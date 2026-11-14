@@ -32,6 +32,26 @@
       "default": 0.9,
       "smooth": 0,
       "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 0,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.1,
+      "smooth": 0,
+      "curve": "lin"
     }
   ],
   "graph": {
@@ -80,8 +100,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0,
-          "outMax": 1.0
+          "outMin": 0.0,
+          "outMax": 1.9772
         },
         "curve": [
           [
@@ -131,9 +151,29 @@
         ]
       },
       {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 380,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
         "id": "m-f",
         "type": "map",
-        "label": "Size -> stone pitch (Hz)",
+        "label": "Dim -> stone pitch (Hz, 70 Hz\u00b7m / dim)",
         "x": 280,
         "y": 140,
         "params": {
@@ -141,8 +181,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 2146.66666667,
-          "outMax": 330.0
+          "outMin": 5813.33333333,
+          "outMax": -14.16666667
         },
         "curve": [
           [
@@ -150,32 +190,128 @@
             -0.0
           ],
           [
+            0.0312,
+            0.19435
+          ],
+          [
+            0.0625,
+            0.35097
+          ],
+          [
+            0.0938,
+            0.47718
+          ],
+          [
             0.125,
-            0.24304
+            0.57888
+          ],
+          [
+            0.1562,
+            0.66084
+          ],
+          [
+            0.1875,
+            0.72688
+          ],
+          [
+            0.2188,
+            0.78011
           ],
           [
             0.25,
-            0.43655
+            0.823
+          ],
+          [
+            0.2812,
+            0.85756
+          ],
+          [
+            0.3125,
+            0.88541
+          ],
+          [
+            0.3438,
+            0.90785
           ],
           [
             0.375,
-            0.59063
+            0.92594
+          ],
+          [
+            0.4062,
+            0.94051
+          ],
+          [
+            0.4375,
+            0.95226
+          ],
+          [
+            0.4688,
+            0.96172
           ],
           [
             0.5,
-            0.71331
+            0.96935
+          ],
+          [
+            0.5312,
+            0.97549
+          ],
+          [
+            0.5625,
+            0.98045
+          ],
+          [
+            0.5938,
+            0.98444
           ],
           [
             0.625,
-            0.81099
+            0.98765
+          ],
+          [
+            0.6562,
+            0.99024
+          ],
+          [
+            0.6875,
+            0.99233
+          ],
+          [
+            0.7188,
+            0.99402
           ],
           [
             0.75,
-            0.88877
+            0.99537
+          ],
+          [
+            0.7812,
+            0.99646
+          ],
+          [
+            0.8125,
+            0.99735
+          ],
+          [
+            0.8438,
+            0.99806
           ],
           [
             0.875,
-            0.95069
+            0.99863
+          ],
+          [
+            0.9062,
+            0.99909
+          ],
+          [
+            0.9375,
+            0.99946
+          ],
+          [
+            0.9688,
+            0.99976
           ],
           [
             1.0,
@@ -203,32 +339,128 @@
             -0.0
           ],
           [
+            0.0312,
+            0.09968
+          ],
+          [
+            0.0625,
+            0.18983
+          ],
+          [
+            0.0938,
+            0.27135
+          ],
+          [
             0.125,
             0.34506
+          ],
+          [
+            0.1562,
+            0.41172
+          ],
+          [
+            0.1875,
+            0.47201
+          ],
+          [
+            0.2188,
+            0.52652
           ],
           [
             0.25,
             0.57582
           ],
           [
+            0.2812,
+            0.6204
+          ],
+          [
+            0.3125,
+            0.66071
+          ],
+          [
+            0.3438,
+            0.69717
+          ],
+          [
             0.375,
             0.73014
+          ],
+          [
+            0.4062,
+            0.75995
+          ],
+          [
+            0.4375,
+            0.78691
+          ],
+          [
+            0.4688,
+            0.81129
           ],
           [
             0.5,
             0.83333
           ],
           [
+            0.5312,
+            0.85327
+          ],
+          [
+            0.5625,
+            0.8713
+          ],
+          [
+            0.5938,
+            0.8876
+          ],
+          [
             0.625,
             0.90235
+          ],
+          [
+            0.6562,
+            0.91568
+          ],
+          [
+            0.6875,
+            0.92773
+          ],
+          [
+            0.7188,
+            0.93864
           ],
           [
             0.75,
             0.9485
           ],
           [
+            0.7812,
+            0.95741
+          ],
+          [
+            0.8125,
+            0.96548
+          ],
+          [
+            0.8438,
+            0.97277
+          ],
+          [
             0.875,
             0.97936
+          ],
+          [
+            0.9062,
+            0.98532
+          ],
+          [
+            0.9375,
+            0.99071
+          ],
+          [
+            0.9688,
+            0.99559
           ],
           [
             1.0,
@@ -237,11 +469,26 @@
         ]
       },
       {
+        "id": "m-contact2",
+        "type": "map",
+        "label": "Size -> longer contact (s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": -2e-05,
+          "outMax": 0.00098
+        }
+      },
+      {
         "id": "m-force",
         "type": "map",
         "label": "Energy -> force",
         "x": 280,
-        "y": 380,
+        "y": 500,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -287,7 +534,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.3894
+          "gain": 1.0
         }
       }
     ],
@@ -300,8 +547,8 @@
         "amount": 1.0
       },
       {
-        "id": "e2-in-size-m-f-in",
-        "from": "in-size",
+        "id": "e2-in-dim-m-f-in",
+        "from": "in-dim",
         "to": "m-f",
         "target": "in",
         "amount": 1.0
@@ -314,42 +561,63 @@
         "amount": 1.0
       },
       {
-        "id": "e4-in-energy-m-force-in",
+        "id": "e4-in-size-m-contact2-in",
+        "from": "in-size",
+        "to": "m-contact2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-energy-m-force-in",
         "from": "in-energy",
         "to": "m-force",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e5-m-f-stone-frequency",
+        "id": "e6-m-f-stone-frequency",
         "from": "m-f",
         "to": "stone",
         "target": "frequency",
         "amount": 1.0
       },
       {
-        "id": "e6-m-contact-stone-contact",
+        "id": "e7-m-contact-stone-contact",
         "from": "m-contact",
         "to": "stone",
         "target": "contact",
         "amount": 1.0
       },
       {
-        "id": "e7-m-force-stone-force",
+        "id": "e8-m-contact2-stone-contact",
+        "from": "m-contact2",
+        "to": "stone",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-m-force-stone-force",
         "from": "m-force",
         "to": "stone",
         "target": "force",
         "amount": 1.0
       },
       {
-        "id": "e8-m-level-stone-level",
+        "id": "e10-m-level-stone-level",
         "from": "m-level",
         "to": "stone",
         "target": "level",
         "amount": 1.0
       },
       {
-        "id": "e9-stone-out-audio",
+        "id": "e11-in-shape-stone-shape",
+        "from": "in-shape",
+        "to": "stone",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-stone-out-audio",
         "from": "stone",
         "to": "out",
         "target": "audio",

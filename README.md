@@ -207,7 +207,7 @@ fracture front, a grain shower and ringing fragments. `metal-impact` is a struck
 `shape` enum inputs pick the `modal` model (a hollow wooden box, a concrete block and a thin metal sheet hit alike sound
 nothing alike); `rain-surface`, `slide-scrape` and `roll-rumble` take the same two inputs for the surface that rings,
 `wood-crate-impact` and `metal-impact` take `shape`. `footstep-wood` and `footstep-metal` are steps on floorboards over
-joists and on a steel floor plate. The input names and values are in `docs/physics-sound.md`.
+joists and on a steel floor plate. `gunshot` is a firearm shot at the muzzle (N-wave crack, blast, low punch, the action's click; `size` the calibre). The input names and values are in `docs/physics-sound.md`.
 
 ## Mixing
 

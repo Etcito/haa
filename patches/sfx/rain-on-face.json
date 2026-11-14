@@ -402,7 +402,7 @@
           ],
           [
             0.16666666666666666,
-            1.0
+            0.6667
           ],
           [
             0.3333333333333333,
@@ -555,6 +555,51 @@
           "resonance": 0.7,
           "mode": "bandpass"
         }
+      },
+      {
+        "id": "m-shape-band",
+        "type": "map",
+        "label": "Shape -> patter band (Hz)",
+        "x": 280,
+        "y": 1340,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": -420,
+          "outMax": 0
+        },
+        "curve": [
+          [
+            0.0,
+            1.0
+          ],
+          [
+            0.16666666666666666,
+            1.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            1.0
+          ],
+          [
+            0.6666666666666666,
+            0.6429
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
       },
       {
         "id": "fine",
@@ -857,168 +902,182 @@
         "amount": 1.0
       },
       {
-        "id": "e24-density-fine-rate",
+        "id": "e24-in-shape-m-shape-band-in",
+        "from": "in-shape",
+        "to": "m-shape-band",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e25-m-shape-band-body-filter-cutoff",
+        "from": "m-shape-band",
+        "to": "body-filter",
+        "target": "cutoff",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-density-fine-rate",
         "from": "density",
         "to": "fine",
         "target": "rate",
         "amount": 1500
       },
       {
-        "id": "e25-drift-fine-rate",
+        "id": "e27-drift-fine-rate",
         "from": "drift",
         "to": "fine",
         "target": "rate",
         "amount": 100
       },
       {
-        "id": "e26-fine-fine-hp-audio",
+        "id": "e28-fine-fine-hp-audio",
         "from": "fine",
         "to": "fine-hp",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e27-fine-hp-fine-lp-audio",
+        "id": "e29-fine-hp-fine-lp-audio",
         "from": "fine-hp",
         "to": "fine-lp",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e28-fine-lp-fine-level-audio",
+        "id": "e30-fine-lp-fine-level-audio",
         "from": "fine-lp",
         "to": "fine-level",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e29-fine-k-fine-level-gain",
+        "id": "e31-fine-k-fine-level-gain",
         "from": "fine-k",
         "to": "fine-level",
         "target": "gain",
         "amount": 1.0
       },
       {
-        "id": "e30-density-accent-rate",
+        "id": "e32-density-accent-rate",
         "from": "density",
         "to": "accent",
         "target": "rate",
         "amount": 4
       },
       {
-        "id": "e31-accent-accent-filter-audio",
+        "id": "e33-accent-accent-filter-audio",
         "from": "accent",
         "to": "accent-filter",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e32-in-energy-face-intensity",
+        "id": "e34-in-energy-face-intensity",
         "from": "in-energy",
         "to": "face",
         "target": "intensity",
         "amount": 1.0
       },
       {
-        "id": "e33-in-flux-face-flux",
+        "id": "e35-in-flux-face-flux",
         "from": "in-flux",
         "to": "face",
         "target": "flux",
         "amount": 1.0
       },
       {
-        "id": "e34-in-area-face-area",
+        "id": "e36-in-area-face-area",
         "from": "in-area",
         "to": "face",
         "target": "area",
         "amount": 1.0
       },
       {
-        "id": "e35-in-hardness-face-hardness",
+        "id": "e37-in-hardness-face-hardness",
         "from": "in-hardness",
         "to": "face",
         "target": "hardness",
         "amount": 1.0
       },
       {
-        "id": "e36-in-shape-face-shape",
+        "id": "e38-in-shape-face-shape",
         "from": "in-shape",
         "to": "face",
         "target": "shape",
         "amount": 1.0
       },
       {
-        "id": "e37-in-dim-face-dim",
+        "id": "e39-in-dim-face-dim",
         "from": "in-dim",
         "to": "face",
         "target": "dim",
         "amount": 1.0
       },
       {
-        "id": "e38-in-thickness-face-thickness",
+        "id": "e40-in-thickness-face-thickness",
         "from": "in-thickness",
         "to": "face",
         "target": "thickness",
         "amount": 1.0
       },
       {
-        "id": "e39-bed-low-lp-mix-audio",
+        "id": "e41-bed-low-lp-mix-audio",
         "from": "bed-low-lp",
         "to": "mix",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e40-bed-mid-filter-mix-audio",
+        "id": "e42-bed-mid-filter-mix-audio",
         "from": "bed-mid-filter",
         "to": "mix",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e41-body-filter-mix-audio",
+        "id": "e43-body-filter-mix-audio",
         "from": "body-filter",
         "to": "mix",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e42-fine-level-mix-audio",
+        "id": "e44-fine-level-mix-audio",
         "from": "fine-level",
         "to": "mix",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e43-accent-filter-mix-audio",
+        "id": "e45-accent-filter-mix-audio",
         "from": "accent-filter",
         "to": "mix",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e44-m-loud-mix-gain",
+        "id": "e46-m-loud-mix-gain",
         "from": "m-loud",
         "to": "mix",
         "target": "gain",
         "amount": 1.0
       },
       {
-        "id": "e45-face-face-level-audio",
+        "id": "e47-face-face-level-audio",
         "from": "face",
         "to": "face-level",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e46-mix-out-audio",
+        "id": "e48-mix-out-audio",
         "from": "mix",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e47-face-level-out-audio",
+        "id": "e49-face-level-out-audio",
         "from": "face-level",
         "to": "out",
         "target": "audio",

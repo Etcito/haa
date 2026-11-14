@@ -510,7 +510,8 @@ impl Modal {
         let force = p[FORCE].clamp(0.0, 1.0);
         let mut t = p[DELAY].clamp(0.0, 2.0);
         let mut gap = p[BOUNCE_TIME].clamp(0.002, 0.5);
-        let mut amp = 1.0;
+        // Each take strikes a little harder or softer (±30 % at full variation): layers of a preset change balance.
+        let mut amp = 1.0 + 0.6 * vary * (self.u() - 0.5);
         self.strike_count = 0;
         for i in 0..=bounces {
             if i > 0 {
@@ -522,7 +523,8 @@ impl Modal {
             self.strike_count += 1;
         }
         self.next_strike = 0;
-        self.detune = 1.0 + 0.006 * vary * (self.u() - 0.5);
+        // Another object of the same kind each take: up to ±3 % in pitch at full variation (half a semitone).
+        self.detune = 1.0 + 0.06 * vary * (self.u() - 0.5);
         self.planned = true;
     }
 
@@ -530,7 +532,7 @@ impl Modal {
     fn start_strike(&mut self, s: Strike, p: &[f64]) {
         let sr = self.sample_rate;
         let vary = p[VARY].clamp(0.0, 1.0);
-        let x = (p[POSITION].clamp(0.0, 1.0) + 0.4 * vary * (self.u() - 0.5)).rem_euclid(1.0);
+        let x = (p[POSITION].clamp(0.0, 1.0) + 0.8 * vary * (self.u() - 0.5)).rem_euclid(1.0);
         let mut sum = 0.0;
         for k in 0..self.ratio.len() {
             let jitter = 1.0 + vary * 0.8 * (self.u() - 0.5);
@@ -544,12 +546,12 @@ impl Modal {
         }
         // Hertz: contact time ∝ v^(-1/5); force 0..1 spans about 85× in speed, so 2.4× in τ.
         let material = (p[MATERIAL].round().max(0.0) as usize).min(MATERIALS.len() - 1);
-        let contact = p[CONTACT].clamp(0.00002, 0.02) * MATERIALS[material][4] * 2.4f64.powf(0.5 - s.force) * 2f64.powf(0.5 * vary * (self.u() - 0.5));
+        let contact = p[CONTACT].clamp(0.00002, 0.02) * MATERIALS[material][4] * 2.4f64.powf(0.5 - s.force) * 2f64.powf(vary * (self.u() - 0.5));
         self.pulse_len = ((contact * sr).round() as u32).max(1);
         self.pulse_n = 0;
         self.pulse_amp = s.amp;
         self.pulse_prev = 0.0;
-        self.click_amp = s.amp;
+        self.click_amp = s.amp * (1.0 + 0.6 * vary * (self.u() - 0.5));
         self.strike_force = s.force;
         self.env_peak = 0.0;
     }

@@ -190,6 +190,8 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
 - Impact presets for the materials: `wood-crate-impact`, `metal-impact` (a struck steel plate),
   `particle-impact`, `glass-clink`, `glass-shards`; `metal-ricochet` is a bullet glancing off metal
   (ping and tumbling whine), not a plate hit.
+- `gunshot` is the shot itself, played by the game at the muzzle (`energy` ~0.96 for a 9 mm round, ~500 J;
+  `size` the calibre); the bullet's hits are its material's impact slot.
 - `createSfxEngine({ swarm: false })` gives every impact its own voice; `swarm: { individual, ... }`
   tunes the grouping. `stats().clustered` counts the impacts absorbed.
 
