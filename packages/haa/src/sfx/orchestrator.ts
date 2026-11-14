@@ -12,6 +12,8 @@
 // - The governor reads the context's underruns (AudioContext.playbackStats, Chrome) and the
 //   engine's modelled load, and steps a level 0-3 up at once and down after a calm spell.
 import type { HaaInput } from '../types.ts';
+import { VoiceChain } from './spatial3d.ts';
+import type { ChainState } from './spatial3d.ts';
 
 export type BakeWorkerIn =
   | { t: 'init'; module: WebAssembly.Module }
@@ -211,8 +213,83 @@ export function bankCap(level: number): number {
  * 1, seven; none, ten), so the bank runs the steps the voices need most.
  */
 export function bankSize(level: number): number {
-  return [3, 2, 1, 1][Math.min(3, Math.max(0, level))];
+  return [2, 2, 1, 1][Math.min(3, Math.max(0, level))];
 }
+
+/** The calibrated voice cap: how many chains fit in `share` of the audio thread, from a start-up render. */
+export function capFromCalibration(base: number, perVoice: number, slots: number, share = 0.5): number {
+  if (!(perVoice > 0)) return Math.max(4, slots);
+  return Math.max(4, Math.min(slots, Math.floor((share - base) / perVoice)));
+}
+
+/**
+ * Start-up calibration on this machine: an OfflineAudioContext renders the audio thread's own work
+ * (cheap chains fed by noise, moving every 1/60 s, two convolvers, the limiter) with 0 and with 10
+ * voices; the difference is one voice's share of the audio thread. Offline the convolvers' tails
+ * stay on the render thread, so it errs on the safe side. Returns the shares (fraction of real time).
+ */
+export async function calibrateAudioThread(sampleRate: number, seconds = 1.5): Promise<{ base: number; perVoice: number }> {
+  const run = async (voices: number): Promise<number> => {
+    const c = new OfflineAudioContext(2, Math.round(sampleRate * seconds), sampleRate);
+    const dry = c.createGain();
+    const limiter = c.createDynamicsCompressor();
+    dry.connect(limiter);
+    limiter.connect(c.destination);
+    const ir = c.createBuffer(2, Math.round(sampleRate * 3), sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const x = ir.getChannelData(ch);
+      for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * Math.exp((-6.9 * i) / x.length) * 0.05;
+    }
+    const inputs = [0, 1].map(() => {
+      const g = c.createGain();
+      const conv = c.createConvolver();
+      conv.normalize = false;
+      conv.buffer = ir;
+      g.connect(conv);
+      conv.connect(dry);
+      return g;
+    });
+    const noise = c.createBuffer(2, sampleRate, sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const x = noise.getChannelData(ch);
+      for (let i = 0; i < x.length; i++) x[i] = (Math.random() * 2 - 1) * 0.05;
+    }
+    const chains: VoiceChain[] = [];
+    const pos = (i: number, t: number) => ({ x: 6 * Math.cos(i + t), y: 1, z: 6 * Math.sin(i + t) });
+    const state = (i: number, t: number): ChainState => ({
+      level: 1, delay: 0.02, airShelfDb: -2, direct: 0.8, shelvesDb: [-1, -2], panned: 1, wide: 0, apparent: pos(i, t),
+      send: 0.5, predelay: 0.01, sendHz: 9000, sendPan: 0.1, bank: [0.7, 0.7], tapHz: 10000,
+    });
+    for (let i = 0; i < voices; i++) {
+      const src = c.createBufferSource();
+      src.buffer = noise;
+      src.loop = true;
+      src.start();
+      const ch = new VoiceChain(c, dry, inputs, { cheapTaps: true });
+      ch.attach(src, 0);
+      ch.apply(state(i, 0), true);
+      chains.push(ch);
+    }
+    const dt = 1 / 60;
+    for (let f = 1; f < seconds / dt - 1; f++) {
+      void c.suspend(f * dt).then(() => {
+        chains.forEach((ch, i) => {
+          ch.apply(state(i, f * dt), false);
+          for (let k = 0; k < 4; k++) ch.setTap(k, { image: pos(i + k, f * dt), delay: 0.004 * (k + 1), gain: 0.4, pan: Math.sin(f * dt + k), distanceGain: 0.5 }, false);
+        });
+        void c.resume();
+      });
+    }
+    const t0 = performance.now();
+    await c.startRendering();
+    return (performance.now() - t0) / 1000 / seconds;
+  };
+  await run(2); // warm-up (HRTF tables, code paths)
+  const base = await run(0);
+  const ten = await run(10);
+  return { base, perVoice: Math.max(0, (ten - base) / 10) };
+}
+
 
 /** Share of the listener ray budget kept at governor `level`. */
 export function rayScale(level: number): number {
@@ -232,6 +309,10 @@ export interface OrchestratorOptions {
   persist?: boolean;
   /** Engine build identity for the persistent keys (a new engine renders again). */
   version?: string;
+  /** Voice slots of the pool, minus the spares (the cap's ceiling). Default 14. */
+  voices?: number;
+  /** Measure the audio thread at start-up and cap the voices (default true). */
+  calibrate?: boolean;
 }
 
 export interface BakeablePreset {
@@ -244,6 +325,8 @@ export interface BakeablePreset {
 
 export interface OrchestratorStats {
   level: number;
+  voiceCap: number;
+  calibratedCap: number;
   underruns: number;
   baked: number;
   live: number;
@@ -258,7 +341,7 @@ export interface OrchestratorStats {
 
 export interface SfxOrchestrator {
   /** A baked buffer for this one-shot at these declared inputs, with its level correction; null: play live (the bake is queued). */
-  oneShot(rec: BakeablePreset, declared: Record<string, number>): { buffer: AudioBuffer; gain: number } | null;
+  oneShot(rec: BakeablePreset, declared: Record<string, number>, samples?: boolean): { buffer?: AudioBuffer; l?: Float32Array; r?: Float32Array; gain: number } | null;
   /** Queue cells to bake ahead of time (idle priority, heaviest presets first). */
   prewarm(items: Array<{ rec: BakeablePreset; declared: Record<string, number> }>): void;
   /** A bank impulse response, rendered in the worker (or read back from IndexedDB). */
@@ -270,6 +353,13 @@ export interface SfxOrchestrator {
   bankCap(): number;
   /** Convolvers the bank may run now. */
   bankSize(): number;
+  /**
+   * Voices allowed at once: 4 at start, then up by 2 every calm second to the cap the start-up
+   * calibration measured; an underrun takes 4 back and lowers the cap by one for good.
+   */
+  voiceCap(): number;
+  /** The start-up calibration's result (shares of the audio thread), once done. */
+  readonly calibration: { base: number; perVoice: number; cap: number } | null;
   rayScale(): number;
   /** Count a voice that played live (the engine calls it for one-shots it could not bake). */
   countLive(): void;
@@ -282,6 +372,14 @@ interface Job {
   msg: BakeWorkerIn;
   priority: number;
   resolve: (r: BakeWorkerOut) => void;
+}
+
+/** A copy in shared memory where the page allows it (the render workers read it in place). */
+function toShared(x: Float32Array<ArrayBuffer>): Float32Array<ArrayBuffer> {
+  if (typeof SharedArrayBuffer !== 'function' || (globalThis as { crossOriginIsolated?: boolean }).crossOriginIsolated !== true) return x;
+  const y = new Float32Array(new SharedArrayBuffer(x.byteLength));
+  y.set(x);
+  return y as unknown as Float32Array<ArrayBuffer>;
 }
 
 /** IndexedDB store of baked samples, or null where IndexedDB is missing (private windows, workers). */
@@ -324,7 +422,21 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
   const hashes = new WeakMap<Uint8Array, string>();
   let busy: Job | null = null;
   let nextId = 1;
-  let gov: GovernorState = { ...GOVERNOR_START };
+  // Start at the safest level (fewest taps, one convolver, few rays) and earn the better ones.
+  let gov: GovernorState = { ...GOVERNOR_START, level: 3, calmNeeded: 2 };
+  const maxVoices = Math.max(4, o.voices ?? 14);
+  let calibratedCap = 4;
+  let rampCap = 4;
+  let lastRamp = 0;
+  let calibration: { base: number; perVoice: number; cap: number } | null = null;
+  if (o.calibrate !== false && typeof OfflineAudioContext !== 'undefined') {
+    void calibrateAudioThread(ctx.sampleRate).then((c) => {
+      calibratedCap = capFromCalibration(c.base, c.perVoice, maxVoices);
+      calibration = { ...c, cap: calibratedCap };
+    }, () => {
+      calibratedCap = maxVoices;
+    });
+  }
   const counts = { baked: 0, live: 0, bakesDone: 0, bakeMs: 0, irs: 0 };
   let prewarmStart = -1;
   let prewarmMs: number | null = null;
@@ -390,7 +502,7 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
       if (db && stored.has(key)) {
         const v = (await idb(db, 'readonly', (s) => s.get(key))) as { l: Float32Array<ArrayBuffer>; r: Float32Array<ArrayBuffer>; rms: number } | undefined;
         if (v) {
-          const e: BakeEntry = { l: v.l, r: v.r, rms: v.rms };
+          const e: BakeEntry = { l: toShared(v.l), r: toShared(v.r), rms: v.rms };
           cache.set(key, e);
           return e;
         }
@@ -401,7 +513,8 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
       const e: BakeEntry = { l: res.l, r: res.r, rms: res.rms };
       cache.set(key, e);
       if (db) {
-        void idb(db, 'readwrite', (s) => s.put({ l: e.l, r: e.r, rms: e.rms }, key));
+        // IndexedDB cannot hold shared memory: a plain copy.
+        void idb(db, 'readwrite', (s) => s.put({ l: new Float32Array(e.l), r: new Float32Array(e.r), rms: e.rms }, key));
         stored.add(key);
       }
       return e;
@@ -440,7 +553,7 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
     get level() {
       return gov.level;
     },
-    oneShot(rec, declared) {
+    oneShot(rec, declared, samples = false) {
       const q = quantize(rec.info.inputs, declared);
       const pk = presetKey(rec);
       const ready: number[] = [];
@@ -467,6 +580,8 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
         }
       }
       counts.baked++;
+      // A worker pool plays the samples itself (shared memory): no AudioBuffer, no node.
+      if (samples && e.l.length) return { l: e.l, r: e.r, gain };
       return { buffer: bufferOf(key, e), gain };
     },
     prewarm(items) {
@@ -506,6 +621,19 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
     tick(now, load) {
       const ps = (ctx as unknown as { playbackStats?: { underrunEvents: number } }).playbackStats;
       gov = governorStep(gov, now, ps?.underrunEvents ?? gov.underruns, load);
+      if (gov.recent > 0) {
+        rampCap = Math.max(4, rampCap - 4);
+        calibratedCap = Math.max(4, calibratedCap - 1);
+        lastRamp = now;
+      } else if (now - lastRamp >= 1) {
+        rampCap = Math.min(calibratedCap, rampCap + 2);
+        lastRamp = now;
+      }
+      rampCap = Math.min(rampCap, calibratedCap);
+    },
+    voiceCap: () => rampCap,
+    get calibration() {
+      return calibration;
     },
     quality: (rank, extent) => chainQuality(gov.level, rank, extent),
     bankCap: () => bankCap(gov.level),
@@ -516,7 +644,7 @@ export async function createOrchestrator(ctx: BaseAudioContext, module: WebAssem
     },
     stats() {
       return {
-        level: gov.level, underruns: gov.underruns, baked: counts.baked, live: counts.live, cells: cache.size,
+        level: gov.level, voiceCap: rampCap, calibratedCap, underruns: gov.underruns, baked: counts.baked, live: counts.live, cells: cache.size,
         cacheMB: +(cache.bytes / 1048576).toFixed(1), queued: queue.length + (busy ? 1 : 0), bakesDone: counts.bakesDone,
         bakeMs: Math.round(counts.bakeMs), irs: counts.irs, prewarmMs: prewarmMs === null ? null : Math.round(prewarmMs),
       };

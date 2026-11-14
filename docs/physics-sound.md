@@ -552,3 +552,61 @@ Not done yet: looped or cross-faded baked beds for heavy continuous voices, rain
 a few beds, and a cheaper reverb than one convolver per step (a wasm FDN in the pool would cost a
 few % instead). The audio thread has no clock in an AudioWorklet (`performance` is undefined there),
 so the governor reacts to underruns rather than predicting them from measured render times.
+
+## Bounded audio thread (`createWorkerPool`, `src/sfx/worker-pool.ts`)
+
+The orchestrator's governor reacted to underruns after they had happened; the owner still heard
+the scene saturate. With a worker pool the real-time thread does a fixed amount of work whatever the
+scene does, and nothing a voice does can add to it:
+
+- **Synthesis in render workers** (`@etcito/haa/render-worker`): each worker runs its own HAA engine
+  (no shared wasm memory, no atomics build) for the slots it owns and keeps each active slot's ring
+  2048 frames (43 ms) ahead of the audio thread, woken every quantum by the worklet's doorbell
+  (`Atomics.waitAsync` on a SharedArrayBuffer). Un-baked one-shots, slides, rolls, rain per face,
+  swarm clusters: all synthesised there. A baked one-shot is played by its worker from the cell's
+  samples, held in shared memory (the bake worker writes them there), without a copy.
+- **The audio thread** (`haa-sfx-rings`): per quantum, 16 slots × 128 stereo frames copied from
+  their rings, nothing else. A ring that runs dry (its worker is late: a loaded machine) plays its
+  last block faded out once, then silence, and fades back in when it has caught up: a late worker
+  silences its voice for a moment and counts in `stats().starved`; the output never glitches.
+- **A static graph**: the 16 chains stay connected to their ring outputs for the whole session,
+  each with a fixed quality (the first 6 slots HRTF for the direct sound, the others equal power;
+  early-reflection taps through a StereoPannerNode with their 1/r gain, `VoiceChainOptions.cheapTaps`).
+  A start, a steal or a stop is a message to a worker: no node is created, connected or switched on
+  the audio thread. (Each start used to connect a chain, create a buffer source or switch a panner's
+  model; a burst of 40-60 starts per second in the cluttered building came with underruns that a
+  lower voice cap did not stop.)
+- **A static bank**: three convolvers (`FIXED_BANK`: 0.5, 1.4 and 4 s) connected for the whole
+  session; the voices blend between the two around their decay. Choosing two steps from the room and
+  switching them as the listener moved (or as the governor capped the decay) connected a long
+  response mid-scene, and that glitched.
+
+So the audio thread's work is: 16 ring copies, 16 fixed chains (6 HRTF), 3 convolvers, the limiter.
+The governor now only scales the listener rays. It needs a cross-origin isolated page (COOP
+same-origin + COEP require-corp): the studio has it on Vercel and in `vite dev`; Wavedash frames are
+isolated (its docs, platform/cross-origin-isolation); SDF Modeler does not send the headers yet.
+Without isolation `createWorkerPool` throws and the engine keeps the in-worklet pool (synthesis on
+the audio thread, the governor as before).
+
+```ts
+import { canUseWorkerPool, createWorkerPool } from '@etcito/haa/sfx';
+import RenderWorker from '@etcito/haa/render-worker?worker';
+const pool = canUseWorkerPool()
+  ? await createWorkerPool(ctx, { module, processorUrl, workers: [new RenderWorker(), new RenderWorker()], slots: 16 })
+  : undefined;
+const sfx = await createSfxEngine({ ctx, module, processorUrl, loadPreset, orchestrator, pool });
+```
+
+Measured in Chrome on this machine (24 threads, 4 render workers), `AudioContext.playbackStats`:
+
+| run (60 s each) | underruns | voices starved (quanta) |
+|-----------------|-----------|--------------------------|
+| cluttered building, everything thrown at once, rain, walker, explosion every 4 s, cold cache from load (two runs) | 0, 0 | 610, 782 |
+| rain + walker + a bottle every 0.8 s + 40 pebbles every 3 s | 0 | 299 |
+| the cluttered run again with 20 workers spinning on the CPU | 0 | 7343 |
+
+Before (orchestrator on main, in-worklet pool): the cluttered run had 34-233 underruns in its first
+15 s, and 59 later in one run. What it costs in quality: the reverb is three fixed decays blended
+(a 0.9 s shed is a mix of the 0.5 and 1.4 s responses, not its own; the 2, 2.8, 5.6 and 8 s steps are
+gone), early reflections are left/right only, 10 of 16 voices are equal-power panned, and an input
+change of a continuous voice (a roll's speed) reaches the sound 43 ms later.

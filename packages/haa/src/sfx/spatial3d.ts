@@ -34,7 +34,19 @@ export const AIR_SHELF_HZ = 4000;
 interface Tap {
   delay: DelayNode;
   gain: GainNode;
-  panner: PannerNode;
+  panner: PannerNode | null;
+  /** Cheap taps (`VoiceChainOptions.cheapTaps`): a stereo pan instead of a 3D panner. */
+  pan: StereoPannerNode | null;
+}
+
+export interface VoiceChainOptions {
+  /**
+   * Early-reflection taps through a StereoPannerNode (left/right only) with the 1/r loss in their
+   * gain, instead of a PannerNode each: the tap panners were most of a chain's audio-thread cost
+   * (14 chains: 0.27 of real time without taps, 0.96 with 4 HRTF taps, moving). The echoes keep their
+   * delay, level and side; they lose elevation and front/back.
+   */
+  cheapTaps?: boolean;
 }
 
 /** Everything the engine sets on a voice chain, in linear gains, dB, seconds and hertz. */
@@ -69,6 +81,9 @@ export interface TapState {
   image: Vec3;
   delay: number;
   gain: number;
+  /** Cheap taps: left/right position (-1..1) and the 1/r distance gain of the image. */
+  pan?: number;
+  distanceGain?: number;
 }
 
 /** The node chain of one pool slot. */
@@ -91,7 +106,10 @@ export class VoiceChain {
   readonly taps: Tap[] = [];
   private readonly ctx: BaseAudioContext;
 
-  constructor(ctx: BaseAudioContext, dry: AudioNode, bankInputs: readonly AudioNode[]) {
+  readonly cheapTaps: boolean;
+
+  constructor(ctx: BaseAudioContext, dry: AudioNode, bankInputs: readonly AudioNode[], options: VoiceChainOptions = {}) {
+    this.cheapTaps = !!options.cheapTaps;
     this.ctx = ctx;
     const gain = (v: number): GainNode => {
       const g = ctx.createGain();
@@ -134,8 +152,9 @@ export class VoiceChain {
     }
     trunk.connect(this.tapFilter);
     for (let i = 0; i < TAPS_PER_VOICE; i++) {
-      const tap: Tap = { delay: ctx.createDelay(0.5), gain: gain(0), panner: makePanner(ctx) };
-      chain(this.tapFilter, tap.delay, tap.gain, tap.panner, dry);
+      const cheap = this.cheapTaps;
+      const tap: Tap = { delay: ctx.createDelay(0.5), gain: gain(0), panner: cheap ? null : makePanner(ctx), pan: cheap ? ctx.createStereoPanner() : null };
+      chain(this.tapFilter, tap.delay, tap.gain, (tap.panner ?? tap.pan)!, dry);
       this.taps.push(tap);
     }
   }
@@ -184,7 +203,7 @@ export class VoiceChain {
     if (hrtf !== this.hrtf) {
       const model: PanningModelType = hrtf ? 'HRTF' : 'equalpower';
       this.direct.panningModel = model;
-      for (const t of this.taps) t.panner.panningModel = model;
+      for (const t of this.taps) if (t.panner) t.panner.panningModel = model;
       this.hrtf = hrtf;
     }
   }
@@ -258,9 +277,10 @@ export class VoiceChain {
       this.write(node.gain.gain, 0, immediate, 0, false, 0.05);
       return;
     }
-    this.place(node.panner, tap.image);
+    if (node.panner) this.place(node.panner, tap.image);
+    if (node.pan) this.write(node.pan.pan, Math.max(-1, Math.min(1, tap.pan ?? 0)), immediate, 0.01);
     this.write(node.delay.delayTime, Math.min(0.49, Math.max(0, tap.delay)), immediate, 2e-5, false, 0.05);
-    this.write(node.gain.gain, tap.gain, immediate, 0.0035, true);
+    this.write(node.gain.gain, tap.gain * (node.pan ? (tap.distanceGain ?? 1) : 1), immediate, 0.0035, true);
   }
 
   /** Silence now (a stolen or ended voice). */

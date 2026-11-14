@@ -78,9 +78,17 @@ scope.onmessage = (e) => {
       l[i] *= g;
       r[i] *= g;
     }
-    const lt = l.slice(0, end);
-    const rt = r.slice(0, end);
-    scope.postMessage({ t: 'done', id: m.id, l: lt, r: rt, rms: Math.sqrt(sum / (2 * frames)), ms: performance.now() - t0 }, [lt.buffer, rt.buffer]);
+    // Shared memory where the page allows it: the render workers then play the cell without a copy.
+    const shared = typeof SharedArrayBuffer === 'function' && (globalThis as { crossOriginIsolated?: boolean }).crossOriginIsolated === true;
+    const out = (x: Float32Array): Float32Array<ArrayBuffer> => {
+      if (!shared) return x.slice(0, end);
+      const y = new Float32Array(new SharedArrayBuffer(end * 4));
+      y.set(x.subarray(0, end));
+      return y as unknown as Float32Array<ArrayBuffer>;
+    };
+    const lt = out(l);
+    const rt = out(r);
+    scope.postMessage({ t: 'done', id: m.id, l: lt, r: rt, rms: Math.sqrt(sum / (2 * frames)), ms: performance.now() - t0 }, shared ? [] : [lt.buffer, rt.buffer]);
   } catch (error) {
     scope.postMessage({ t: 'error', id: 'id' in m ? m.id : -1, message: error instanceof Error ? error.message : String(error) });
   }
