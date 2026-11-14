@@ -263,6 +263,8 @@ export type PlayerInMsg =
   | { t: 'trigger'; name: string }
   | { t: 'patch'; req: number; bytes: Uint8Array; keepState: boolean }
   | { t: 'restart' }
+  /** The node is connected: the voice starts rendering (it holds at 0 until then). */
+  | { t: 'start' }
   | { t: 'trace'; on: boolean }
   | { t: 'dispose' };
 

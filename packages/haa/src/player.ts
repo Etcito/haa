@@ -208,6 +208,8 @@ async function startPlayer(ctx: BaseAudioContext, o: PlayerOptions): Promise<Haa
     dispose();
     throw error;
   }
+  // Only now does the voice leave 0: what it renders is heard from its first frame.
+  node.port.postMessage({ t: 'start' } satisfies PlayerInMsg);
 
   return {
     node,

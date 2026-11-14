@@ -16,6 +16,12 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
   private engine: HaaEngine | null = null;
   private voice: HaaVoice | null = null;
   private alive = false;
+  /**
+   * The voice holds at 0 until the player has connected the node (`start`): a source node's
+   * process() runs from its creation, and the frames rendered during the `ready` round trip went
+   * nowhere, so a one-shot lost its attack.
+   */
+  private started = false;
   private playable = false;
   private trapped = false;
   private disposed = false;
@@ -57,7 +63,7 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
     const right = out.length > 1 ? out[1] : null;
     const n = Math.min(BLOCK, left.length);
     let rendered = false;
-    if (this.alive && this.voice) {
+    if (this.started && this.alive && this.voice) {
       try {
         const playing = this.voice.process(n);
         const l = this.voice.left();
@@ -139,6 +145,9 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
             this.endedPosted = false;
             this.alive = !this.trapped && this.playable;
           }
+          break;
+        case 'start':
+          this.started = true;
           break;
         case 'trace':
           this.tracing = msg.on;
