@@ -35,382 +35,15 @@
     }
   ],
   "graph": {
-    "duration": 8,
+    "duration": 4.0,
     "loop": true,
     "mode": "timeline",
     "nodes": [
       {
-        "id": "rain-drift",
-        "type": "random",
-        "x": 40,
-        "y": 350,
-        "label": "Gentle rainfall drift",
-        "compact": true,
-        "params": {
-          "rate": 0.65,
-          "depth": 1,
-          "smooth": 0.95
-        }
-      },
-      {
-        "id": "rain-response",
-        "type": "response",
-        "x": 340,
-        "y": 50,
-        "label": "Rain activity",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0.008,
-          "release": 0.065,
-          "delay": 0,
-          "shape": 1,
-          "gain": 1,
-          "sensitivity": 0.04
-        }
-      },
-      {
-        "id": "rain-bed",
-        "type": "noise",
-        "x": 650,
-        "y": 50,
-        "label": "Diffuse distant rain",
-        "compact": true,
-        "params": {
-          "color": "pink",
-          "level": 0.384,
-          "width": 1
-        }
-      },
-      {
-        "id": "rain-bed-hp",
-        "type": "filter",
-        "x": 950,
-        "y": 50,
-        "label": "Distant rain low cut",
-        "compact": true,
-        "params": {
-          "cutoff": 65,
-          "resonance": 0.65,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "rain-bed-lp",
-        "type": "filter",
-        "x": 1250,
-        "y": 50,
-        "label": "Soft background bandwidth",
-        "compact": true,
-        "params": {
-          "cutoff": 10500,
-          "resonance": 0.62,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "rain-low",
-        "type": "noise",
-        "x": 650,
-        "y": 370,
-        "label": "Low outdoor texture",
-        "compact": true,
-        "params": {
-          "color": "brown",
-          "level": 0.198,
-          "width": 1
-        }
-      },
-      {
-        "id": "rain-low-hp",
-        "type": "filter",
-        "x": 950,
-        "y": 370,
-        "label": "Outdoor low cut",
-        "compact": true,
-        "params": {
-          "cutoff": 70,
-          "resonance": 0.6,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "rain-low-lp",
-        "type": "filter",
-        "x": 1250,
-        "y": 370,
-        "label": "Outdoor body bandwidth",
-        "compact": true,
-        "params": {
-          "cutoff": 320,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "rain-wash",
-        "type": "noise",
-        "x": 650,
-        "y": 690,
-        "label": "Continuous surface wash",
-        "compact": true,
-        "params": {
-          "color": "white",
-          "level": 0.176,
-          "width": 1
-        }
-      },
-      {
-        "id": "rain-wash-band",
-        "type": "filter",
-        "x": 950,
-        "y": 690,
-        "label": "Broad surface texture",
-        "compact": true,
-        "params": {
-          "cutoff": 1400,
-          "resonance": 0.65,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "rain-surface",
-        "type": "grain",
-        "x": 650,
-        "y": 1010,
-        "label": "Soft overlapping contacts",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 1550,
-          "resonance": 0.55,
-          "rate": 75,
-          "attack": 0.00025,
-          "decay": 0.004,
-          "spread": 17,
-          "jitter": 1,
-          "variation": 1,
-          "glide": -0.5,
-          "delay": 0.013,
-          "width": 0.85,
-          "level": 0.256
-        }
-      },
-      {
-        "id": "rain-surface-lp",
-        "type": "filter",
-        "x": 950,
-        "y": 1010,
-        "label": "Soft contact bandwidth",
-        "compact": true,
-        "params": {
-          "cutoff": 3500,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "rain-air",
-        "type": "noise",
-        "x": 650,
-        "y": 1330,
-        "label": "Quiet rain air",
-        "compact": true,
-        "params": {
-          "color": "white",
-          "level": 0.012,
-          "width": 0.35
-        }
-      },
-      {
-        "id": "rain-air-hp",
-        "type": "filter",
-        "x": 950,
-        "y": 1330,
-        "label": "Rain air low cut",
-        "compact": true,
-        "params": {
-          "cutoff": 4000,
-          "resonance": 0.65,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "rain-air-lp",
-        "type": "filter",
-        "x": 1250,
-        "y": 1330,
-        "label": "Rain air bandwidth",
-        "compact": true,
-        "params": {
-          "cutoff": 14000,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "rain-small",
-        "type": "grain",
-        "x": 650,
-        "y": 1650,
-        "label": "Fine distinct droplets",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 8200,
-          "resonance": 0.65,
-          "rate": 2,
-          "attack": 0.0001,
-          "decay": 0.0013,
-          "spread": 9,
-          "jitter": 1,
-          "variation": 1,
-          "glide": -0.36,
-          "delay": 0.036,
-          "width": 0.28,
-          "level": 0.193
-        }
-      },
-      {
-        "id": "rain-medium",
-        "type": "grain",
-        "x": 650,
-        "y": 1970,
-        "label": "Clear nearby droplets",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 9000,
-          "resonance": 0.8,
-          "rate": 0.4,
-          "attack": 0.0001,
-          "decay": 0.0012,
-          "spread": 6,
-          "jitter": 1,
-          "variation": 1,
-          "glide": -0.25,
-          "delay": 0.163,
-          "width": 0.16,
-          "level": 0.411
-        }
-      },
-      {
-        "id": "rain-strong",
-        "type": "grain",
-        "x": 650,
-        "y": 2290,
-        "label": "Occasional close impacts",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 9600,
-          "resonance": 0.9,
-          "rate": 0.08,
-          "attack": 0.0001,
-          "decay": 0.001,
-          "spread": 4,
-          "jitter": 1,
-          "variation": 0.85,
-          "glide": -0.18,
-          "delay": 0.549,
-          "width": 0.1,
-          "level": 0.95
-        }
-      },
-      {
-        "id": "rain-impacts",
-        "type": "gain",
-        "x": 950,
-        "y": 1970,
-        "label": "Droplet foreground",
-        "compact": true,
-        "params": {
-          "gain": 1.4
-        }
-      },
-      {
-        "id": "rain-impact-hp",
-        "type": "filter",
-        "x": 1250,
-        "y": 1970,
-        "label": "Short bright contact",
-        "compact": true,
-        "params": {
-          "cutoff": 2600,
-          "resonance": 0.65,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "rain-impact-lp",
-        "type": "filter",
-        "x": 1550,
-        "y": 1970,
-        "label": "Contact air bandwidth",
-        "compact": true,
-        "params": {
-          "cutoff": 12500,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "rain-mix",
-        "type": "gain",
-        "x": 1850,
-        "y": 370,
-        "label": "Rain intensity balance",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "rain-colour",
-        "type": "equalizer",
-        "x": 2150,
-        "y": 370,
-        "label": "Open rain balance",
-        "compact": true,
-        "params": {
-          "low": 0,
-          "mid": 0,
-          "high": 0,
-          "frequency": 900
-        }
-      },
-      {
-        "id": "rain-space",
-        "type": "space",
-        "x": 2450,
-        "y": 370,
-        "label": "Very short outdoor reflections",
-        "compact": true,
-        "params": {
-          "size": 0.02,
-          "damping": 0.25,
-          "mix": 0.025,
-          "width": 1,
-          "distance": 0
-        }
-      },
-      {
-        "id": "rain-output",
-        "type": "output",
-        "x": 2750,
-        "y": 370,
-        "label": "Light rain output",
-        "compact": true,
-        "params": {
-          "gain": 0.88
-        }
-      },
-      {
         "id": "in-energy",
         "type": "input",
-        "x": 40,
-        "y": 1980,
+        "x": 10,
+        "y": 0,
         "label": "energy",
         "compact": true,
         "params": {
@@ -420,8 +53,8 @@
       {
         "id": "in-hardness",
         "type": "input",
-        "x": 40,
-        "y": 2040,
+        "x": 10,
+        "y": 40,
         "label": "hardness",
         "compact": true,
         "params": {
@@ -431,8 +64,8 @@
       {
         "id": "in-size",
         "type": "input",
-        "x": 40,
-        "y": 2100,
+        "x": 10,
+        "y": 80,
         "label": "size",
         "compact": true,
         "params": {
@@ -440,488 +73,328 @@
         }
       },
       {
-        "id": "map-hardness-surf-lp",
-        "type": "map",
-        "x": 340,
-        "y": 2040,
-        "label": "hardness -> surface contact brightness",
+        "id": "drift",
+        "type": "random",
+        "x": 0,
+        "y": 0,
+        "label": "Gentle rainfall drift",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": -1750,
-          "outMax": 1750
+          "rate": 0.6,
+          "depth": 1,
+          "smooth": 0.95
         }
       },
       {
-        "id": "map-hardness-impact-hp",
-        "type": "map",
-        "x": 340,
-        "y": 2070,
-        "label": "hardness -> bright tacks (impact hp)",
+        "id": "activity",
+        "type": "response",
+        "x": 0,
+        "y": 0,
+        "label": "Rain activity",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": -1800,
-          "outMax": 1800
+          "input": 0,
+          "mode": "follow",
+          "attack": 0.01,
+          "release": 0.08,
+          "delay": 0,
+          "shape": 1,
+          "gain": 1,
+          "sensitivity": 0.04
         }
       },
       {
-        "id": "map-hardness-low-lp",
-        "type": "map",
-        "x": 340,
-        "y": 2100,
-        "label": "hardness -> less low thud on hard ground",
+        "id": "bed-warm",
+        "type": "noise",
+        "x": 0,
+        "y": 0,
+        "label": "Dull patter bed",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 160,
-          "outMax": -240
+          "color": "brown",
+          "level": 0.1,
+          "width": 1
         }
       },
       {
-        "id": "map-hardness-small-res",
-        "type": "map",
-        "x": 340,
-        "y": 2130,
-        "label": "hardness -> ringing pings (small)",
+        "id": "bed-warm-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Dull patter band",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": -0.3,
-          "outMax": 0.3
+          "cutoff": 420,
+          "resonance": 0.6,
+          "mode": "lowpass"
         }
       },
       {
-        "id": "map-hardness-medium-res",
-        "type": "map",
-        "x": 340,
-        "y": 2160,
-        "label": "hardness -> ringing pings (medium)",
+        "id": "bed-bright",
+        "type": "noise",
+        "x": 0,
+        "y": 0,
+        "label": "Bright surface bed",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": -0.35,
-          "outMax": 0.35
+          "color": "white",
+          "level": 0.009,
+          "width": 1
         }
       },
       {
-        "id": "map-size-small-freq",
-        "type": "map",
-        "x": 340,
-        "y": 2190,
-        "label": "size -> droplet pitch (small grains)",
+        "id": "bed-bright-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Bright surface band",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 1680,
-          "outMax": -2520
+          "cutoff": 2500,
+          "resonance": 0.6,
+          "mode": "highpass"
         }
       },
       {
-        "id": "map-size-medium-freq",
-        "type": "map",
-        "x": 340,
-        "y": 2220,
-        "label": "size -> droplet pitch (medium grains)",
+        "id": "droplets",
+        "type": "grain",
+        "x": 0,
+        "y": 0,
+        "label": "Droplet contacts",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 1600,
-          "outMax": -2400
+          "wave": "filtered-noise",
+          "frequency": 3000,
+          "resonance": 0.6,
+          "rate": 40,
+          "attack": 0.0002,
+          "decay": 0.004,
+          "spread": 14,
+          "jitter": 1,
+          "variation": 1,
+          "glide": -0.35,
+          "delay": 0.01,
+          "width": 0.7,
+          "level": 0.45
         }
       },
       {
-        "id": "map-size-surface-decay",
-        "type": "map",
-        "x": 340,
-        "y": 2250,
-        "label": "size -> splash length",
+        "id": "droplet-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Droplet band",
         "compact": true,
         "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": -0.0016,
-          "outMax": 0.0024
+          "cutoff": 3500,
+          "resonance": 0.6,
+          "mode": "lowpass"
         }
       },
       {
-        "id": "map-size-strong-decay",
+        "id": "mix",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Rain mix",
+        "compact": true,
+        "params": {
+          "gain": 1.1
+        }
+      },
+      {
+        "id": "level",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Energy level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "output-node",
+        "type": "output",
+        "x": 0,
+        "y": 0,
+        "label": "Rain output",
+        "compact": true,
+        "params": {
+          "gain": 0.9
+        }
+      },
+      {
+        "id": "m-energy-level",
         "type": "map",
-        "x": 340,
-        "y": 2280,
-        "label": "size -> big drop splash length",
+        "x": 0,
+        "y": 0,
+        "label": "energy -> level",
         "compact": true,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": -0.0004,
-          "outMax": 0.0006
-        }
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0,
+            0.03
+          ],
+          [
+            0.1,
+            0.05
+          ],
+          [
+            0.9,
+            1.0
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
       }
     ],
     "connections": [
       {
-        "id": "rain-activity-level",
-        "from": "rain-response",
-        "to": "rain-mix",
-        "target": "gain",
-        "amount": 1.12
-      },
-      {
-        "id": "rain-activity-surface",
-        "from": "rain-response",
-        "to": "rain-surface",
-        "target": "rate",
-        "amount": 125
-      },
-      {
-        "id": "rain-activity-small",
-        "from": "rain-response",
-        "to": "rain-small",
-        "target": "rate",
-        "amount": 26
-      },
-      {
-        "id": "rain-activity-medium",
-        "from": "rain-response",
-        "to": "rain-medium",
-        "target": "rate",
-        "amount": 3.5
-      },
-      {
-        "id": "rain-activity-strong",
-        "from": "rain-response",
-        "to": "rain-strong",
-        "target": "rate",
-        "amount": 0.62
-      },
-      {
-        "id": "rain-drift-surface",
-        "from": "rain-drift",
-        "to": "rain-surface",
-        "target": "rate",
-        "amount": 20
-      },
-      {
-        "id": "rain-drift-small",
-        "from": "rain-drift",
-        "to": "rain-small",
-        "target": "rate",
-        "amount": 2.5
-      },
-      {
-        "id": "rain-bed-start",
-        "from": "rain-bed",
-        "to": "rain-bed-hp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-bed-shape",
-        "from": "rain-bed-hp",
-        "to": "rain-bed-lp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-bed-mix",
-        "from": "rain-bed-lp",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-low-start",
-        "from": "rain-low",
-        "to": "rain-low-hp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-low-shape",
-        "from": "rain-low-hp",
-        "to": "rain-low-lp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-low-mix",
-        "from": "rain-low-lp",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-wash-shape",
-        "from": "rain-wash",
-        "to": "rain-wash-band",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-wash-mix",
-        "from": "rain-wash-band",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-surface-shape",
-        "from": "rain-surface",
-        "to": "rain-surface-lp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-surface-mix",
-        "from": "rain-surface-lp",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-air-shape",
-        "from": "rain-air",
-        "to": "rain-air-hp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-air-bandwidth",
-        "from": "rain-air-hp",
-        "to": "rain-air-lp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-air-mix",
-        "from": "rain-air-lp",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-small-mix",
-        "from": "rain-small",
-        "to": "rain-impacts",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-medium-mix",
-        "from": "rain-medium",
-        "to": "rain-impacts",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-strong-mix",
-        "from": "rain-strong",
-        "to": "rain-impacts",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-impact-shape",
-        "from": "rain-impacts",
-        "to": "rain-impact-hp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-impact-air",
-        "from": "rain-impact-hp",
-        "to": "rain-impact-lp",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-impact-mix",
-        "from": "rain-impact-lp",
-        "to": "rain-mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-mix-colour",
-        "from": "rain-mix",
-        "to": "rain-colour",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-colour-space",
-        "from": "rain-colour",
-        "to": "rain-space",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rain-listen",
-        "from": "rain-space",
-        "to": "rain-output",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-energy-response",
+        "id": "energy-activity",
         "from": "in-energy",
-        "to": "rain-response",
+        "to": "activity",
         "target": "input",
         "amount": 1
       },
       {
-        "id": "e-hardness-map-surflp",
-        "from": "in-hardness",
-        "to": "map-hardness-surf-lp",
+        "id": "activity-rate",
+        "from": "activity",
+        "to": "droplets",
+        "target": "rate",
+        "amount": 140
+      },
+      {
+        "id": "drift-rate",
+        "from": "drift",
+        "to": "droplets",
+        "target": "rate",
+        "amount": 20
+      },
+      {
+        "id": "warm-filt-in",
+        "from": "bed-warm",
+        "to": "bed-warm-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "warm-mix",
+        "from": "bed-warm-filt",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "bright-filt-in",
+        "from": "bed-bright",
+        "to": "bed-bright-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "bright-mix",
+        "from": "bed-bright-filt",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "droplets-filt-in",
+        "from": "droplets",
+        "to": "droplet-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "droplets-mix",
+        "from": "droplet-filt",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "mix-level",
+        "from": "mix",
+        "to": "level",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "level-output",
+        "from": "level",
+        "to": "output-node",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "e-energy-in",
+        "from": "in-energy",
+        "to": "m-energy-level",
         "target": "in",
         "amount": 1
       },
       {
-        "id": "e-hardness-surflp",
-        "from": "map-hardness-surf-lp",
-        "to": "rain-surface-lp",
+        "id": "e-energy-level",
+        "from": "m-energy-level",
+        "to": "level",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "e-hard-warmlvl",
+        "from": "in-hardness",
+        "to": "bed-warm",
+        "target": "level",
+        "amount": -0.26
+      },
+      {
+        "id": "e-hard-brightlvl",
+        "from": "in-hardness",
+        "to": "bed-bright",
+        "target": "level",
+        "amount": 0.38
+      },
+      {
+        "id": "e-hard-brightf",
+        "from": "in-hardness",
+        "to": "bed-bright-filt",
         "target": "cutoff",
-        "amount": 1
+        "amount": -2000
       },
       {
-        "id": "e-hardness-map-impacthp",
+        "id": "e-hard-dropf",
         "from": "in-hardness",
-        "to": "map-hardness-impact-hp",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-impacthp",
-        "from": "map-hardness-impact-hp",
-        "to": "rain-impact-hp",
+        "to": "droplet-filt",
         "target": "cutoff",
-        "amount": 1
+        "amount": 2600
       },
       {
-        "id": "e-hardness-map-lowlp",
-        "from": "in-hardness",
-        "to": "map-hardness-low-lp",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-lowlp",
-        "from": "map-hardness-low-lp",
-        "to": "rain-low-lp",
-        "target": "cutoff",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-map-smallres",
-        "from": "in-hardness",
-        "to": "map-hardness-small-res",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-smallres",
-        "from": "map-hardness-small-res",
-        "to": "rain-small",
-        "target": "resonance",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-map-mediumres",
-        "from": "in-hardness",
-        "to": "map-hardness-medium-res",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-mediumres",
-        "from": "map-hardness-medium-res",
-        "to": "rain-medium",
-        "target": "resonance",
-        "amount": 1
-      },
-      {
-        "id": "e-size-map-smallfreq",
+        "id": "e-size-freq",
         "from": "in-size",
-        "to": "map-size-small-freq",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-size-smallfreq",
-        "from": "map-size-small-freq",
-        "to": "rain-small",
+        "to": "droplets",
         "target": "frequency",
-        "amount": 1
+        "amount": -2200
       },
       {
-        "id": "e-size-map-mediumfreq",
+        "id": "e-size-level",
         "from": "in-size",
-        "to": "map-size-medium-freq",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-size-mediumfreq",
-        "from": "map-size-medium-freq",
-        "to": "rain-medium",
-        "target": "frequency",
-        "amount": 1
-      },
-      {
-        "id": "e-size-map-surfdecay",
-        "from": "in-size",
-        "to": "map-size-surface-decay",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-size-surfdecay",
-        "from": "map-size-surface-decay",
-        "to": "rain-surface",
-        "target": "decay",
-        "amount": 1
-      },
-      {
-        "id": "e-size-map-strongdecay",
-        "from": "in-size",
-        "to": "map-size-strong-decay",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-size-strongdecay",
-        "from": "map-size-strong-decay",
-        "to": "rain-strong",
-        "target": "decay",
-        "amount": 1
+        "to": "droplets",
+        "target": "level",
+        "amount": 1.1
       }
-    ]
+    ],
+    "performance": null
   },
-  "master": 0.65
+  "master": 1
 }

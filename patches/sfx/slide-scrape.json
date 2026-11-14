@@ -1,0 +1,362 @@
+{
+  "haa": 1,
+  "id": "slide-scrape",
+  "title": "Slide / scrape",
+  "inputs": [
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0.25,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0.25,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0.25,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 3.0,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-speed",
+        "type": "input",
+        "x": 10,
+        "y": 0,
+        "label": "speed",
+        "compact": true,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "x": 10,
+        "y": 40,
+        "label": "hardness",
+        "compact": true,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "x": 10,
+        "y": 80,
+        "label": "size",
+        "compact": true,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "src-soft",
+        "type": "noise",
+        "x": 0,
+        "y": 0,
+        "label": "Soft drag source",
+        "compact": true,
+        "params": {
+          "color": "brown",
+          "level": 0.4,
+          "width": 0.4
+        }
+      },
+      {
+        "id": "filt-soft",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Soft drag band",
+        "compact": true,
+        "params": {
+          "cutoff": 380,
+          "resonance": 0.8,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "src-hard",
+        "type": "noise",
+        "x": 0,
+        "y": 0,
+        "label": "Hard scrape source",
+        "compact": true,
+        "params": {
+          "color": "white",
+          "level": 0.05,
+          "width": 0.4
+        }
+      },
+      {
+        "id": "filt-hard",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Hard scrape band",
+        "compact": true,
+        "params": {
+          "cutoff": 1800,
+          "resonance": 1.0,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "grit",
+        "type": "grain",
+        "x": 0,
+        "y": 0,
+        "label": "Grit",
+        "compact": true,
+        "params": {
+          "wave": "noise",
+          "frequency": 1600,
+          "resonance": 0.9,
+          "rate": 10,
+          "attack": 0.0003,
+          "decay": 0.006,
+          "spread": 10,
+          "jitter": 1,
+          "variation": 1,
+          "glide": -0.2,
+          "delay": 0.0,
+          "width": 0.3,
+          "level": 0.5
+        }
+      },
+      {
+        "id": "grit-filt",
+        "type": "filter",
+        "x": 0,
+        "y": 0,
+        "label": "Grit band",
+        "compact": true,
+        "params": {
+          "cutoff": 2500,
+          "resonance": 0.8,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "mix",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Scrape mix",
+        "compact": true,
+        "params": {
+          "gain": 1.1
+        }
+      },
+      {
+        "id": "level",
+        "type": "gain",
+        "x": 0,
+        "y": 0,
+        "label": "Speed level",
+        "compact": true,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "output-node",
+        "type": "output",
+        "x": 0,
+        "y": 0,
+        "label": "Scrape output",
+        "compact": true,
+        "params": {
+          "gain": 0.9
+        }
+      },
+      {
+        "id": "m-speed-level",
+        "type": "map",
+        "x": 0,
+        "y": 0,
+        "label": "speed -> level",
+        "compact": true,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0.07
+          ],
+          [
+            0.9,
+            1.0
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      }
+    ],
+    "connections": [
+      {
+        "id": "soft-filt-in",
+        "from": "src-soft",
+        "to": "filt-soft",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "soft-mix",
+        "from": "filt-soft",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "hard-filt-in",
+        "from": "src-hard",
+        "to": "filt-hard",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "hard-mix",
+        "from": "filt-hard",
+        "to": "mix",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "grit-filt-in",
+        "from": "grit",
+        "to": "grit-filt",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "grit-mix",
+        "from": "grit-filt",
+        "to": "mix",
+        "target": "audio",
+        "amount": 0.9
+      },
+      {
+        "id": "mix-level",
+        "from": "mix",
+        "to": "level",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "level-output",
+        "from": "level",
+        "to": "output-node",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "e-speed-in",
+        "from": "in-speed",
+        "to": "m-speed-level",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "e-speed-level",
+        "from": "m-speed-level",
+        "to": "level",
+        "target": "gain",
+        "amount": 1
+      },
+      {
+        "id": "e-speed-hardf",
+        "from": "in-speed",
+        "to": "filt-hard",
+        "target": "cutoff",
+        "amount": 1600
+      },
+      {
+        "id": "e-speed-gritrate",
+        "from": "in-speed",
+        "to": "grit",
+        "target": "rate",
+        "amount": 110
+      },
+      {
+        "id": "e-hard-softlvl",
+        "from": "in-hardness",
+        "to": "src-soft",
+        "target": "level",
+        "amount": -0.34
+      },
+      {
+        "id": "e-hard-hardlvl",
+        "from": "in-hardness",
+        "to": "src-hard",
+        "target": "level",
+        "amount": 0.32
+      },
+      {
+        "id": "e-hard-gritlvl",
+        "from": "in-hardness",
+        "to": "grit",
+        "target": "level",
+        "amount": 0.9
+      },
+      {
+        "id": "e-hard-gritrate",
+        "from": "in-hardness",
+        "to": "grit",
+        "target": "rate",
+        "amount": 70
+      },
+      {
+        "id": "e-size-softf",
+        "from": "in-size",
+        "to": "filt-soft",
+        "target": "cutoff",
+        "amount": -220
+      },
+      {
+        "id": "e-size-hardf",
+        "from": "in-size",
+        "to": "filt-hard",
+        "target": "cutoff",
+        "amount": -900
+      }
+    ],
+    "performance": null
+  },
+  "master": 1
+}
