@@ -144,6 +144,18 @@ export function withBody(material: SoundMaterial, body: SoundBody): SoundMateria
   return { ...material, body: { ...body } };
 }
 
+/**
+ * Whether an impact of `joules` breaks `m` against `other`. A soft side spreads the blow over a long
+ * contact, so `breakEnergy` is reached only on a hard enough one: the energy counts times
+ * ((other.hardness - 0.15) / 0.5)² (clamped to 0..1). Concrete, tile, metal: 1; wood (0.55): 0.64
+ * (the threshold x1.6); a rubber ball (0.35): 0.16; snow (0.05): never.
+ */
+export function breaksOn(m: SoundMaterial, other: SoundMaterial, joules: number): boolean {
+  if (!m.sounds.break || m.breakEnergy === undefined) return false;
+  const k = Math.min(1, Math.max(0, (other.hardness - 0.15) / 0.5)) ** 2;
+  return k > 0 && joules * k >= m.breakEnergy;
+}
+
 /** The 0..1 inputs of a body: `shape` (index / 6), `dim`, `thickness`. */
 export function bodyInputs(body: SoundBody | undefined): Partial<SfxInputs> {
   if (!body) return {};

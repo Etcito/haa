@@ -1,0 +1,1399 @@
+{
+  "haa": 1,
+  "id": "ball-bounce",
+  "title": "Ball bounce",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.7,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.45,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.9,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4601,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.301,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 0.6,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-floor-lv",
+        "type": "map",
+        "label": "Floor hardness -> ball level",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.08,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.0
+          ],
+          [
+            0.2,
+            0.3478
+          ],
+          [
+            0.4,
+            0.8913
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "lv",
+        "type": "math",
+        "label": "Energy x floor -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-slap-lv",
+        "type": "map",
+        "label": "Floor hardness -> slap level",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.03,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.0
+          ],
+          [
+            0.3,
+            0.2784
+          ],
+          [
+            0.6,
+            0.6907
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "slap-level",
+        "type": "math",
+        "label": "Energy x floor -> slap level",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Floor hardness -> contact time (s)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.01331333,
+          "outMax": 0.00024667
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.11742
+          ],
+          [
+            0.0625,
+            0.22133
+          ],
+          [
+            0.0938,
+            0.31328
+          ],
+          [
+            0.125,
+            0.39466
+          ],
+          [
+            0.1562,
+            0.46666
+          ],
+          [
+            0.1875,
+            0.53038
+          ],
+          [
+            0.2188,
+            0.58677
+          ],
+          [
+            0.25,
+            0.63667
+          ],
+          [
+            0.2812,
+            0.68083
+          ],
+          [
+            0.3125,
+            0.71991
+          ],
+          [
+            0.3438,
+            0.75449
+          ],
+          [
+            0.375,
+            0.78509
+          ],
+          [
+            0.4062,
+            0.81217
+          ],
+          [
+            0.4375,
+            0.83613
+          ],
+          [
+            0.4688,
+            0.85734
+          ],
+          [
+            0.5,
+            0.8761
+          ],
+          [
+            0.5312,
+            0.89271
+          ],
+          [
+            0.5625,
+            0.9074
+          ],
+          [
+            0.5938,
+            0.92041
+          ],
+          [
+            0.625,
+            0.93191
+          ],
+          [
+            0.6562,
+            0.9421
+          ],
+          [
+            0.6875,
+            0.95111
+          ],
+          [
+            0.7188,
+            0.95908
+          ],
+          [
+            0.75,
+            0.96614
+          ],
+          [
+            0.7812,
+            0.97238
+          ],
+          [
+            0.8125,
+            0.97791
+          ],
+          [
+            0.8438,
+            0.9828
+          ],
+          [
+            0.875,
+            0.98713
+          ],
+          [
+            0.9062,
+            0.99096
+          ],
+          [
+            0.9375,
+            0.99435
+          ],
+          [
+            0.9688,
+            0.99735
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-puff-lv",
+        "type": "map",
+        "label": "Floor hardness -> squeeze level",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.1,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.0
+          ],
+          [
+            0.4,
+            0.7778
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "puff-level",
+        "type": "math",
+        "label": "Energy x floor -> squeeze level",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.2,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "puff",
+        "type": "blast",
+        "label": "Air squeezed out (pressure pulse)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "duration": 0.004,
+          "negative": 0.6,
+          "noise": 0.6,
+          "noiseDecay": 0.06,
+          "tone": 900,
+          "delay": 0.006,
+          "level": 0.0
+        }
+      },
+      {
+        "id": "puff-lp",
+        "type": "filter",
+        "label": "Squeeze low-pass",
+        "x": 800,
+        "y": 20,
+        "params": {
+          "cutoff": 700,
+          "resonance": 0.6,
+          "mode": "lowpass"
+        }
+      },
+      {
+        "id": "shell",
+        "type": "modal",
+        "label": "Rubber shell (ball modes)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "block",
+          "material": "plastic",
+          "frequency": 20,
+          "modes": 24,
+          "decay": 0.05,
+          "damping": 4.0,
+          "contact": 2e-05,
+          "force": 0,
+          "position": 0.3,
+          "vary": 1.0,
+          "click": 0.1,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-shell-lv",
+        "type": "map",
+        "label": "Floor hardness -> shell level (a soft floor damps the ball)",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.1,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.0
+          ],
+          [
+            0.3,
+            0.7778
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "shell-level",
+        "type": "math",
+        "label": "Energy x floor -> shell level",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 380,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 1340,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.0312,
+            0.00024
+          ],
+          [
+            0.0625,
+            0.00054
+          ],
+          [
+            0.0938,
+            0.00091
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.1562,
+            0.00194
+          ],
+          [
+            0.1875,
+            0.00265
+          ],
+          [
+            0.2188,
+            0.00354
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.2812,
+            0.00598
+          ],
+          [
+            0.3125,
+            0.00767
+          ],
+          [
+            0.3438,
+            0.00976
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.4062,
+            0.01556
+          ],
+          [
+            0.4375,
+            0.01955
+          ],
+          [
+            0.4688,
+            0.02451
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.5312,
+            0.03828
+          ],
+          [
+            0.5625,
+            0.04774
+          ],
+          [
+            0.5938,
+            0.05949
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.6562,
+            0.09215
+          ],
+          [
+            0.6875,
+            0.11459
+          ],
+          [
+            0.7188,
+            0.14244
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.7812,
+            0.21989
+          ],
+          [
+            0.8125,
+            0.27312
+          ],
+          [
+            0.8438,
+            0.33916
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            0.9062,
+            0.52282
+          ],
+          [
+            0.9375,
+            0.64903
+          ],
+          [
+            0.9688,
+            0.80565
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 1460,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.35062
+          ],
+          [
+            0.0625,
+            0.5783
+          ],
+          [
+            0.0938,
+            0.72616
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.1562,
+            0.88452
+          ],
+          [
+            0.1875,
+            0.92501
+          ],
+          [
+            0.2188,
+            0.9513
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.2812,
+            0.97947
+          ],
+          [
+            0.3125,
+            0.98667
+          ],
+          [
+            0.3438,
+            0.99134
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.4062,
+            0.99635
+          ],
+          [
+            0.4375,
+            0.99763
+          ],
+          [
+            0.4688,
+            0.99846
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.5312,
+            0.99935
+          ],
+          [
+            0.5625,
+            0.99958
+          ],
+          [
+            0.5938,
+            0.99973
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.6562,
+            0.99989
+          ],
+          [
+            0.6875,
+            0.99993
+          ],
+          [
+            0.7188,
+            0.99995
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.7812,
+            0.99998
+          ],
+          [
+            0.8125,
+            0.99999
+          ],
+          [
+            0.8438,
+            0.99999
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            0.9062,
+            1.0
+          ],
+          [
+            0.9375,
+            1.0
+          ],
+          [
+            0.9688,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 1580,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 1700,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 1820,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1940,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 11.95,
+          "outMax": 0.15
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.12214
+          ],
+          [
+            0.0625,
+            0.2296
+          ],
+          [
+            0.0938,
+            0.32417
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.1562,
+            0.48058
+          ],
+          [
+            0.1875,
+            0.545
+          ],
+          [
+            0.2188,
+            0.60168
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.2812,
+            0.69544
+          ],
+          [
+            0.3125,
+            0.73405
+          ],
+          [
+            0.3438,
+            0.76803
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.4062,
+            0.82423
+          ],
+          [
+            0.4375,
+            0.84738
+          ],
+          [
+            0.4688,
+            0.86774
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.5312,
+            0.90143
+          ],
+          [
+            0.5625,
+            0.9153
+          ],
+          [
+            0.5938,
+            0.92751
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.6562,
+            0.9477
+          ],
+          [
+            0.6875,
+            0.95602
+          ],
+          [
+            0.7188,
+            0.96334
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.7812,
+            0.97544
+          ],
+          [
+            0.8125,
+            0.98043
+          ],
+          [
+            0.8438,
+            0.98481
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            0.9062,
+            0.99207
+          ],
+          [
+            0.9375,
+            0.99506
+          ],
+          [
+            0.9688,
+            0.99769
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "slap",
+        "type": "crackle",
+        "label": "Contact slap",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "click",
+          "rate": 4000,
+          "rise": 0.004,
+          "fall": 0.04,
+          "frequency": 1500,
+          "spread": 2.5,
+          "sizePitch": 0.2,
+          "decay": 0.002,
+          "contact": 0.0002,
+          "range": 12,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.127
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-hardness-m-floor-lv-in",
+        "from": "in-hardness",
+        "to": "m-floor-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-lv-a",
+        "from": "m-level",
+        "to": "lv",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-floor-lv-lv-b",
+        "from": "m-floor-lv",
+        "to": "lv",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-slap-lv-in",
+        "from": "in-hardness",
+        "to": "m-slap-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-lv-slap-level-a",
+        "from": "lv",
+        "to": "slap-level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-slap-lv-slap-level-b",
+        "from": "m-slap-lv",
+        "to": "slap-level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-in-hardness-m-puff-lv-in",
+        "from": "in-hardness",
+        "to": "m-puff-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-lv-puff-level-a",
+        "from": "lv",
+        "to": "puff-level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-m-puff-lv-puff-level-b",
+        "from": "m-puff-lv",
+        "to": "puff-level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-puff-level-puff-level",
+        "from": "puff-level",
+        "to": "puff",
+        "target": "level",
+        "amount": 0.3
+      },
+      {
+        "id": "e14-puff-puff-lp-audio",
+        "from": "puff",
+        "to": "puff-lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-m-contact-shell-contact",
+        "from": "m-contact",
+        "to": "shell",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-force-shell-force",
+        "from": "m-force",
+        "to": "shell",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-in-hardness-m-shell-lv-in",
+        "from": "in-hardness",
+        "to": "m-shell-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-lv-shell-level-a",
+        "from": "lv",
+        "to": "shell-level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e19-m-shell-lv-shell-level-b",
+        "from": "m-shell-lv",
+        "to": "shell-level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-shell-level-shell-level",
+        "from": "shell-level",
+        "to": "shell",
+        "target": "level",
+        "amount": 2.0
+      },
+      {
+        "id": "e21-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e25-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e29-body-f-shell-frequency",
+        "from": "body-f",
+        "to": "shell",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e30-m-ring1-shell-decay",
+        "from": "m-ring1",
+        "to": "shell",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e31-in-shape-shell-shape",
+        "from": "in-shape",
+        "to": "shell",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e32-slap-level-slap-level",
+        "from": "slap-level",
+        "to": "slap",
+        "target": "level",
+        "amount": 0.04
+      },
+      {
+        "id": "e33-puff-lp-out-audio",
+        "from": "puff-lp",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e34-shell-out-audio",
+        "from": "shell",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e35-slap-out-audio",
+        "from": "slap",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}

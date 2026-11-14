@@ -183,15 +183,29 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
   the same τ: the grains then carry on average exactly the summed power of the impacts. The voice
   fades in over 50 ms, and fades out over 0.2 s from 0.15 s after the last impact: the cluster is
   never switched on or off in one step. The 0.3 s window slides with every impact (no window edge).
-- A cluster preset is a `crackle` cloud of `ring` events, each one a small version of the single
-  impact (same pitch range, contact and energy-to-level map), whose rate is `density` × 200, so its
-  summed level follows the impacts it stands for (the energy of one event within ±2 dB of one
-  impact). `particle-cluster` (pebbles, debris) and `glass-cluster` (shards) are in `patches/sfx/`.
+- A cluster preset is a `crackle` cloud whose rate is `density` × 200, so its summed level follows
+  the impacts it stands for (the energy of one event within ±2 dB of one impact). `particle-cluster`
+  is dry stone clicks (`crack` events, a wide pitch scatter, small clumps, low-passed at 3-9 kHz as
+  in the recordings of thrown pebbles); `glass-cluster` keeps ringing shards. `particle-cluster` (pebbles, debris) and `glass-cluster` (shards) are in `patches/sfx/`.
 - Impact presets for the materials: `wood-crate-impact`, `metal-impact` (a struck steel plate),
   `particle-impact`, `glass-clink`, `glass-shards`; `metal-ricochet` is a bullet glancing off metal
   (ping and tumbling whine), not a plate hit.
-- `gunshot` is the shot itself, played by the game at the muzzle (`energy` ~0.96 for a 9 mm round, ~500 J;
-  `size` the calibre); the bullet's hits are its material's impact slot.
+- The weapons are played by the game at the muzzle, `energy` on the joule axis (a 9 mm round ~500 J: 0.96;
+  a 12-gauge load ~3 kJ: 1), `size` the calibre: `pistol-9mm`, `smg` (one round: the game fires it at its
+  rate, 12/s, each round a new take, its energy moved by ±0.015 across the bake's cells), `shotgun` (the
+  blast; the game fires several pellets) and `shotgun-pump` (the rack, ~0.35 s after the shot). The bullets'
+  hits are their material's impact slot. `gunshot` stays for older games. A preset stops at the output
+  limiter: a shot louder than the crate by more than the preset's own range is the game's voice `gain`
+  (the studio scene: real peak SPL at 1 m, 9 mm ~157 dB, 12-gauge ~162, a 20 kg crate dropped ~112,
+  compressed 0.35 dB per dB above the crate and 0.8 below).
+- `ball-bounce` is a ball's own impact: `hardness` is the floor's (the contract gives a preset the other
+  side's), a soft floor (snow) takes most of the blow. A soft striker (rubber, 0.35) barely sets
+  `solid-impact` ringing (its level follows the striker's hardness), and `solid-impact` rings a body larger
+  than 1 m like a 1 m piece: a slab or a 160 m ground answers a blow locally (its whole-body modes, 9 Hz
+  for the ground, were the thunder of every ball landing).
+- A breakable material breaks only against a hard enough side (`breaksOn`): the impact energy counts
+  times ((other.hardness - 0.15) / 0.5)², clamped to 0..1: concrete, tile, metal 1, wood 0.64, a rubber
+  ball 0.16, snow 0 (a bottle lands in snow unbroken).
 - `createSfxEngine({ swarm: false })` gives every impact its own voice; `swarm: { individual, ... }`
   tunes the grouping. `stats().clustered` counts the impacts absorbed.
 

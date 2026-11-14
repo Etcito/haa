@@ -101,7 +101,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0.0,
-          "outMax": 2.4467
+          "outMax": 1.43
         },
         "curve": [
           [
@@ -151,9 +151,9 @@
         ]
       },
       {
-        "id": "m-f",
+        "id": "m-floor",
         "type": "map",
-        "label": "Size -> stone pitch (Hz)",
+        "label": "Floor hardness -> level",
         "x": 280,
         "y": 140,
         "params": {
@@ -161,8 +161,55 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 4760.0,
-          "outMax": 760.0
+          "outMin": 0.05,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.3,
+            0.5
+          ],
+          [
+            0.6,
+            0.9
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "lvf",
+        "type": "math",
+        "label": "Energy x floor -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-f",
+        "type": "map",
+        "label": "Size -> click pitch (Hz)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 3960.0,
+          "outMax": 793.33333333
         },
         "curve": [
           [
@@ -171,127 +218,127 @@
           ],
           [
             0.0312,
-            0.06534
+            0.06043
           ],
           [
             0.0625,
-            0.12713
+            0.11796
           ],
           [
             0.0938,
-            0.18555
+            0.17274
           ],
           [
             0.125,
-            0.24079
+            0.22491
           ],
           [
             0.1562,
-            0.29303
+            0.27457
           ],
           [
             0.1875,
-            0.34241
+            0.32186
           ],
           [
             0.2188,
-            0.38911
+            0.36689
           ],
           [
             0.25,
-            0.43327
+            0.40977
           ],
           [
             0.2812,
-            0.47502
+            0.45059
           ],
           [
             0.3125,
-            0.5145
+            0.48946
           ],
           [
             0.3438,
-            0.55183
+            0.52647
           ],
           [
             0.375,
-            0.58712
+            0.56172
           ],
           [
             0.4062,
-            0.62049
+            0.59527
           ],
           [
             0.4375,
-            0.65205
+            0.62722
           ],
           [
             0.4688,
-            0.68189
+            0.65764
           ],
           [
             0.5,
-            0.7101
+            0.68661
           ],
           [
             0.5312,
-            0.73678
+            0.71419
           ],
           [
             0.5625,
-            0.762
+            0.74045
           ],
           [
             0.5938,
-            0.78585
+            0.76545
           ],
           [
             0.625,
-            0.80841
+            0.78926
           ],
           [
             0.6562,
-            0.82973
+            0.81193
           ],
           [
             0.6875,
-            0.84989
+            0.83352
           ],
           [
             0.7188,
-            0.86896
+            0.85407
           ],
           [
             0.75,
-            0.88698
+            0.87364
           ],
           [
             0.7812,
-            0.90403
+            0.89227
           ],
           [
             0.8125,
-            0.92014
+            0.91002
           ],
           [
             0.8438,
-            0.93538
+            0.92691
           ],
           [
             0.875,
-            0.94979
+            0.94299
           ],
           [
             0.9062,
-            0.96342
+            0.95831
           ],
           [
             0.9375,
-            0.9763
+            0.97289
           ],
           [
             0.9688,
-            0.98848
+            0.98678
           ],
           [
             1.0,
@@ -304,7 +351,7 @@
         "type": "map",
         "label": "Hardness -> contact time (s)",
         "x": 280,
-        "y": 260,
+        "y": 500,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -453,39 +500,240 @@
         "type": "map",
         "label": "Density -> impacts per second",
         "x": 280,
-        "y": 380,
+        "y": 620,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 200
+          "outMax": 100.0
         }
+      },
+      {
+        "id": "m-rate2",
+        "type": "map",
+        "label": "Density -> ringing impacts per second",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 800.0
+        }
+      },
+      {
+        "id": "m-contact2",
+        "type": "map",
+        "label": "Hardness -> contact time (s), rings",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00148,
+          "outMax": 4e-05
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.09968
+          ],
+          [
+            0.0625,
+            0.18983
+          ],
+          [
+            0.0938,
+            0.27135
+          ],
+          [
+            0.125,
+            0.34506
+          ],
+          [
+            0.1562,
+            0.41172
+          ],
+          [
+            0.1875,
+            0.47201
+          ],
+          [
+            0.2188,
+            0.52652
+          ],
+          [
+            0.25,
+            0.57582
+          ],
+          [
+            0.2812,
+            0.6204
+          ],
+          [
+            0.3125,
+            0.66071
+          ],
+          [
+            0.3438,
+            0.69717
+          ],
+          [
+            0.375,
+            0.73014
+          ],
+          [
+            0.4062,
+            0.75995
+          ],
+          [
+            0.4375,
+            0.78691
+          ],
+          [
+            0.4688,
+            0.81129
+          ],
+          [
+            0.5,
+            0.83333
+          ],
+          [
+            0.5312,
+            0.85327
+          ],
+          [
+            0.5625,
+            0.8713
+          ],
+          [
+            0.5938,
+            0.8876
+          ],
+          [
+            0.625,
+            0.90235
+          ],
+          [
+            0.6562,
+            0.91568
+          ],
+          [
+            0.6875,
+            0.92773
+          ],
+          [
+            0.7188,
+            0.93864
+          ],
+          [
+            0.75,
+            0.9485
+          ],
+          [
+            0.7812,
+            0.95741
+          ],
+          [
+            0.8125,
+            0.96548
+          ],
+          [
+            0.8438,
+            0.97277
+          ],
+          [
+            0.875,
+            0.97936
+          ],
+          [
+            0.9062,
+            0.98532
+          ],
+          [
+            0.9375,
+            0.99071
+          ],
+          [
+            0.9688,
+            0.99559
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
       },
       {
         "id": "cloud",
         "type": "crackle",
-        "label": "Pebbles (one ring per impact)",
+        "label": "Pebbles (dry clicks)",
         "x": 540,
         "y": 20,
         "params": {
-          "kind": "ring",
+          "kind": "crack",
           "rate": 0,
           "rise": 0.0,
           "fall": 0,
           "frequency": 40,
-          "spread": 2.4,
-          "sizePitch": 0.4,
-          "decay": 0.012,
+          "spread": 2.8,
+          "sizePitch": 0.5,
+          "decay": 0.004,
           "contact": 2e-05,
-          "range": 14,
+          "range": 16,
           "exponent": 1.0,
-          "modes": 3,
+          "modes": 2,
           "regularity": 0,
-          "clump": 0,
+          "clump": 0.5,
           "delay": 0.0,
           "level": 0
+        }
+      },
+      {
+        "id": "rings",
+        "type": "crackle",
+        "label": "Pebbles ringing (a few)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "crack",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 3200,
+          "spread": 1.2,
+          "sizePitch": 0.4,
+          "decay": 0.006,
+          "contact": 2e-05,
+          "range": 16,
+          "exponent": 1.0,
+          "modes": 4,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "lp",
+        "type": "filter",
+        "label": "Grain low-pass",
+        "x": 800,
+        "y": 20,
+        "params": {
+          "cutoff": 5000,
+          "resonance": 0.6,
+          "mode": "lowpass"
         }
       },
       {
@@ -508,57 +756,127 @@
         "amount": 1.0
       },
       {
-        "id": "e2-in-size-m-f-in",
+        "id": "e2-in-hardness-m-floor-in",
+        "from": "in-hardness",
+        "to": "m-floor",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-lvf-a",
+        "from": "m-level",
+        "to": "lvf",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-floor-lvf-b",
+        "from": "m-floor",
+        "to": "lvf",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-size-m-f-in",
         "from": "in-size",
         "to": "m-f",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e3-in-hardness-m-contact-in",
+        "id": "e6-in-hardness-m-contact-in",
         "from": "in-hardness",
         "to": "m-contact",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e4-in-density-m-rate-in",
+        "id": "e7-in-density-m-rate-in",
         "from": "in-density",
         "to": "m-rate",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e5-m-f-cloud-frequency",
+        "id": "e8-in-density-m-rate2-in",
+        "from": "in-density",
+        "to": "m-rate2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-in-hardness-m-contact2-in",
+        "from": "in-hardness",
+        "to": "m-contact2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-m-f-cloud-frequency",
         "from": "m-f",
         "to": "cloud",
         "target": "frequency",
         "amount": 1.0
       },
       {
-        "id": "e6-m-contact-cloud-contact",
+        "id": "e11-m-contact-cloud-contact",
         "from": "m-contact",
         "to": "cloud",
         "target": "contact",
         "amount": 1.0
       },
       {
-        "id": "e7-m-rate-cloud-rate",
+        "id": "e12-m-rate-cloud-rate",
         "from": "m-rate",
         "to": "cloud",
         "target": "rate",
         "amount": 1.0
       },
       {
-        "id": "e8-m-level-cloud-level",
-        "from": "m-level",
+        "id": "e13-lvf-cloud-level",
+        "from": "lvf",
         "to": "cloud",
+        "target": "level",
+        "amount": 0.3
+      },
+      {
+        "id": "e14-m-contact2-rings-contact",
+        "from": "m-contact2",
+        "to": "rings",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-m-rate2-rings-rate",
+        "from": "m-rate2",
+        "to": "rings",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-lvf-rings-level",
+        "from": "lvf",
+        "to": "rings",
         "target": "level",
         "amount": 1.0
       },
       {
-        "id": "e9-cloud-out-audio",
+        "id": "e17-cloud-lp-audio",
         "from": "cloud",
+        "to": "lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-rings-lp-audio",
+        "from": "rings",
+        "to": "lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e19-lp-out-audio",
+        "from": "lp",
         "to": "out",
         "target": "audio",
         "amount": 1.0

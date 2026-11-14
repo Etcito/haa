@@ -13,7 +13,7 @@
 import type { RayCast, RayHit, Vec3 } from './acoustics.ts';
 import { add, cross, dot, length, scale, sub, v3 } from './acoustics.ts';
 import type { InteractionKind, SfxEvent, SoundMaterial } from './contract.ts';
-import { depthFromMetres, energyFromJoules, sizeFromMass, speedFromVelocity } from './contract.ts';
+import { breaksOn, depthFromMetres, energyFromJoules, sizeFromMass, speedFromVelocity } from './contract.ts';
 
 // --- the part of Rapier this adapter touches -------------------------------------------------
 
@@ -80,7 +80,7 @@ export interface RapierSfxOptions {
   materialOf(collider: RCollider): SoundMaterial | null;
   /** Receives every event (wire it to `SfxEngine.handle`). */
   emit(event: SfxEvent): void;
-  /** Called when an impact exceeds a material's `breakEnergy` (spawn the shards here). */
+  /** Called when an impact breaks a material (`breaksOn`: its `breakEnergy`, against a hard enough side; spawn the shards here). */
   onBreak?(collider: RCollider, event: SfxEvent): void;
   /** Relative normal speed below which a contact makes no impact (m/s). Default 0.35. */
   minImpactSpeed?: number;
@@ -255,7 +255,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     lastByCollider.set(c2.handle, time);
     o.emit(event);
     for (const [c, m, other] of [[c1, m1, m2], [c2, m2, m1]] as const) {
-      if (m.sounds.break && m.breakEnergy !== undefined && joules >= m.breakEnergy) {
+      if (breaksOn(m, other, joules)) {
         const brk: SfxEvent = { ...event, kind: 'break', striker: m, surface: other, surfaceInputs: undefined };
         o.emit(brk);
         o.onBreak?.(c, brk);

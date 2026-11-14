@@ -11,7 +11,7 @@ import { strict as assert } from 'node:assert';
 import type { RBody, RCollider, RManifold, RVec, RWorld } from '../src/sfx/rapier.ts';
 import { createRapierSfx } from '../src/sfx/rapier.ts';
 import type { SfxEvent } from '../src/sfx/contract.ts';
-import { defineMaterial, energyFromJoules, resolveInteraction, sizeFromMass } from '../src/sfx/contract.ts';
+import { breaksOn, defineMaterial, energyFromJoules, resolveInteraction, sizeFromMass } from '../src/sfx/contract.ts';
 
 const v = (x: number, y: number, z: number): RVec => ({ x, y, z });
 
@@ -145,4 +145,14 @@ test('a hit above breakEnergy emits a break of the breakable side and calls onBr
   assert.ok(brk);
   assert.equal(brk.striker, glass);
   assert.deepEqual(broken, [20]);
+});
+
+test('a soft surface takes the blow: the same hit lands on snow unbroken, breaks on concrete', () => {
+  const snow = defineMaterial({ name: 'snow', hardness: 0.05, sounds: { impact: 'snow-impact' } });
+  const concrete = defineMaterial({ name: 'concrete', hardness: 0.9, sounds: { impact: 'solid-impact' } });
+  assert.equal(breaksOn(glass, snow, 50), false);
+  assert.equal(breaksOn(glass, concrete, 2.5), true);
+  // wood (0.55) raises the threshold x1.6: 2.5 J holds, 4 J breaks
+  assert.equal(breaksOn(glass, wood, 2.5), false);
+  assert.equal(breaksOn(glass, wood, 4), true);
 });

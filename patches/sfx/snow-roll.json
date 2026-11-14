@@ -1,0 +1,404 @@
+{
+  "haa": 1,
+  "id": "snow-roll",
+  "title": "Snow under a rolling or sliding weight",
+  "inputs": [
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.2,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "depth",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.3,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 3.0,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-speed",
+        "type": "input",
+        "label": "Speed",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-depth",
+        "type": "input",
+        "label": "Depth",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "depth"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Speed -> level",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.05,
+            0.15
+          ],
+          [
+            0.2,
+            0.45
+          ],
+          [
+            0.5,
+            0.8
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "m-size-lv",
+        "type": "map",
+        "label": "Size -> level factor",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.4,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "level",
+        "type": "math",
+        "label": "Speed x size -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-rate",
+        "type": "map",
+        "label": "Speed -> crystals breaking per second",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 6000
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0.25
+          ],
+          [
+            0.4,
+            0.6
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "m-rate2",
+        "type": "map",
+        "label": "Speed -> squeaks per second",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0.2
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "m-depth-f",
+        "type": "map",
+        "label": "Depth -> crunch pitch (Hz): deeper snow, lower",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 760.0,
+          "outMax": 520.0
+        }
+      },
+      {
+        "id": "crunch",
+        "type": "crackle",
+        "label": "Crunch (crystals breaking in clumps)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 2.0,
+          "sizePitch": 0.5,
+          "decay": 0.008,
+          "contact": 0.0002,
+          "range": 24,
+          "exponent": 1.2,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.8,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "body",
+        "type": "filter",
+        "label": "Packed layer (band)",
+        "x": 800,
+        "y": 20,
+        "params": {
+          "cutoff": 1500,
+          "resonance": 0.5,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "fine",
+        "type": "crackle",
+        "label": "Squeaks (fine crystals)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 3500,
+          "spread": 1.5,
+          "sizePitch": 0.3,
+          "decay": 0.002,
+          "contact": 0.0002,
+          "range": 20,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.057
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-speed-m-level-in",
+        "from": "in-speed",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-size-m-size-lv-in",
+        "from": "in-size",
+        "to": "m-size-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-level-a",
+        "from": "m-level",
+        "to": "level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-size-lv-level-b",
+        "from": "m-size-lv",
+        "to": "level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-speed-m-rate-in",
+        "from": "in-speed",
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-speed-m-rate2-in",
+        "from": "in-speed",
+        "to": "m-rate2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-in-depth-m-depth-f-in",
+        "from": "in-depth",
+        "to": "m-depth-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-rate-crunch-rate",
+        "from": "m-rate",
+        "to": "crunch",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-m-depth-f-crunch-frequency",
+        "from": "m-depth-f",
+        "to": "crunch",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-level-crunch-level",
+        "from": "level",
+        "to": "crunch",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-crunch-body-audio",
+        "from": "crunch",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-rate2-fine-rate",
+        "from": "m-rate2",
+        "to": "fine",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-level-fine-level",
+        "from": "level",
+        "to": "fine",
+        "target": "level",
+        "amount": 0.3
+      },
+      {
+        "id": "e14-body-out-audio",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-crunch-out-audio",
+        "from": "crunch",
+        "to": "out",
+        "target": "audio",
+        "amount": 0.3
+      },
+      {
+        "id": "e16-fine-out-audio",
+        "from": "fine",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}

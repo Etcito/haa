@@ -198,6 +198,9 @@ stays deterministic), and both output mono (the runtime places the voice in 3D).
   (`sizePitch`), pitches spread over `spread` octaves around `frequency`. `kind`: `click` (a pulse through a broad
   resonance, DC-free), `ring` (a small free object, `modes` 1-4, `decay`), `bubble` (a Minnaert bubble: rain on water),
   `crack` (a band-limited noise burst). `contact` sets the brightness, `delay`, `level`.
+- `blast` (source): a pressure wave, the dry part of a gunshot or a detonation. A Friedlander wave (an instant rise, the
+  fall through zero in `duration`, a negative phase of depth `negative`, DC-free) with the turbulence of the expanding
+  gas on it (`noise`, dying in `noiseDecay`, coloured by `tone`); every restart a slightly different take.
 
 The sfx presets are built from them and measured against real recordings (spectral centroid, band shares, decay times,
 envelope roughness, long-term spectrum); several layers each: e.g. `footstep-snow` is two fracture clouds (heel, then the
@@ -207,7 +210,12 @@ fracture front, a grain shower and ringing fragments. `metal-impact` is a struck
 `shape` enum inputs pick the `modal` model (a hollow wooden box, a concrete block and a thin metal sheet hit alike sound
 nothing alike); `rain-surface`, `slide-scrape` and `roll-rumble` take the same two inputs for the surface that rings,
 `wood-crate-impact` and `metal-impact` take `shape`. `footstep-wood` and `footstep-metal` are steps on floorboards over
-joists and on a steel floor plate. `gunshot` is a firearm shot at the muzzle (N-wave crack, blast, low punch, the action's click; `size` the calibre). The input names and values are in `docs/physics-sound.md`.
+joists and on a steel floor plate. `gunshot` is a firearm shot at the muzzle (N-wave crack, blast, low punch, the action's click; `size` the calibre).
+`pistol-9mm`, `smg` (one round, fired 12 times a second by the game) and `shotgun` are `blast`-based shots built against
+CC0 recordings of each weapon (a reference gate: descriptors, a CNN tagger and its embedding, each checked on held-out
+recordings and wrong sounds), `shotgun-pump` the pump racked once. `ball-bounce` is a pressurised rubber ball landing
+(`hardness` is the floor's: bright on concrete, swallowed by snow), `snow-roll` snow under a rolling or sliding weight.
+The input names and values are in `docs/physics-sound.md`.
 
 ## Mixing
 
