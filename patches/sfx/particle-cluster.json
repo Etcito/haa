@@ -10,7 +10,7 @@
       "min": 0,
       "max": 1,
       "default": 0.5,
-      "smooth": 0.05,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.3,
-      "smooth": 0.05,
+      "default": 0.2,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -29,8 +29,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.05,
+      "default": 0.9,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -40,7 +40,7 @@
       "min": 0,
       "max": 1,
       "default": 0.2,
-      "smooth": 0.05,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
@@ -64,7 +64,7 @@
         "type": "input",
         "label": "Size",
         "x": 20,
-        "y": 100,
+        "y": 140,
         "params": {
           "name": "size"
         }
@@ -74,7 +74,7 @@
         "type": "input",
         "label": "Hardness",
         "x": 20,
-        "y": 180,
+        "y": 260,
         "params": {
           "name": "hardness"
         }
@@ -84,69 +84,24 @@
         "type": "input",
         "label": "Density",
         "x": 20,
-        "y": 260,
+        "y": 380,
         "params": {
           "name": "density"
         }
       },
       {
-        "id": "map-freq-hardness",
+        "id": "m-level",
         "type": "map",
-        "label": "Hardness -> tone (thud..tick)",
-        "x": 220,
-        "y": 140,
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 220,
-          "outMax": 4200
-        }
-      },
-      {
-        "id": "map-freq-size",
-        "type": "map",
-        "label": "Size -> pitch offset",
-        "x": 220,
-        "y": 220,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 150,
-          "outMax": -80
-        }
-      },
-      {
-        "id": "map-decay",
-        "type": "map",
-        "label": "Hardness -> decay (long..short)",
-        "x": 220,
-        "y": 60,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0.065,
-          "outMax": 0.004
-        }
-      },
-      {
-        "id": "map-level",
-        "type": "map",
-        "label": "Energy -> level",
-        "x": 220,
-        "y": 300,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0,
-          "outMax": 0.95
+          "outMin": 0.0,
+          "outMax": 1.1444
         },
         "curve": [
           [
@@ -196,24 +151,148 @@
         ]
       },
       {
-        "id": "grains",
-        "type": "grain",
-        "label": "Particle contacts",
-        "x": 460,
+        "id": "m-f",
+        "type": "map",
+        "label": "Size -> stone pitch (Hz)",
+        "x": 280,
         "y": 140,
         "params": {
-          "wave": "filtered-noise",
-          "frequency": 1000,
-          "resonance": 2.4,
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 2560.0,
+          "outMax": 380.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.24304
+          ],
+          [
+            0.25,
+            0.43655
+          ],
+          [
+            0.375,
+            0.59063
+          ],
+          [
+            0.5,
+            0.71331
+          ],
+          [
+            0.625,
+            0.81099
+          ],
+          [
+            0.75,
+            0.88877
+          ],
+          [
+            0.875,
+            0.95069
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Hardness -> contact time (s)",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00148,
+          "outMax": 4e-05
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.34506
+          ],
+          [
+            0.25,
+            0.57582
+          ],
+          [
+            0.375,
+            0.73014
+          ],
+          [
+            0.5,
+            0.83333
+          ],
+          [
+            0.625,
+            0.90235
+          ],
+          [
+            0.75,
+            0.9485
+          ],
+          [
+            0.875,
+            0.97936
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-rate",
+        "type": "map",
+        "label": "Density -> impacts per second",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 200
+        }
+      },
+      {
+        "id": "cloud",
+        "type": "crackle",
+        "label": "Pebbles (one ring per impact)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "ring",
           "rate": 0,
-          "attack": 0.0002,
-          "decay": 0.02,
-          "spread": 3,
-          "jitter": 1,
-          "variation": 0.4,
-          "glide": 0,
-          "delay": 0,
-          "width": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 2.0,
+          "sizePitch": 0.4,
+          "decay": 0.012,
+          "contact": 2e-05,
+          "range": 14,
+          "exponent": 1.0,
+          "modes": 3,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.0,
           "level": 0
         }
       },
@@ -221,8 +300,8 @@
         "id": "out",
         "type": "output",
         "label": "Output",
-        "x": 700,
-        "y": 140,
+        "x": 1060,
+        "y": 20,
         "params": {
           "gain": 1.0
         }
@@ -230,74 +309,67 @@
     ],
     "connections": [
       {
-        "id": "e-hardness-freq-in",
-        "from": "in-hardness",
-        "to": "map-freq-hardness",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-freq",
-        "from": "map-freq-hardness",
-        "to": "grains",
-        "target": "frequency",
-        "amount": 1
-      },
-      {
-        "id": "e-size-freq-in",
-        "from": "in-size",
-        "to": "map-freq-size",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-size-freq",
-        "from": "map-freq-size",
-        "to": "grains",
-        "target": "frequency",
-        "amount": 1
-      },
-      {
-        "id": "e-hardness-decay-in",
-        "from": "in-hardness",
-        "to": "map-decay",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-decay-grains",
-        "from": "map-decay",
-        "to": "grains",
-        "target": "decay",
-        "amount": 1
-      },
-      {
-        "id": "e-energy-level-in",
+        "id": "e1-in-energy-m-level-in",
         "from": "in-energy",
-        "to": "map-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-level-grains",
-        "from": "map-level",
-        "to": "grains",
-        "target": "level",
-        "amount": 1
+        "id": "e2-in-size-m-f-in",
+        "from": "in-size",
+        "to": "m-f",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-density-rate",
+        "id": "e3-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-density-m-rate-in",
         "from": "in-density",
-        "to": "grains",
-        "target": "rate",
-        "amount": 200
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-grains-out",
-        "from": "grains",
+        "id": "e5-m-f-cloud-frequency",
+        "from": "m-f",
+        "to": "cloud",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-contact-cloud-contact",
+        "from": "m-contact",
+        "to": "cloud",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-rate-cloud-rate",
+        "from": "m-rate",
+        "to": "cloud",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-level-cloud-level",
+        "from": "m-level",
+        "to": "cloud",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-cloud-out-audio",
+        "from": "cloud",
         "to": "out",
         "target": "audio",
-        "amount": 1
+        "amount": 1.0
       }
     ]
   },

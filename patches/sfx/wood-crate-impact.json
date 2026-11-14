@@ -3,86 +3,827 @@
   "id": "wood-crate-impact",
   "title": "Wood crate impact",
   "inputs": [
-    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.6, "smooth": 0, "curve": "lin" },
-    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0, "curve": "lin" },
-    { "name": "hardness", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0, "curve": "lin" }
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.6,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 4,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5927,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.534,
+      "smooth": 0,
+      "curve": "lin"
+    }
   ],
   "graph": {
-    "duration": 1.6,
+    "duration": 1.2,
     "loop": false,
     "mode": "timeline",
     "nodes": [
-      { "id": "in-energy", "type": "input", "label": "Energy", "x": 20, "y": 20, "params": { "name": "energy" } },
-      { "id": "in-size", "type": "input", "label": "Size", "x": 20, "y": 120, "params": { "name": "size" } },
-      { "id": "in-hardness", "type": "input", "label": "Hardness", "x": 20, "y": 220, "params": { "name": "hardness" } },
-
-      { "id": "map-freq", "type": "map", "label": "Size -> box fundamental", "x": 220, "y": 120, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 340, "outMax": 5 } },
-      { "id": "map-decay", "type": "map", "label": "Size -> ring decay", "x": 220, "y": 180, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.045, "outMax": 0.495 } },
-      { "id": "map-rattle-freq", "type": "map", "label": "Size -> rattle band", "x": 220, "y": 240, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 2790, "outMax": 1190 } },
-
-      { "id": "map-cutoff-hardness", "type": "map", "label": "Hardness -> knock cutoff", "x": 220, "y": 20, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 370, "outMax": 3190 } },
-
-      { "id": "map-level-energy", "type": "map", "label": "Energy -> level", "x": 220, "y": 320, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0, "outMax": 0.95 }, "curve": [ [0, 0.00398], [0.1, 0.00692], [0.2, 0.01202], [0.3, 0.02089], [0.4, 0.03631], [0.5, 0.0631], [0.6, 0.1096], [0.7, 0.1905], [0.8, 0.331], [0.9, 0.5754], [1, 1.0] ] },
-      { "id": "map-size-level", "type": "map", "label": "Size -> level factor", "x": 220, "y": 560, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.22, "outMax": 1.0 } },
-      { "id": "map-color-energy", "type": "map", "label": "Energy -> ring color", "x": 220, "y": 380, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.5, "outMax": 0.78 } },
-      { "id": "map-rattle-energy", "type": "map", "label": "Energy -> rattle amount", "x": 220, "y": 440, "params": { "in": 0, "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.0, "outMax": 0.4 } },
-
-      { "id": "level-mult", "type": "math", "label": "Energy x size -> level", "x": 320, "y": 500, "params": { "a": 0, "b": 0, "operation": "multiply", "edge0": 0, "edge1": 1 } },
-
-      { "id": "knock", "type": "grain", "label": "Impact transient", "x": 460, "y": 20, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 0, "attack": 0.0006, "decay": 0.012, "spread": 0, "jitter": 0, "variation": 0.2, "glide": 0, "delay": 0, "width": 0, "level": 0 } },
-      { "id": "knock-filter", "type": "filter", "label": "Transient brightness", "x": 680, "y": 20, "params": { "cutoff": 10, "resonance": 0.8, "mode": "bandpass" } },
-
-      { "id": "body-resonator", "type": "resonator", "label": "Box body modes", "x": 900, "y": 20, "params": { "frequency": 80, "decay": 0.005, "color": 0.5, "mix": 0.92 } },
-      { "id": "lid-resonator", "type": "resonator", "label": "Lid / panel modes", "x": 900, "y": 160, "params": { "frequency": 150, "decay": 0.005, "color": 0.8, "mix": 0.3 } },
-
-      { "id": "rattle", "type": "grain", "label": "Loose slats rattle", "x": 460, "y": 320, "params": { "wave": "noise", "frequency": 1800, "resonance": 0.7, "rate": 45, "attack": 0.001, "decay": 0.006, "spread": 0, "jitter": 0.9, "variation": 0.7, "glide": 0, "delay": 0.05, "width": 0, "level": 0 } },
-      { "id": "rattle-filter", "type": "filter", "label": "Rattle band", "x": 680, "y": 320, "params": { "cutoff": 10, "resonance": 0.8, "mode": "bandpass" } },
-      { "id": "rattle-env", "type": "envelope", "label": "Rattle die-out", "x": 680, "y": 400, "params": { "attack": 0.002, "decay": 0.001, "sustain": 0, "hold": 0.02, "release": 0.05, "clock": "patch", "retrigger": 0 } },
-      { "id": "rattle-gain", "type": "gain", "label": "Rattle envelope", "x": 900, "y": 320, "params": { "gain": 0 } },
-
-      { "id": "mixbus", "type": "gain", "label": "Mix", "x": 1140, "y": 120, "params": { "gain": 1 } },
-      { "id": "out", "type": "output", "label": "Output", "x": 1340, "y": 120, "params": { "gain": 1.0 } }
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-size-lv",
+        "type": "map",
+        "label": "Size -> level factor",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.35,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "level",
+        "type": "math",
+        "label": "Energy x size -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Hardness -> contact time (s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00148,
+          "outMax": 0.00013
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.2779
+          ],
+          [
+            0.25,
+            0.48629
+          ],
+          [
+            0.375,
+            0.64256
+          ],
+          [
+            0.5,
+            0.75975
+          ],
+          [
+            0.625,
+            0.84763
+          ],
+          [
+            0.75,
+            0.91352
+          ],
+          [
+            0.875,
+            0.96294
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force (rattle, contact)",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "crate",
+        "type": "modal",
+        "label": "Crate panels (wood box modes)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "bar",
+          "material": "wood",
+          "frequency": 20,
+          "modes": 72,
+          "decay": 0.05,
+          "damping": 1.2,
+          "contact": 2e-05,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.8,
+          "click": 0.9,
+          "rattle": 0.9,
+          "glide": 0,
+          "bounces": 2,
+          "bounceTime": 0.009,
+          "restitution": 0.45,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 380,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 7.87,
+          "outMax": 0.082
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "thump",
+        "type": "modal",
+        "label": "Low knock (air and floor)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "block",
+          "material": "wood",
+          "frequency": 20,
+          "modes": 10,
+          "decay": 0.35,
+          "damping": 1.0,
+          "contact": 0.004,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.6,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-f2",
+        "type": "map",
+        "label": "Size -> knock pitch (Hz)",
+        "x": 280,
+        "y": 1340,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 95.0,
+          "outMax": 22.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.18637
+          ],
+          [
+            0.25,
+            0.35069
+          ],
+          [
+            0.375,
+            0.49557
+          ],
+          [
+            0.5,
+            0.62331
+          ],
+          [
+            0.625,
+            0.73594
+          ],
+          [
+            0.75,
+            0.83525
+          ],
+          [
+            0.875,
+            0.9228
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.4837
+        }
+      }
     ],
     "connections": [
-      { "id": "e-size-freq", "from": "in-size", "to": "map-freq", "target": "in", "amount": 1 },
-      { "id": "e-size-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
-      { "id": "e-size-rattlefreq", "from": "in-size", "to": "map-rattle-freq", "target": "in", "amount": 1 },
-      { "id": "e-size-levelfactor", "from": "in-size", "to": "map-size-level", "target": "in", "amount": 1 },
-      { "id": "e-hardness-cutoff", "from": "in-hardness", "to": "map-cutoff-hardness", "target": "in", "amount": 1 },
-      { "id": "e-energy-level", "from": "in-energy", "to": "map-level-energy", "target": "in", "amount": 1 },
-      { "id": "e-energy-color", "from": "in-energy", "to": "map-color-energy", "target": "in", "amount": 1 },
-      { "id": "e-energy-rattle", "from": "in-energy", "to": "map-rattle-energy", "target": "in", "amount": 1 },
-
-      { "id": "e-levelenergy-mult", "from": "map-level-energy", "to": "level-mult", "target": "a", "amount": 1 },
-      { "id": "e-levelsize-mult", "from": "map-size-level", "to": "level-mult", "target": "b", "amount": 1 },
-      { "id": "e-mult-knock", "from": "level-mult", "to": "knock", "target": "level", "amount": 1 },
-
-      { "id": "e-cutoff-knockfilter", "from": "map-cutoff-hardness", "to": "knock-filter", "target": "cutoff", "amount": 1 },
-      { "id": "e-knock-knockfilter", "from": "knock", "to": "knock-filter", "target": "audio", "amount": 1 },
-
-      { "id": "e-freq-body", "from": "map-freq", "to": "body-resonator", "target": "frequency", "amount": 1 },
-      { "id": "e-decay-body", "from": "map-decay", "to": "body-resonator", "target": "decay", "amount": 1 },
-      { "id": "e-color-body", "from": "map-color-energy", "to": "body-resonator", "target": "color", "amount": 1 },
-      { "id": "e-knockfilter-body", "from": "knock-filter", "to": "body-resonator", "target": "audio", "amount": 1 },
-
-      { "id": "e-freq-lid", "from": "map-freq", "to": "lid-resonator", "target": "frequency", "amount": 2.1 },
-      { "id": "e-decay-lid", "from": "map-decay", "to": "lid-resonator", "target": "decay", "amount": 0.45 },
-      { "id": "e-knockfilter-lid", "from": "knock-filter", "to": "lid-resonator", "target": "audio", "amount": 0.6 },
-
-      { "id": "e-rattle-level", "from": "level-mult", "to": "rattle", "target": "level", "amount": 0.6 },
-      { "id": "e-rattle-level-energy", "from": "map-rattle-energy", "to": "rattle", "target": "level", "amount": 0.15 },
-      { "id": "e-rattlefreq-rattlefilter", "from": "map-rattle-freq", "to": "rattle-filter", "target": "cutoff", "amount": 1 },
-      { "id": "e-rattle-rattlefilter", "from": "rattle", "to": "rattle-filter", "target": "audio", "amount": 1 },
-      { "id": "e-decay-rattleenv", "from": "map-decay", "to": "rattle-env", "target": "decay", "amount": 0.3 },
-      { "id": "e-rattleenv-rattlegain", "from": "rattle-env", "to": "rattle-gain", "target": "gain", "amount": 1.8 },
-      { "id": "e-rattlefilter-rattlegain", "from": "rattle-filter", "to": "rattle-gain", "target": "audio", "amount": 1 },
-
-      { "id": "e-body-mix", "from": "body-resonator", "to": "mixbus", "target": "audio", "amount": 1.3 },
-      { "id": "e-lid-mix", "from": "lid-resonator", "to": "mixbus", "target": "audio", "amount": 1.1 },
-      { "id": "e-knockfilter-mix", "from": "knock-filter", "to": "mixbus", "target": "audio", "amount": 0.2 },
-      { "id": "e-rattlegain-mix", "from": "rattle-gain", "to": "mixbus", "target": "audio", "amount": 0.7 },
-
-      { "id": "e-mix-out", "from": "mixbus", "to": "out", "target": "audio", "amount": 1 }
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-size-m-size-lv-in",
+        "from": "in-size",
+        "to": "m-size-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-level-a",
+        "from": "m-level",
+        "to": "level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-size-lv-level-b",
+        "from": "m-size-lv",
+        "to": "level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-contact-crate-contact",
+        "from": "m-contact",
+        "to": "crate",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-force-crate-force",
+        "from": "m-force",
+        "to": "crate",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-level-crate-level",
+        "from": "level",
+        "to": "crate",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-body-f-crate-frequency",
+        "from": "body-f",
+        "to": "crate",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e19-m-ring1-crate-decay",
+        "from": "m-ring1",
+        "to": "crate",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-in-shape-crate-shape",
+        "from": "in-shape",
+        "to": "crate",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-in-size-m-f2-in",
+        "from": "in-size",
+        "to": "m-f2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-m-f2-thump-frequency",
+        "from": "m-f2",
+        "to": "thump",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-m-force-thump-force",
+        "from": "m-force",
+        "to": "thump",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-level-thump-level",
+        "from": "level",
+        "to": "thump",
+        "target": "level",
+        "amount": 0.5
+      },
+      {
+        "id": "e25-crate-out-audio",
+        "from": "crate",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-thump-out-audio",
+        "from": "thump",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
     ]
   },
   "master": 1

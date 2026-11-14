@@ -85,49 +85,63 @@
         "type": "input",
         "params": {
           "name": "energy"
-        }
+        },
+        "x": 20,
+        "y": 20
       },
       {
         "id": "in-flux",
         "type": "input",
         "params": {
           "name": "flux"
-        }
+        },
+        "x": 20,
+        "y": 140
       },
       {
         "id": "in-area",
         "type": "input",
         "params": {
           "name": "area"
-        }
+        },
+        "x": 20,
+        "y": 260
       },
       {
         "id": "in-hardness",
         "type": "input",
         "params": {
           "name": "hardness"
-        }
+        },
+        "x": 20,
+        "y": 380
       },
       {
         "id": "in-shape",
         "type": "input",
         "params": {
           "name": "shape"
-        }
+        },
+        "x": 20,
+        "y": 500
       },
       {
         "id": "in-dim",
         "type": "input",
         "params": {
           "name": "dim"
-        }
+        },
+        "x": 20,
+        "y": 620
       },
       {
         "id": "in-thickness",
         "type": "input",
         "params": {
           "name": "thickness"
-        }
+        },
+        "x": 20,
+        "y": 740
       },
       {
         "id": "rain",
@@ -141,14 +155,18 @@
           "dim": 0.01,
           "thickness": 0.0005,
           "level": 0.5
-        }
+        },
+        "x": 320,
+        "y": 20
       },
       {
         "id": "out",
         "type": "output",
         "params": {
           "gain": 1
-        }
+        },
+        "x": 620,
+        "y": 20
       }
     ],
     "connections": [

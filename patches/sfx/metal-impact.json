@@ -1,0 +1,830 @@
+{
+  "haa": 1,
+  "id": "metal-impact",
+  "title": "Metal plate impact",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.6,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.8,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5663,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.2594,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 3.0,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-size-lv",
+        "type": "map",
+        "label": "Size -> level factor",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.4,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "level",
+        "type": "math",
+        "label": "Energy x size -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Hardness -> contact time (s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00198,
+          "outMax": 8e-05
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.32878
+          ],
+          [
+            0.25,
+            0.55487
+          ],
+          [
+            0.375,
+            0.71034
+          ],
+          [
+            0.5,
+            0.81726
+          ],
+          [
+            0.625,
+            0.89077
+          ],
+          [
+            0.75,
+            0.94133
+          ],
+          [
+            0.875,
+            0.97609
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force (glide, contact)",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "plate",
+        "type": "modal",
+        "label": "Steel plate modes",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "bar",
+          "material": "metal",
+          "frequency": 20,
+          "modes": 128,
+          "decay": 0.05,
+          "damping": 0.5,
+          "contact": 2e-05,
+          "force": 0,
+          "position": 0.27,
+          "vary": 0.7,
+          "click": 0.8,
+          "rattle": 0,
+          "glide": 0.012,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 380,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.49,
+          "outMax": -0.041
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "thud",
+        "type": "modal",
+        "label": "Mount thud",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "block",
+          "material": "stone",
+          "frequency": 20,
+          "modes": 8,
+          "decay": 0.4,
+          "damping": 1.0,
+          "contact": 0.005,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.5,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-f2",
+        "type": "map",
+        "label": "Size -> thud pitch (Hz)",
+        "x": 280,
+        "y": 1340,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 121.66666667,
+          "outMax": 6.66666667
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.2321
+          ],
+          [
+            0.25,
+            0.42047
+          ],
+          [
+            0.375,
+            0.57334
+          ],
+          [
+            0.5,
+            0.69742
+          ],
+          [
+            0.625,
+            0.79812
+          ],
+          [
+            0.75,
+            0.87984
+          ],
+          [
+            0.875,
+            0.94617
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.2618
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-size-m-size-lv-in",
+        "from": "in-size",
+        "to": "m-size-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-level-a",
+        "from": "m-level",
+        "to": "level",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-size-lv-level-b",
+        "from": "m-size-lv",
+        "to": "level",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-contact-plate-contact",
+        "from": "m-contact",
+        "to": "plate",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-force-plate-force",
+        "from": "m-force",
+        "to": "plate",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-level-plate-level",
+        "from": "level",
+        "to": "plate",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-body-f-plate-frequency",
+        "from": "body-f",
+        "to": "plate",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e19-m-ring1-plate-decay",
+        "from": "m-ring1",
+        "to": "plate",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-in-shape-plate-shape",
+        "from": "in-shape",
+        "to": "plate",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-in-size-m-f2-in",
+        "from": "in-size",
+        "to": "m-f2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-m-f2-thud-frequency",
+        "from": "m-f2",
+        "to": "thud",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-m-force-thud-force",
+        "from": "m-force",
+        "to": "thud",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-level-thud-level",
+        "from": "level",
+        "to": "thud",
+        "target": "level",
+        "amount": 0.35
+      },
+      {
+        "id": "e25-plate-out-audio",
+        "from": "plate",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-thud-out-audio",
+        "from": "thud",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}

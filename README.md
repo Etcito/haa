@@ -177,6 +177,38 @@ HAA-only nodes (no Sona counterpart) for acoustic, electric and bass guitar part
 
 Examples: `patches/examples/guitar-acoustic-pluck.json`, `guitar-acoustic-real-arpeggio.json`, `guitar-acoustic-real-strum.json`, `guitar-acoustic-real-notes.json` (a split `pluck` whose bridge side drives a `body` heard by a body mic and whose air side is heard by a string mic, then a room), `guitar-electric-clean.json`, `guitar-electric-crunch.json`, `guitar-electric-lead.json`, `bass-guitar.json`.
 
+## Physical sound effects
+
+HAA-only nodes (no Sona counterpart) for the physics-driven presets of `patches/sfx/` (see `docs/physics-sound.md`).
+Both keep their random stream across a restart, so every trigger of a one-shot is a new draw (the sequence after a load
+stays deterministic), and both output mono (the runtime places the voice in 3D).
+
+- `modal` (source, with an optional audio input): a struck solid by modal synthesis, up to 128 modes. `shape` gives the
+  mode frequencies from vibration theory (`bar` free-free beam plus torsion, `plate` rectangular plate, `shell` cup or
+  bottle with beating doublets, `box` three coupled panels, `block` thick solid), scaled so the lowest mode is
+  `frequency`; `material` (`wood`, `metal`, `glass`, `stone`, `plastic`, `ceramic`) sets the damping law (a constant
+  term plus a loss factor growing with frequency, so the upper modes die first), `decay` and `damping` scale it. The
+  strike is a Hertz contact pulse of unit impulse: `contact` (shortened by `force`) sets the brightness, not the level;
+  `position` weights the modes by their shapes, `click` adds the contact's own tick. `rattle` (loose parts knocking while
+  the body moves), `glide` (tension modulation) and `bounces`/`bounceTime`/`restitution` (chatter) follow `force`;
+  `vary` draws a new position, contact, mode gains and detune per strike. The audio input is an extra force (`input`):
+  friction noise rings the same modes; `strike` off leaves only that input. `delay`, `level`.
+- `crackle` (source): a Poisson cloud of micro-impacts (`rate`, a burst envelope `rise`/`fall`, `regularity` up to
+  periodic, `clump` for avalanches) whose sizes follow a power law (`range` dB, `exponent`), bigger events lower
+  (`sizePitch`), pitches spread over `spread` octaves around `frequency`. `kind`: `click` (a pulse through a broad
+  resonance, DC-free), `ring` (a small free object, `modes` 1-4, `decay`), `bubble` (a Minnaert bubble: rain on water),
+  `crack` (a band-limited noise burst). `contact` sets the brightness, `delay`, `level`.
+
+The sfx presets are built from them and measured against real recordings (spectral centroid, band shares, decay times,
+envelope roughness, long-term spectrum); several layers each: e.g. `footstep-snow` is two fracture clouds (heel, then the
+toe rolling in), packed snow rubbing and a soft thud, `glass-bottle-break` the struck bottle, its floor thud, the
+fracture front, a grain shower and ringing fragments. `metal-impact` is a struck steel plate (a hit, not a bullet:
+`metal-ricochet` keeps the ping and the tumbling whine). `solid-impact` is any solid chosen by hand: its `material` and
+`shape` enum inputs pick the `modal` model (a hollow wooden box, a concrete block and a thin metal sheet hit alike sound
+nothing alike); `rain-surface`, `slide-scrape` and `roll-rumble` take the same two inputs for the surface that rings,
+`wood-crate-impact` and `metal-impact` take `shape`. `footstep-wood` and `footstep-metal` are steps on floorboards over
+joists and on a steel floor plate. The input names and values are in `docs/physics-sound.md`.
+
 ## Mixing
 
 - `pan` (effect): constant-power panning. `pan` -1 is hard left, 0 leaves the input unchanged, 1 is hard right; a stereo input is balanced (each channel scaled), never summed. Modulatable, so an `lfo` or `curve` moves a part across the stereo field. Example: `patches/examples/pan-sweep.json`.

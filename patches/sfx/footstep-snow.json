@@ -10,7 +10,7 @@
       "min": 0,
       "max": 1,
       "default": 0.5,
-      "smooth": 0.001,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.4,
-      "smooth": 0.001,
+      "default": 0.55,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -29,8 +29,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.001,
+      "default": 0.4,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -39,8 +39,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.3,
-      "smooth": 0.001,
+      "default": 0.5,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -49,23 +49,22 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.001,
+      "default": 0.4,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
   "graph": {
-    "duration": 0.55,
+    "duration": 0.7,
     "loop": false,
     "mode": "timeline",
     "nodes": [
       {
         "id": "in-energy",
         "type": "input",
-        "x": 10,
-        "y": 0,
-        "label": "energy",
-        "compact": true,
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
         "params": {
           "name": "energy"
         }
@@ -73,10 +72,9 @@
       {
         "id": "in-size",
         "type": "input",
-        "x": 10,
-        "y": 40,
-        "label": "size",
-        "compact": true,
+        "label": "Size",
+        "x": 20,
+        "y": 140,
         "params": {
           "name": "size"
         }
@@ -84,10 +82,9 @@
       {
         "id": "in-hardness",
         "type": "input",
-        "x": 10,
-        "y": 80,
-        "label": "hardness",
-        "compact": true,
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
         "params": {
           "name": "hardness"
         }
@@ -95,10 +92,9 @@
       {
         "id": "in-depth",
         "type": "input",
-        "x": 10,
-        "y": 120,
-        "label": "depth",
-        "compact": true,
+        "label": "Depth",
+        "x": 20,
+        "y": 380,
         "params": {
           "name": "depth"
         }
@@ -106,739 +102,687 @@
       {
         "id": "in-speed",
         "type": "input",
-        "x": 10,
-        "y": 160,
-        "label": "speed",
-        "compact": true,
+        "label": "Speed",
+        "x": 20,
+        "y": 500,
         "params": {
           "name": "speed"
         }
       },
       {
-        "id": "gesture",
-        "type": "curve",
-        "x": 0,
-        "y": 0,
-        "label": "Footstep gesture",
-        "compact": true,
-        "params": {
-          "amount": 1
-        },
-        "curve": [
-          [
-            0,
-            0
-          ],
-          [
-            0.056364,
-            0.020948
-          ],
-          [
-            0.060909,
-            0.076232
-          ],
-          [
-            0.065455,
-            0.028747
-          ],
-          [
-            0.076818,
-            0.206644
-          ],
-          [
-            0.085909,
-            0.075796
-          ],
-          [
-            0.095,
-            0.061064
-          ],
-          [
-            0.097273,
-            0.197645
-          ],
-          [
-            0.099545,
-            0.212411
-          ],
-          [
-            0.101818,
-            0.106443
-          ],
-          [
-            0.104091,
-            0.10419
-          ],
-          [
-            0.108636,
-            0.214571
-          ],
-          [
-            0.110909,
-            0.133498
-          ],
-          [
-            0.113182,
-            0.141569
-          ],
-          [
-            0.115455,
-            0.220337
-          ],
-          [
-            0.12,
-            0.22166
-          ],
-          [
-            0.122273,
-            0.303379
-          ],
-          [
-            0.124545,
-            0.132073
-          ],
-          [
-            0.126818,
-            0.167077
-          ],
-          [
-            0.129091,
-            0.328364
-          ],
-          [
-            0.131364,
-            0.311408
-          ],
-          [
-            0.133636,
-            0.154756
-          ],
-          [
-            0.138182,
-            0.183333
-          ],
-          [
-            0.140455,
-            0.10549
-          ],
-          [
-            0.142727,
-            0.163258
-          ],
-          [
-            0.145,
-            0.306242
-          ],
-          [
-            0.149545,
-            0.108318
-          ],
-          [
-            0.151818,
-            0.125159
-          ],
-          [
-            0.154091,
-            0.972846
-          ],
-          [
-            0.156364,
-            1
-          ],
-          [
-            0.158636,
-            0.226027
-          ],
-          [
-            0.163182,
-            0.251056
-          ],
-          [
-            0.165455,
-            0.125107
-          ],
-          [
-            0.17,
-            0.685879
-          ],
-          [
-            0.172273,
-            0.277802
-          ],
-          [
-            0.174545,
-            0.143007
-          ],
-          [
-            0.176818,
-            0.088876
-          ],
-          [
-            0.179091,
-            0.088714
-          ],
-          [
-            0.181364,
-            0.259828
-          ],
-          [
-            0.183636,
-            0.28847
-          ],
-          [
-            0.190455,
-            0.184994
-          ],
-          [
-            0.197273,
-            0.278839
-          ],
-          [
-            0.201818,
-            0.097607
-          ],
-          [
-            0.206364,
-            0.253122
-          ],
-          [
-            0.210909,
-            0.282527
-          ],
-          [
-            0.213182,
-            0.212802
-          ],
-          [
-            0.215455,
-            0.275604
-          ],
-          [
-            0.222273,
-            0.221943
-          ],
-          [
-            0.224545,
-            0.283336
-          ],
-          [
-            0.233636,
-            0.136042
-          ],
-          [
-            0.240455,
-            0.126743
-          ],
-          [
-            0.242727,
-            0.051225
-          ],
-          [
-            0.249545,
-            0.094188
-          ],
-          [
-            0.263182,
-            0.006574
-          ],
-          [
-            0.310909,
-            0.047421
-          ],
-          [
-            0.32,
-            0.003165
-          ],
-          [
-            1,
-            0
-          ]
-        ]
-      },
-      {
-        "id": "press-env",
-        "type": "response",
-        "x": 0,
-        "y": 0,
-        "label": "Contact pressure",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0,
-          "release": 0.02,
-          "delay": 0,
-          "shape": 1.0,
-          "gain": 1,
-          "sensitivity": 0.04
-        }
-      },
-      {
-        "id": "squeak-env",
-        "type": "response",
-        "x": 0,
-        "y": 0,
-        "label": "Surface release",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0,
-          "release": 0.03,
-          "delay": 0,
-          "shape": 0.7,
-          "gain": 0.96,
-          "sensitivity": 0.04
-        }
-      },
-      {
-        "id": "crunch",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Crunch grains",
-        "compact": true,
-        "params": {
-          "wave": "noise",
-          "frequency": 1800,
-          "resonance": 0.7,
-          "rate": 260,
-          "attack": 0.0002,
-          "decay": 0.0025,
-          "spread": 5,
-          "jitter": 1,
-          "variation": 0.85,
-          "glide": 0.05,
-          "delay": 0,
-          "width": 0.08,
-          "level": 0.8
-        }
-      },
-      {
-        "id": "squeak",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Cold squeak",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 2200,
-          "resonance": 3.4,
-          "rate": 150,
-          "attack": 0.0002,
-          "decay": 0.003,
-          "spread": 9,
-          "jitter": 1,
-          "variation": 0.7,
-          "glide": -0.1,
-          "delay": 0.01,
-          "width": 0.1,
-          "level": 0.34
-        }
-      },
-      {
-        "id": "impact",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Initial contact",
-        "compact": true,
-        "params": {
-          "wave": "noise",
-          "frequency": 1800,
-          "resonance": 0.7,
-          "rate": 0,
-          "attack": 0.00015,
-          "decay": 0.0018,
-          "spread": 5,
-          "jitter": 0,
-          "variation": 0,
-          "glide": 0.05,
-          "delay": 0.0785,
-          "width": 0,
-          "level": 0.95
-        }
-      },
-      {
-        "id": "crunch-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Surface body",
-        "compact": true,
-        "params": {
-          "cutoff": 920,
-          "resonance": 2.1,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "crunch-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Crunch envelope",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "squeak-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Friction band",
-        "compact": true,
-        "params": {
-          "cutoff": 1500,
-          "resonance": 0.8,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "squeak-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Squeak envelope",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "bass",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Low contact texture",
-        "compact": true,
-        "params": {
-          "color": "brown",
-          "level": 0.1,
-          "width": 0
-        }
-      },
-      {
-        "id": "bass-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Weight band",
-        "compact": true,
-        "params": {
-          "cutoff": 160,
-          "resonance": 0.9,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "bass-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Weight envelope",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "mix",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Surface mix",
-        "compact": true,
-        "params": {
-          "gain": 1.3
-        }
-      },
-      {
-        "id": "rolloff",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Air absorption",
-        "compact": true,
-        "params": {
-          "cutoff": 7300,
-          "resonance": 0.65,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "level",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Energy level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "output-node",
-        "type": "output",
-        "x": 0,
-        "y": 0,
-        "label": "Sortie audio",
-        "compact": true,
-        "params": {
-          "gain": 0.95
-        }
-      },
-      {
-        "id": "m-energy-level",
+        "id": "m-level",
         "type": "map",
-        "x": 0,
-        "y": 0,
-        "label": "energy -> level",
-        "compact": true,
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 1
+          "outMax": 0.55
         },
         "curve": [
           [
             0,
-            0.05
+            0.00398
           ],
           [
             0.1,
-            0.08
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
           ],
           [
             0.9,
-            1.0
+            0.5754
           ],
           [
             1,
             1.0
           ]
         ]
+      },
+      {
+        "id": "m-toe-delay",
+        "type": "map",
+        "label": "Speed -> toe delay (s)",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.22,
+          "outMax": 0.09
+        }
+      },
+      {
+        "id": "m-fall",
+        "type": "map",
+        "label": "Depth -> crunch length (s)",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.035,
+          "outMax": 0.11
+        }
+      },
+      {
+        "id": "m-rate",
+        "type": "map",
+        "label": "Depth -> fracture rate (/s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 5000,
+          "outMax": 12000
+        }
+      },
+      {
+        "id": "m-freq",
+        "type": "map",
+        "label": "Hardness -> fracture pitch (Hz)",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 860.0,
+          "outMax": 2160.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.08184
+          ],
+          [
+            0.25,
+            0.17335
+          ],
+          [
+            0.375,
+            0.27567
+          ],
+          [
+            0.5,
+            0.3901
+          ],
+          [
+            0.625,
+            0.51804
+          ],
+          [
+            0.75,
+            0.66112
+          ],
+          [
+            0.875,
+            0.8211
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-thud-f",
+        "type": "map",
+        "label": "Size -> thud pitch (Hz)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 180.0,
+          "outMax": 80.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.16599
+          ],
+          [
+            0.25,
+            0.31821
+          ],
+          [
+            0.375,
+            0.45779
+          ],
+          [
+            0.5,
+            0.58579
+          ],
+          [
+            0.625,
+            0.70316
+          ],
+          [
+            0.75,
+            0.81079
+          ],
+          [
+            0.875,
+            0.90949
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-thud-l",
+        "type": "map",
+        "label": "Depth -> thud level",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.6,
+          "outMax": 2.4
+        }
+      },
+      {
+        "id": "heel",
+        "type": "crackle",
+        "label": "Heel: snow grains breaking",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.012,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 3.4,
+          "sizePitch": 0.6,
+          "decay": 0.003,
+          "contact": 7e-05,
+          "range": 34,
+          "exponent": 1.15,
+          "modes": 1,
+          "regularity": 0,
+          "clump": 0.6,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "toe",
+        "type": "crackle",
+        "label": "Toe roll: grains breaking",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.03,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 3.4,
+          "sizePitch": 0.6,
+          "decay": 0.003,
+          "contact": 7e-05,
+          "range": 34,
+          "exponent": 1.15,
+          "modes": 1,
+          "regularity": 0,
+          "clump": 0.6,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-freq-toe",
+        "type": "map",
+        "label": "Hardness -> toe fracture pitch (Hz)",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 960.0,
+          "outMax": 2460.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.0809
+          ],
+          [
+            0.25,
+            0.17162
+          ],
+          [
+            0.375,
+            0.27335
+          ],
+          [
+            0.5,
+            0.38743
+          ],
+          [
+            0.625,
+            0.51534
+          ],
+          [
+            0.75,
+            0.65878
+          ],
+          [
+            0.875,
+            0.81963
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "rub",
+        "type": "crackle",
+        "label": "Packed snow rubbing",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "crack",
+          "rate": 0,
+          "rise": 0.02,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 1.8,
+          "sizePitch": 0.3,
+          "decay": 0.006,
+          "contact": 0.0002,
+          "range": 24,
+          "exponent": 1.0,
+          "modes": 1,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.01,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-freq-rub",
+        "type": "map",
+        "label": "Hardness -> rub pitch (Hz)",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 760.0,
+          "outMax": 1760.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.08535
+          ],
+          [
+            0.25,
+            0.1798
+          ],
+          [
+            0.375,
+            0.28432
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.625,
+            0.52802
+          ],
+          [
+            0.75,
+            0.66969
+          ],
+          [
+            0.875,
+            0.82648
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "thud",
+        "type": "modal",
+        "label": "Foot sinking (thud)",
+        "x": 540,
+        "y": 380,
+        "params": {
+          "shape": "block",
+          "material": "plastic",
+          "frequency": 20,
+          "modes": 6,
+          "decay": 0.25,
+          "damping": 1,
+          "contact": 0.008,
+          "force": 0.5,
+          "position": 0.3,
+          "vary": 0.6,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "thud-lv",
+        "type": "math",
+        "label": "Level x depth",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.3671
+        }
       }
     ],
     "connections": [
       {
-        "id": "g-press",
-        "from": "gesture",
-        "to": "press-env",
-        "target": "input",
-        "amount": 1
-      },
-      {
-        "id": "g-squeak",
-        "from": "gesture",
-        "to": "squeak-env",
-        "target": "input",
-        "amount": 1
-      },
-      {
-        "id": "press-crunchgain",
-        "from": "press-env",
-        "to": "crunch-gain",
-        "target": "gain",
-        "amount": 1.6
-      },
-      {
-        "id": "press-bassgain",
-        "from": "press-env",
-        "to": "bass-gain",
-        "target": "gain",
-        "amount": 0.9
-      },
-      {
-        "id": "squeak-squeakgain",
-        "from": "squeak-env",
-        "to": "squeak-gain",
-        "target": "gain",
-        "amount": 1.4
-      },
-      {
-        "id": "crunch-filt-in",
-        "from": "crunch",
-        "to": "crunch-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "impact-filt-in",
-        "from": "impact",
-        "to": "crunch-filt",
-        "target": "audio",
-        "amount": 1.3
-      },
-      {
-        "id": "crunch-filt-out",
-        "from": "crunch-filt",
-        "to": "crunch-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "squeak-filt-in",
-        "from": "squeak",
-        "to": "squeak-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "squeak-filt-out",
-        "from": "squeak-filt",
-        "to": "squeak-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "bass-filt-in",
-        "from": "bass",
-        "to": "bass-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "bass-filt-out",
-        "from": "bass-filt",
-        "to": "bass-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "crunch-mix",
-        "from": "crunch-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "squeak-mix",
-        "from": "squeak-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "bass-mix",
-        "from": "bass-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "mix-rolloff",
-        "from": "mix",
-        "to": "rolloff",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "rolloff-level",
-        "from": "rolloff",
-        "to": "level",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "level-output",
-        "from": "level",
-        "to": "output-node",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-energy-in",
+        "id": "e1-in-energy-m-level-in",
         "from": "in-energy",
-        "to": "m-energy-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-energy-level",
-        "from": "m-energy-level",
-        "to": "level",
-        "target": "gain",
-        "amount": 1
-      },
-      {
-        "id": "e-size-decay",
-        "from": "in-size",
-        "to": "crunch",
-        "target": "decay",
-        "amount": 0.0025
-      },
-      {
-        "id": "e-size-bassf",
-        "from": "in-size",
-        "to": "bass-filt",
-        "target": "cutoff",
-        "amount": -110
-      },
-      {
-        "id": "e-hard-rolloff",
-        "from": "in-hardness",
-        "to": "rolloff",
-        "target": "cutoff",
-        "amount": 4400
-      },
-      {
-        "id": "e-hard-squeakf",
-        "from": "in-hardness",
-        "to": "squeak-filt",
-        "target": "cutoff",
-        "amount": 2800
-      },
-      {
-        "id": "e-depth-crunchf",
-        "from": "in-depth",
-        "to": "crunch-filt",
-        "target": "cutoff",
-        "amount": -540
-      },
-      {
-        "id": "e-depth-release",
-        "from": "in-depth",
-        "to": "squeak-env",
-        "target": "release",
-        "amount": 0.05
-      },
-      {
-        "id": "e-depth-decay",
-        "from": "in-depth",
-        "to": "crunch",
-        "target": "decay",
-        "amount": 0.002
-      },
-      {
-        "id": "e-speed-decay",
+        "id": "e2-in-speed-m-toe-delay-in",
         "from": "in-speed",
-        "to": "crunch",
-        "target": "decay",
-        "amount": -0.0012
+        "to": "m-toe-delay",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-speed-rate",
-        "from": "in-speed",
-        "to": "crunch",
+        "id": "e3-in-depth-m-fall-in",
+        "from": "in-depth",
+        "to": "m-fall",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-depth-m-rate-in",
+        "from": "in-depth",
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-freq-in",
+        "from": "in-hardness",
+        "to": "m-freq",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-size-m-thud-f-in",
+        "from": "in-size",
+        "to": "m-thud-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-in-depth-m-thud-l-in",
+        "from": "in-depth",
+        "to": "m-thud-l",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-rate-heel-rate",
+        "from": "m-rate",
+        "to": "heel",
         "target": "rate",
-        "amount": 90
+        "amount": 1.0
       },
       {
-        "id": "e-speed-attack",
-        "from": "in-speed",
-        "to": "impact",
-        "target": "attack",
-        "amount": -4e-05
+        "id": "e9-m-fall-heel-fall",
+        "from": "m-fall",
+        "to": "heel",
+        "target": "fall",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-m-freq-heel-frequency",
+        "from": "m-freq",
+        "to": "heel",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-m-level-heel-level",
+        "from": "m-level",
+        "to": "heel",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-rate-toe-rate",
+        "from": "m-rate",
+        "to": "toe",
+        "target": "rate",
+        "amount": 0.6
+      },
+      {
+        "id": "e13-m-fall-toe-fall",
+        "from": "m-fall",
+        "to": "toe",
+        "target": "fall",
+        "amount": 1.2
+      },
+      {
+        "id": "e14-in-hardness-m-freq-toe-in",
+        "from": "in-hardness",
+        "to": "m-freq-toe",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-m-freq-toe-toe-frequency",
+        "from": "m-freq-toe",
+        "to": "toe",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-toe-delay-toe-delay",
+        "from": "m-toe-delay",
+        "to": "toe",
+        "target": "delay",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-m-level-toe-level",
+        "from": "m-level",
+        "to": "toe",
+        "target": "level",
+        "amount": 0.7
+      },
+      {
+        "id": "e18-m-rate-rub-rate",
+        "from": "m-rate",
+        "to": "rub",
+        "target": "rate",
+        "amount": 0.15
+      },
+      {
+        "id": "e19-m-fall-rub-fall",
+        "from": "m-fall",
+        "to": "rub",
+        "target": "fall",
+        "amount": 1.5
+      },
+      {
+        "id": "e20-in-hardness-m-freq-rub-in",
+        "from": "in-hardness",
+        "to": "m-freq-rub",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-m-freq-rub-rub-frequency",
+        "from": "m-freq-rub",
+        "to": "rub",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-m-level-rub-level",
+        "from": "m-level",
+        "to": "rub",
+        "target": "level",
+        "amount": 0.35
+      },
+      {
+        "id": "e23-m-thud-f-thud-frequency",
+        "from": "m-thud-f",
+        "to": "thud",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-m-level-thud-lv-a",
+        "from": "m-level",
+        "to": "thud-lv",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e25-m-thud-l-thud-lv-b",
+        "from": "m-thud-l",
+        "to": "thud-lv",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-thud-lv-thud-level",
+        "from": "thud-lv",
+        "to": "thud",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-heel-out-audio",
+        "from": "heel",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-toe-out-audio",
+        "from": "toe",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e29-rub-out-audio",
+        "from": "rub",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e30-thud-out-audio",
+        "from": "thud",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       }
-    ],
-    "performance": null
+    ]
   },
-  "master": 0.65
+  "master": 1
 }

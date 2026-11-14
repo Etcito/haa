@@ -376,7 +376,8 @@ fn check_port(
     let param = param_index(dest, target);
     let modulatable = param.is_some_and(|i| {
         let def = &dest.params[i];
-        def.modulatable && !matches!(def.kind, ParamKind::Enum { .. } | ParamKind::Text { .. })
+        // An enum a node declares modulatable is selected by the control (the rounded index).
+        def.modulatable && !matches!(def.kind, ParamKind::Text { .. })
     });
     if !modulatable {
         let message = match param {

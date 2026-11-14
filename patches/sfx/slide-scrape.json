@@ -1,7 +1,7 @@
 {
   "haa": 1,
   "id": "slide-scrape",
-  "title": "Slide / scrape",
+  "title": "Slide scrape",
   "inputs": [
     {
       "name": "speed",
@@ -9,8 +9,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.4,
-      "smooth": 0.25,
+      "default": 0.2,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.25,
+      "default": 0.6,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -29,8 +29,59 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.4,
-      "smooth": 0.25,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "material",
+      "kind": "enum",
+      "unit": "",
+      "min": 0,
+      "max": 8,
+      "default": 0,
+      "smooth": 0,
+      "curve": "lin",
+      "values": [
+        "wood",
+        "metal",
+        "glass",
+        "stone",
+        "plastic",
+        "ceramic",
+        "concrete",
+        "tile",
+        "snow"
+      ]
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5663,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.534,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
@@ -42,10 +93,9 @@
       {
         "id": "in-speed",
         "type": "input",
-        "x": 10,
-        "y": 0,
-        "label": "speed",
-        "compact": true,
+        "label": "Speed",
+        "x": 20,
+        "y": 20,
         "params": {
           "name": "speed"
         }
@@ -53,10 +103,9 @@
       {
         "id": "in-hardness",
         "type": "input",
-        "x": 10,
-        "y": 40,
-        "label": "hardness",
-        "compact": true,
+        "label": "Hardness",
+        "x": 20,
+        "y": 140,
         "params": {
           "name": "hardness"
         }
@@ -64,149 +113,36 @@
       {
         "id": "in-size",
         "type": "input",
-        "x": 10,
-        "y": 80,
-        "label": "size",
-        "compact": true,
+        "label": "Size",
+        "x": 20,
+        "y": 260,
         "params": {
           "name": "size"
         }
       },
       {
-        "id": "src-soft",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Soft drag source",
-        "compact": true,
+        "id": "in-material",
+        "type": "input",
+        "label": "Material",
+        "x": 20,
+        "y": 380,
         "params": {
-          "color": "brown",
-          "level": 0.4,
-          "width": 0.4
+          "name": "material"
         }
       },
       {
-        "id": "filt-soft",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Soft drag band",
-        "compact": true,
-        "params": {
-          "cutoff": 380,
-          "resonance": 0.8,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "src-hard",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Hard scrape source",
-        "compact": true,
-        "params": {
-          "color": "white",
-          "level": 0.05,
-          "width": 0.4
-        }
-      },
-      {
-        "id": "filt-hard",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Hard scrape band",
-        "compact": true,
-        "params": {
-          "cutoff": 1800,
-          "resonance": 1.0,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "grit",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Grit",
-        "compact": true,
-        "params": {
-          "wave": "noise",
-          "frequency": 1600,
-          "resonance": 0.9,
-          "rate": 10,
-          "attack": 0.0003,
-          "decay": 0.006,
-          "spread": 10,
-          "jitter": 1,
-          "variation": 1,
-          "glide": -0.2,
-          "delay": 0.0,
-          "width": 0.3,
-          "level": 0.5
-        }
-      },
-      {
-        "id": "grit-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Grit band",
-        "compact": true,
-        "params": {
-          "cutoff": 2500,
-          "resonance": 0.8,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "mix",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Scrape mix",
-        "compact": true,
-        "params": {
-          "gain": 1.1
-        }
-      },
-      {
-        "id": "level",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Speed level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "output-node",
-        "type": "output",
-        "x": 0,
-        "y": 0,
-        "label": "Scrape output",
-        "compact": true,
-        "params": {
-          "gain": 0.15
-        }
-      },
-      {
-        "id": "m-speed-level",
+        "id": "m-level",
         "type": "map",
-        "x": 0,
-        "y": 0,
-        "label": "speed -> level",
-        "compact": true,
+        "label": "Speed -> level",
+        "x": 280,
+        "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0,
-          "outMax": 1
+          "outMin": 0.0,
+          "outMax": 1.0
         },
         "curve": [
           [
@@ -214,173 +150,676 @@
             0
           ],
           [
-            0.015,
-            0
-          ],
-          [
-            0.03,
-            0.072
-          ],
-          [
             0.05,
-            0.106
-          ],
-          [
-            0.1,
-            0.178
+            0.12
           ],
           [
             0.2,
-            0.3
-          ],
-          [
-            0.3,
-            0.405
+            0.4
           ],
           [
             0.5,
-            0.595
-          ],
-          [
-            0.75,
-            0.806
+            0.75
           ],
           [
             1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "m-rate",
+        "type": "map",
+        "label": "Speed -> stick-slip events per second",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 9000
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.1,
+            0.1
+          ],
+          [
+            0.4,
+            0.45
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "m-f",
+        "type": "map",
+        "label": "Size -> grit pitch (Hz): a heavier slider grinds lower",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 3160.0,
+          "outMax": 660.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.22147
+          ],
+          [
+            0.25,
+            0.40462
+          ],
+          [
+            0.375,
+            0.55608
+          ],
+          [
+            0.5,
+            0.68133
+          ],
+          [
+            0.625,
+            0.78492
+          ],
+          [
+            0.75,
+            0.87058
+          ],
+          [
+            0.875,
+            0.94142
+          ],
+          [
+            1.0,
             1.0
           ]
         ]
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Hardness -> grit contact (s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00078,
+          "outMax": 6e-05
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.2779
+          ],
+          [
+            0.25,
+            0.48629
+          ],
+          [
+            0.375,
+            0.64256
+          ],
+          [
+            0.5,
+            0.75975
+          ],
+          [
+            0.625,
+            0.84763
+          ],
+          [
+            0.75,
+            0.91352
+          ],
+          [
+            0.875,
+            0.96294
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "slip",
+        "type": "crackle",
+        "label": "Stick-slip events",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 2.2,
+          "sizePitch": 0.5,
+          "decay": 0.03,
+          "contact": 2e-05,
+          "range": 30,
+          "exponent": 1.2,
+          "modes": 2,
+          "regularity": 0.25,
+          "clump": 0.6,
+          "delay": 0.0,
+          "level": 1.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "modal",
+        "label": "Surface under friction (material, shape)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "bar",
+          "material": "wood",
+          "frequency": 20,
+          "modes": 48,
+          "decay": 0.05,
+          "damping": 1.0,
+          "contact": 0.0005,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.4,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 1.0,
+          "strike": false,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 740,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 5.35,
+          "outMax": 0.04
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "direct",
+        "type": "gain",
+        "label": "Contact noise level",
+        "x": 800,
+        "y": 140,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.0904
+        }
       }
     ],
     "connections": [
       {
-        "id": "soft-filt-in",
-        "from": "src-soft",
-        "to": "filt-soft",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "soft-mix",
-        "from": "filt-soft",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "hard-filt-in",
-        "from": "src-hard",
-        "to": "filt-hard",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "hard-mix",
-        "from": "filt-hard",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "grit-filt-in",
-        "from": "grit",
-        "to": "grit-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "grit-mix",
-        "from": "grit-filt",
-        "to": "mix",
-        "target": "audio",
-        "amount": 0.9
-      },
-      {
-        "id": "mix-level",
-        "from": "mix",
-        "to": "level",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "level-output",
-        "from": "level",
-        "to": "output-node",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-speed-in",
+        "id": "e1-in-speed-m-level-in",
         "from": "in-speed",
-        "to": "m-speed-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-speed-level",
-        "from": "m-speed-level",
-        "to": "level",
+        "id": "e2-in-speed-m-rate-in",
+        "from": "in-speed",
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-in-size-m-f-in",
+        "from": "in-size",
+        "to": "m-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-m-rate-slip-rate",
+        "from": "m-rate",
+        "to": "slip",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-f-slip-frequency",
+        "from": "m-f",
+        "to": "slip",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-contact-slip-contact",
+        "from": "m-contact",
+        "to": "slip",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-in-material-body-material",
+        "from": "in-material",
+        "to": "body",
+        "target": "material",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-body-f-body-frequency",
+        "from": "body-f",
+        "to": "body",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e19-m-ring1-body-decay",
+        "from": "m-ring1",
+        "to": "body",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-in-shape-body-shape",
+        "from": "in-shape",
+        "to": "body",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-slip-body-audio",
+        "from": "slip",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-m-level-body-level",
+        "from": "m-level",
+        "to": "body",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-slip-direct-audio",
+        "from": "slip",
+        "to": "direct",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-m-level-direct-gain",
+        "from": "m-level",
+        "to": "direct",
         "target": "gain",
-        "amount": 1
+        "amount": 0.35
       },
       {
-        "id": "e-speed-hardf",
-        "from": "in-speed",
-        "to": "filt-hard",
-        "target": "cutoff",
-        "amount": 1600
+        "id": "e25-body-out-audio",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       },
       {
-        "id": "e-speed-gritrate",
-        "from": "in-speed",
-        "to": "grit",
-        "target": "rate",
-        "amount": 110
-      },
-      {
-        "id": "e-hard-softlvl",
-        "from": "in-hardness",
-        "to": "src-soft",
-        "target": "level",
-        "amount": -0.34
-      },
-      {
-        "id": "e-hard-hardlvl",
-        "from": "in-hardness",
-        "to": "src-hard",
-        "target": "level",
-        "amount": 0.32
-      },
-      {
-        "id": "e-hard-gritlvl",
-        "from": "in-hardness",
-        "to": "grit",
-        "target": "level",
-        "amount": 0.9
-      },
-      {
-        "id": "e-hard-gritrate",
-        "from": "in-hardness",
-        "to": "grit",
-        "target": "rate",
-        "amount": 70
-      },
-      {
-        "id": "e-size-softf",
-        "from": "in-size",
-        "to": "filt-soft",
-        "target": "cutoff",
-        "amount": -220
-      },
-      {
-        "id": "e-size-hardf",
-        "from": "in-size",
-        "to": "filt-hard",
-        "target": "cutoff",
-        "amount": -900
+        "id": "e26-direct-out-audio",
+        "from": "direct",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       }
-    ],
-    "performance": null
+    ]
   },
   "master": 1
 }

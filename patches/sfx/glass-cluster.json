@@ -1,7 +1,7 @@
 {
   "haa": 1,
   "id": "glass-cluster",
-  "title": "Glass shard cluster",
+  "title": "Glass cluster",
   "inputs": [
     {
       "name": "energy",
@@ -10,7 +10,7 @@
       "min": 0,
       "max": 1,
       "default": 0.5,
-      "smooth": 0.05,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.3,
-      "smooth": 0.05,
+      "default": 0.15,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -30,7 +30,7 @@
       "min": 0,
       "max": 1,
       "default": 0.2,
-      "smooth": 0.05,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
@@ -54,7 +54,7 @@
         "type": "input",
         "label": "Size",
         "x": 20,
-        "y": 100,
+        "y": 140,
         "params": {
           "name": "size"
         }
@@ -64,24 +64,24 @@
         "type": "input",
         "label": "Density",
         "x": 20,
-        "y": 180,
+        "y": 260,
         "params": {
           "name": "density"
         }
       },
       {
-        "id": "map-level",
+        "id": "m-level",
         "type": "map",
-        "label": "Energy -> level",
-        "x": 220,
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
         "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0,
-          "outMax": 1.0
+          "outMin": 0.0,
+          "outMax": 1.2408
         },
         "curve": [
           [
@@ -131,76 +131,95 @@
         ]
       },
       {
-        "id": "map-freq",
+        "id": "m-f",
         "type": "map",
-        "label": "Size -> ring pitch",
-        "x": 220,
-        "y": 100,
+        "label": "Size -> shard pitch (Hz)",
+        "x": 280,
+        "y": 140,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 5720,
-          "outMax": 2520
-        }
+          "outMin": 5160.0,
+          "outMax": 1760.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.18994
+          ],
+          [
+            0.25,
+            0.35629
+          ],
+          [
+            0.375,
+            0.50199
+          ],
+          [
+            0.5,
+            0.62958
+          ],
+          [
+            0.625,
+            0.74134
+          ],
+          [
+            0.75,
+            0.83921
+          ],
+          [
+            0.875,
+            0.92493
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
       },
       {
-        "id": "map-decay",
+        "id": "m-rate",
         "type": "map",
-        "label": "Size -> ring time",
-        "x": 220,
-        "y": 180,
+        "label": "Density -> impacts per second",
+        "x": 280,
+        "y": 260,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0.02,
-          "outMax": 0.085
+          "outMin": 0,
+          "outMax": 200
         }
       },
       {
-        "id": "rings",
-        "type": "grain",
-        "label": "Shard rings",
-        "x": 460,
-        "y": 60,
+        "id": "cloud",
+        "type": "crackle",
+        "label": "Shards (one ring per impact)",
+        "x": 540,
+        "y": 20,
         "params": {
-          "wave": "sine",
-          "frequency": 4000,
-          "resonance": 0.7,
+          "kind": "ring",
           "rate": 0,
-          "attack": 0.0002,
-          "decay": 0.04,
-          "spread": 7,
-          "jitter": 1,
-          "variation": 0.5,
-          "glide": 0,
-          "delay": 0,
-          "width": 0,
-          "level": 0
-        }
-      },
-      {
-        "id": "clicks",
-        "type": "grain",
-        "label": "Shard clicks",
-        "x": 460,
-        "y": 180,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 7000,
-          "resonance": 2.2,
-          "rate": 0,
-          "attack": 0.0002,
-          "decay": 0.006,
-          "spread": 3,
-          "jitter": 1,
-          "variation": 0.3,
-          "glide": -0.1,
-          "delay": 0,
-          "width": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 1.8,
+          "sizePitch": 0.4,
+          "decay": 0.07,
+          "contact": 4e-05,
+          "range": 14,
+          "exponent": 1.0,
+          "modes": 4,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.0,
           "level": 0
         }
       },
@@ -208,90 +227,62 @@
         "id": "out",
         "type": "output",
         "label": "Output",
-        "x": 700,
-        "y": 120,
+        "x": 1060,
+        "y": 20,
         "params": {
-          "gain": 0.15
+          "gain": 1.0
         }
       }
     ],
     "connections": [
       {
-        "id": "e-energy-level-in",
+        "id": "e1-in-energy-m-level-in",
         "from": "in-energy",
-        "to": "map-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-level-rings",
-        "from": "map-level",
-        "to": "rings",
-        "target": "level",
-        "amount": 1
-      },
-      {
-        "id": "e-level-clicks",
-        "from": "map-level",
-        "to": "clicks",
-        "target": "level",
-        "amount": 0.45
-      },
-      {
-        "id": "e-size-freq-in",
+        "id": "e2-in-size-m-f-in",
         "from": "in-size",
-        "to": "map-freq",
+        "to": "m-f",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-freq-rings",
-        "from": "map-freq",
-        "to": "rings",
+        "id": "e3-in-density-m-rate-in",
+        "from": "in-density",
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-f-cloud-frequency",
+        "from": "m-f",
+        "to": "cloud",
         "target": "frequency",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-size-decay-in",
-        "from": "in-size",
-        "to": "map-decay",
-        "target": "in",
-        "amount": 1
-      },
-      {
-        "id": "e-decay-rings",
-        "from": "map-decay",
-        "to": "rings",
-        "target": "decay",
-        "amount": 1
-      },
-      {
-        "id": "e-density-rings",
-        "from": "in-density",
-        "to": "rings",
+        "id": "e5-m-rate-cloud-rate",
+        "from": "m-rate",
+        "to": "cloud",
         "target": "rate",
-        "amount": 200
+        "amount": 1.0
       },
       {
-        "id": "e-density-clicks",
-        "from": "in-density",
-        "to": "clicks",
-        "target": "rate",
-        "amount": 200
+        "id": "e6-m-level-cloud-level",
+        "from": "m-level",
+        "to": "cloud",
+        "target": "level",
+        "amount": 1.0
       },
       {
-        "id": "e-rings-out",
-        "from": "rings",
+        "id": "e7-cloud-out-audio",
+        "from": "cloud",
         "to": "out",
         "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-clicks-out",
-        "from": "clicks",
-        "to": "out",
-        "target": "audio",
-        "amount": 1
+        "amount": 1.0
       }
     ]
   },

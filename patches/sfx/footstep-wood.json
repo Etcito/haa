@@ -1,0 +1,817 @@
+{
+  "haa": 1,
+  "id": "footstep-wood",
+  "title": "Footstep on wood",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.55,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 4,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5663,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5478,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 0.5,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-speed",
+        "type": "input",
+        "label": "Speed",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 0.9
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-toe",
+        "type": "map",
+        "label": "Speed -> heel-to-sole gap (s)",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.148,
+          "outMax": 0.058
+        }
+      },
+      {
+        "id": "m-heel-f",
+        "type": "map",
+        "label": "Size -> heel pitch (Hz)",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 846.66666667,
+          "outMax": 446.66666667
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.16133
+          ],
+          [
+            0.25,
+            0.31065
+          ],
+          [
+            0.375,
+            0.44886
+          ],
+          [
+            0.5,
+            0.57677
+          ],
+          [
+            0.625,
+            0.69515
+          ],
+          [
+            0.75,
+            0.80473
+          ],
+          [
+            0.875,
+            0.90614
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> strike force",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.2,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "heel",
+        "type": "modal",
+        "label": "Heel then sole (shoe)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "block",
+          "material": "plastic",
+          "frequency": 20,
+          "modes": 24,
+          "decay": 0.6,
+          "damping": 1.5,
+          "contact": 0.0002,
+          "force": 0,
+          "position": 0.35,
+          "vary": 0.8,
+          "click": 0.9,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 1,
+          "bounceTime": 0.002,
+          "restitution": 0.75,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-toe2",
+        "type": "map",
+        "label": "Speed -> heel-to-sole gap (s), floor",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.148,
+          "outMax": 0.058
+        }
+      },
+      {
+        "id": "floor",
+        "type": "modal",
+        "label": "Floorboards over joists (hollow wood)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "box",
+          "material": "wood",
+          "frequency": 20,
+          "modes": 64,
+          "decay": 0.05,
+          "damping": 1.3,
+          "contact": 0.0025,
+          "force": 0,
+          "position": 0.4,
+          "vary": 0.8,
+          "click": 0.2,
+          "rattle": 0.25,
+          "glide": 0,
+          "bounces": 1,
+          "bounceTime": 0.002,
+          "restitution": 0.6,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 380,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 5.95,
+          "outMax": 0.05
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "scuff",
+        "type": "crackle",
+        "label": "Grit under the sole",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "crack",
+          "rate": 300,
+          "rise": 0.01,
+          "fall": 0.05,
+          "frequency": 2400,
+          "spread": 1.6,
+          "sizePitch": 0.3,
+          "decay": 0.004,
+          "contact": 0.0002,
+          "range": 24,
+          "exponent": 1.2,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.008,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.364
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-speed-m-toe-in",
+        "from": "in-speed",
+        "to": "m-toe",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-in-size-m-heel-f-in",
+        "from": "in-size",
+        "to": "m-heel-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-m-heel-f-heel-frequency",
+        "from": "m-heel-f",
+        "to": "heel",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-toe-heel-bounceTime",
+        "from": "m-toe",
+        "to": "heel",
+        "target": "bounceTime",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-force-heel-force",
+        "from": "m-force",
+        "to": "heel",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-level-heel-level",
+        "from": "m-level",
+        "to": "heel",
+        "target": "level",
+        "amount": 0.6
+      },
+      {
+        "id": "e9-in-speed-m-toe2-in",
+        "from": "in-speed",
+        "to": "m-toe2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-body-f-floor-frequency",
+        "from": "body-f",
+        "to": "floor",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e19-m-ring1-floor-decay",
+        "from": "m-ring1",
+        "to": "floor",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e20-in-shape-floor-shape",
+        "from": "in-shape",
+        "to": "floor",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-m-toe2-floor-bounceTime",
+        "from": "m-toe2",
+        "to": "floor",
+        "target": "bounceTime",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-m-force-floor-force",
+        "from": "m-force",
+        "to": "floor",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-m-level-floor-level",
+        "from": "m-level",
+        "to": "floor",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-m-level-scuff-level",
+        "from": "m-level",
+        "to": "scuff",
+        "target": "level",
+        "amount": 0.15
+      },
+      {
+        "id": "e25-in-speed-scuff-rate",
+        "from": "in-speed",
+        "to": "scuff",
+        "target": "rate",
+        "amount": 700
+      },
+      {
+        "id": "e26-heel-out-audio",
+        "from": "heel",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-floor-out-audio",
+        "from": "floor",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-scuff-out-audio",
+        "from": "scuff",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}

@@ -1,54 +1,313 @@
 {
   "haa": 1,
   "id": "glass-shards",
-  "title": "Glass shard tinkle",
+  "title": "Glass shards",
   "inputs": [
-    { "name": "energy", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.5, "smooth": 0.005, "curve": "lin" },
-    { "name": "size", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": 0.4, "smooth": 0.005, "curve": "lin" }
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.2,
+      "smooth": 0,
+      "curve": "lin"
+    }
   ],
   "graph": {
-    "duration": 0.35,
+    "duration": 0.6,
     "loop": false,
     "mode": "timeline",
     "nodes": [
-      { "id": "in-energy", "type": "input", "x": 20, "y": 20, "label": "Energy", "params": { "name": "energy" } },
-      { "id": "in-size", "type": "input", "x": 20, "y": 90, "label": "Size", "params": { "name": "size" } },
-
-      { "id": "map-level", "type": "map", "x": 200, "y": 20, "label": "Energy -> level", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0, "outMax": 2.0 }, "curve": [ [0, 0.00398], [0.1, 0.00692], [0.2, 0.01202], [0.3, 0.02089], [0.4, 0.03631], [0.5, 0.0631], [0.6, 0.1096], [0.7, 0.1905], [0.8, 0.331], [0.9, 0.5754], [1, 1.0] ] },
-      { "id": "map-freq", "type": "map", "x": 200, "y": 90, "label": "Size -> pitch", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 5720, "outMax": 2520 } },
-      { "id": "map-decay", "type": "map", "x": 200, "y": 160, "label": "Size -> decay", "params": { "inMin": 0, "inMax": 1, "scale": "lin", "outMin": 0.02, "outMax": 0.085 } },
-
-      { "id": "shatter-curve", "type": "curve", "x": 400, "y": 20, "label": "Shatter envelope", "params": { "amount": 1 }, "curve": [ [0, 0], [0.002, 1], [0.012, 0.15], [0.03, 0] ] },
-      { "id": "shatter-noise", "type": "noise", "x": 400, "y": 90, "label": "Shatter burst", "params": { "color": "white", "level": 0.9, "width": 0 } },
-      { "id": "shatter-gain", "type": "gain", "x": 600, "y": 90, "label": "Shatter shape", "params": { "gain": 0 } },
-
-      { "id": "resonator", "type": "resonator", "x": 800, "y": 90, "label": "Shard modes", "params": { "frequency": 80, "decay": 0.005, "color": 0.65, "mix": 0.85 } },
-
-      { "id": "click", "type": "grain", "x": 400, "y": 230, "label": "Contact click", "params": { "wave": "filtered-noise", "frequency": 7000, "resonance": 2.2, "rate": 0, "attack": 0.0002, "decay": 0.02, "spread": 3, "jitter": 0, "variation": 0.2, "glide": -0.1, "delay": 0.0, "width": 0, "level": 0.45 } },
-
-      { "id": "final-gain", "type": "gain", "x": 1000, "y": 100, "label": "Final level", "params": { "gain": 0 } },
-      { "id": "out", "type": "output", "x": 1200, "y": 100, "label": "Output", "params": { "gain": 0.9 } }
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-f",
+        "type": "map",
+        "label": "Size -> shard pitch (Hz)",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 2380.0,
+          "outMax": 780.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.19247
+          ],
+          [
+            0.25,
+            0.36025
+          ],
+          [
+            0.375,
+            0.50649
+          ],
+          [
+            0.5,
+            0.63397
+          ],
+          [
+            0.625,
+            0.7451
+          ],
+          [
+            0.75,
+            0.84196
+          ],
+          [
+            0.875,
+            0.9264
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "shard",
+        "type": "modal",
+        "label": "Glass piece (shell modes)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "shell",
+          "material": "glass",
+          "frequency": 20,
+          "modes": 32,
+          "decay": 0.25,
+          "damping": 1.0,
+          "contact": 8e-05,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.9,
+          "click": 1.4,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 2,
+          "bounceTime": 0.012,
+          "restitution": 0.4,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "chips",
+        "type": "crackle",
+        "label": "Chips tinkling",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "ring",
+          "rate": 90,
+          "rise": 0.0,
+          "fall": 0.12,
+          "frequency": 5000,
+          "spread": 1.4,
+          "sizePitch": 0.6,
+          "decay": 0.05,
+          "contact": 4e-05,
+          "range": 24,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.01,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.8319
+        }
+      }
     ],
     "connections": [
-      { "id": "c-in-level", "from": "in-energy", "to": "map-level", "target": "in", "amount": 1 },
-      { "id": "c-in-freq", "from": "in-size", "to": "map-freq", "target": "in", "amount": 1 },
-      { "id": "c-in-decay", "from": "in-size", "to": "map-decay", "target": "in", "amount": 1 },
-
-      { "id": "c-level", "from": "map-level", "to": "final-gain", "target": "gain", "amount": 1 },
-
-      { "id": "c-freq-res", "from": "map-freq", "to": "resonator", "target": "frequency", "amount": 1 },
-      { "id": "c-decay-res", "from": "map-decay", "to": "resonator", "target": "decay", "amount": 1 },
-
-      { "id": "c-shatterenv", "from": "shatter-curve", "to": "shatter-gain", "target": "gain", "amount": 1.1 },
-      { "id": "c-shatternoise", "from": "shatter-noise", "to": "shatter-gain", "target": "audio", "amount": 1 },
-      { "id": "c-shatterres", "from": "shatter-gain", "to": "resonator", "target": "audio", "amount": 1 },
-
-      { "id": "c-res-out", "from": "resonator", "to": "final-gain", "target": "audio", "amount": 1 },
-      { "id": "c-click-out", "from": "click", "to": "final-gain", "target": "audio", "amount": 1 },
-
-      { "id": "c-out", "from": "final-gain", "to": "out", "target": "audio", "amount": 1 }
-    ],
-    "performance": null
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-size-m-f-in",
+        "from": "in-size",
+        "to": "m-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-f-shard-frequency",
+        "from": "m-f",
+        "to": "shard",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-m-force-shard-force",
+        "from": "m-force",
+        "to": "shard",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-level-shard-level",
+        "from": "m-level",
+        "to": "shard",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-level-chips-level",
+        "from": "m-level",
+        "to": "chips",
+        "target": "level",
+        "amount": 0.35
+      },
+      {
+        "id": "e8-shard-out-audio",
+        "from": "shard",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-chips-out-audio",
+        "from": "chips",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
   },
   "master": 1
 }

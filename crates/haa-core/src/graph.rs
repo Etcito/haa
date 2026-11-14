@@ -394,8 +394,13 @@ impl Voice {
                 effective[m.param] += control * smoother.next();
             }
             for (k, param) in pn.def.params.iter().enumerate() {
-                if let ParamKind::Number { min, max, .. } = param.kind {
-                    effective[k] = clamp(effective[k], min, max);
+                match param.kind {
+                    ParamKind::Number { min, max, .. } => effective[k] = clamp(effective[k], min, max),
+                    // A modulated enum is an index: rounded and kept within its values.
+                    ParamKind::Enum { values, .. } if param.modulatable => {
+                        effective[k] = clamp(effective[k].round(), 0.0, values.len().saturating_sub(1) as f64);
+                    }
+                    _ => {}
                 }
             }
             let (mut input_l, mut input_r) = (0.0, 0.0);

@@ -10,7 +10,7 @@
       "min": 0,
       "max": 1,
       "default": 0.5,
-      "smooth": 0.001,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.4,
-      "smooth": 0.001,
+      "default": 0.55,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -29,23 +29,22 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.001,
+      "default": 0.4,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
   "graph": {
-    "duration": 0.35,
+    "duration": 0.45,
     "loop": false,
     "mode": "timeline",
     "nodes": [
       {
         "id": "in-energy",
         "type": "input",
-        "x": 10,
-        "y": 0,
-        "label": "energy",
-        "compact": true,
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
         "params": {
           "name": "energy"
         }
@@ -53,10 +52,9 @@
       {
         "id": "in-size",
         "type": "input",
-        "x": 10,
-        "y": 40,
-        "label": "size",
-        "compact": true,
+        "label": "Size",
+        "x": 20,
+        "y": 140,
         "params": {
           "name": "size"
         }
@@ -64,451 +62,425 @@
       {
         "id": "in-speed",
         "type": "input",
-        "x": 10,
-        "y": 80,
-        "label": "speed",
-        "compact": true,
+        "label": "Speed",
+        "x": 20,
+        "y": 260,
         "params": {
           "name": "speed"
         }
       },
       {
-        "id": "gesture",
-        "type": "curve",
-        "x": 0,
-        "y": 0,
-        "label": "Step gesture",
-        "compact": true,
-        "params": {
-          "amount": 1
-        },
-        "curve": [
-          [
-            0,
-            0
-          ],
-          [
-            0.02,
-            1
-          ],
-          [
-            0.04,
-            0.5
-          ],
-          [
-            0.08,
-            0.18
-          ],
-          [
-            0.12,
-            0.35
-          ],
-          [
-            0.18,
-            0.12
-          ],
-          [
-            0.3,
-            0.02
-          ],
-          [
-            1,
-            0
-          ]
-        ]
-      },
-      {
-        "id": "click-env",
-        "type": "response",
-        "x": 0,
-        "y": 0,
-        "label": "Heel click envelope",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0,
-          "release": 0.006,
-          "delay": 0,
-          "shape": 1.0,
-          "gain": 1,
-          "sensitivity": 0.02
-        }
-      },
-      {
-        "id": "scuff-env",
-        "type": "response",
-        "x": 0,
-        "y": 0,
-        "label": "Sole scuff envelope",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0,
-          "release": 0.05,
-          "delay": 0,
-          "shape": 0.6,
-          "gain": 0.9,
-          "sensitivity": 0.03
-        }
-      },
-      {
-        "id": "click",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Heel click",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 3600,
-          "resonance": 2.0,
-          "rate": 0,
-          "attack": 0.00015,
-          "decay": 0.004,
-          "spread": 6,
-          "jitter": 0,
-          "variation": 0,
-          "glide": -0.2,
-          "delay": 0.006,
-          "width": 0.05,
-          "level": 1.0
-        }
-      },
-      {
-        "id": "click-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Click tone",
-        "compact": true,
-        "params": {
-          "cutoff": 4200,
-          "resonance": 1.4,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "click-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Click level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "scuff",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Sole scuff",
-        "compact": true,
-        "params": {
-          "wave": "noise",
-          "frequency": 1400,
-          "resonance": 0.8,
-          "rate": 220,
-          "attack": 0.0002,
-          "decay": 0.0025,
-          "spread": 8,
-          "jitter": 1,
-          "variation": 0.8,
-          "glide": 0.1,
-          "delay": 0.0,
-          "width": 0.15,
-          "level": 0.6
-        }
-      },
-      {
-        "id": "scuff-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Scuff band",
-        "compact": true,
-        "params": {
-          "cutoff": 2200,
-          "resonance": 1.0,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "scuff-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Scuff level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "thud",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Heel thud source",
-        "compact": true,
-        "params": {
-          "color": "brown",
-          "level": 0.4,
-          "width": 0
-        }
-      },
-      {
-        "id": "thud-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Heel thud band",
-        "compact": true,
-        "params": {
-          "cutoff": 220,
-          "resonance": 1.1,
-          "mode": "bandpass"
-        }
-      },
-      {
-        "id": "thud-gain",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Heel thud level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "mix",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Concrete mix",
-        "compact": true,
-        "params": {
-          "gain": 1.2
-        }
-      },
-      {
-        "id": "level",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Energy level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "output-node",
-        "type": "output",
-        "x": 0,
-        "y": 0,
-        "label": "Sortie audio",
-        "compact": true,
-        "params": {
-          "gain": 0.95
-        }
-      },
-      {
-        "id": "m-energy-level",
+        "id": "m-level",
         "type": "map",
-        "x": 0,
-        "y": 0,
-        "label": "energy -> level",
-        "compact": true,
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 1
+          "outMax": 0.9
         },
         "curve": [
           [
             0,
-            0.03
+            0.00398
           ],
           [
             0.1,
-            0.06
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
           ],
           [
             0.9,
-            1.0
+            0.5754
           ],
           [
             1,
             1.0
           ]
         ]
+      },
+      {
+        "id": "m-toe",
+        "type": "map",
+        "label": "Speed -> heel-to-sole gap (s)",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.148,
+          "outMax": 0.058
+        }
+      },
+      {
+        "id": "m-heel-f",
+        "type": "map",
+        "label": "Size -> heel/slab pitch (Hz)",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 913.33333333,
+          "outMax": 480.0
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.16165
+          ],
+          [
+            0.25,
+            0.31117
+          ],
+          [
+            0.375,
+            0.44947
+          ],
+          [
+            0.5,
+            0.57739
+          ],
+          [
+            0.625,
+            0.69571
+          ],
+          [
+            0.75,
+            0.80515
+          ],
+          [
+            0.875,
+            0.90637
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-slab-f",
+        "type": "map",
+        "label": "Size -> body weight thump (Hz)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 80.0,
+          "outMax": 38.33333333
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.15637
+          ],
+          [
+            0.25,
+            0.30256
+          ],
+          [
+            0.375,
+            0.43921
+          ],
+          [
+            0.5,
+            0.56697
+          ],
+          [
+            0.625,
+            0.6864
+          ],
+          [
+            0.75,
+            0.79805
+          ],
+          [
+            0.875,
+            0.90243
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> strike force",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.2,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "heel",
+        "type": "modal",
+        "label": "Heel then sole on the slab",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "block",
+          "material": "plastic",
+          "frequency": 20,
+          "modes": 32,
+          "decay": 0.6,
+          "damping": 1.5,
+          "contact": 0.0004,
+          "force": 0,
+          "position": 0.35,
+          "vary": 0.8,
+          "click": 0.5,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 1,
+          "bounceTime": 0.002,
+          "restitution": 0.75,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "slab",
+        "type": "modal",
+        "label": "Body weight landing (thump)",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "shape": "block",
+          "material": "stone",
+          "frequency": 20,
+          "modes": 8,
+          "decay": 0.3,
+          "damping": 1,
+          "contact": 0.00666667,
+          "force": 0,
+          "position": 0.5,
+          "vary": 0.6,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "scuff",
+        "type": "crackle",
+        "label": "Grit under the sole",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "crack",
+          "rate": 350,
+          "rise": 0.01,
+          "fall": 0.05,
+          "frequency": 2200,
+          "spread": 1.6,
+          "sizePitch": 0.3,
+          "decay": 0.004,
+          "contact": 0.0002,
+          "range": 24,
+          "exponent": 1.2,
+          "modes": 1,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.008,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.2363
+        }
       }
     ],
     "connections": [
       {
-        "id": "g-click",
-        "from": "gesture",
-        "to": "click-env",
-        "target": "input",
-        "amount": 1
-      },
-      {
-        "id": "g-scuff",
-        "from": "gesture",
-        "to": "scuff-env",
-        "target": "input",
-        "amount": 1
-      },
-      {
-        "id": "click-env-gain",
-        "from": "click-env",
-        "to": "click-gain",
-        "target": "gain",
-        "amount": 1.7
-      },
-      {
-        "id": "click-env-thud",
-        "from": "click-env",
-        "to": "thud-gain",
-        "target": "gain",
-        "amount": 1.2
-      },
-      {
-        "id": "scuff-env-gain",
-        "from": "scuff-env",
-        "to": "scuff-gain",
-        "target": "gain",
-        "amount": 1.3
-      },
-      {
-        "id": "click-filt-in",
-        "from": "click",
-        "to": "click-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "click-filt-out",
-        "from": "click-filt",
-        "to": "click-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "scuff-filt-in",
-        "from": "scuff",
-        "to": "scuff-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "scuff-filt-out",
-        "from": "scuff-filt",
-        "to": "scuff-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "thud-filt-in",
-        "from": "thud",
-        "to": "thud-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "thud-filt-out",
-        "from": "thud-filt",
-        "to": "thud-gain",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "click-mix",
-        "from": "click-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "scuff-mix",
-        "from": "scuff-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "thud-mix",
-        "from": "thud-gain",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "mix-level",
-        "from": "mix",
-        "to": "level",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "level-output",
-        "from": "level",
-        "to": "output-node",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-energy-in",
+        "id": "e1-in-energy-m-level-in",
         "from": "in-energy",
-        "to": "m-energy-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-energy-level",
-        "from": "m-energy-level",
-        "to": "level",
-        "target": "gain",
-        "amount": 1
-      },
-      {
-        "id": "e-size-thudf",
-        "from": "in-size",
-        "to": "thud-filt",
-        "target": "cutoff",
-        "amount": -120
-      },
-      {
-        "id": "e-size-clickdecay",
-        "from": "in-size",
-        "to": "click",
-        "target": "decay",
-        "amount": 0.003
-      },
-      {
-        "id": "e-speed-clickattack",
+        "id": "e2-in-speed-m-toe-in",
         "from": "in-speed",
-        "to": "click",
-        "target": "attack",
-        "amount": -5e-05
+        "to": "m-toe",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-speed-scuffrate",
+        "id": "e3-in-size-m-heel-f-in",
+        "from": "in-size",
+        "to": "m-heel-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-size-m-slab-f-in",
+        "from": "in-size",
+        "to": "m-slab-f",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-m-heel-f-heel-frequency",
+        "from": "m-heel-f",
+        "to": "heel",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-toe-heel-bounceTime",
+        "from": "m-toe",
+        "to": "heel",
+        "target": "bounceTime",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-force-heel-force",
+        "from": "m-force",
+        "to": "heel",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-m-level-heel-level",
+        "from": "m-level",
+        "to": "heel",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-m-slab-f-slab-frequency",
+        "from": "m-slab-f",
+        "to": "slab",
+        "target": "frequency",
+        "amount": 1.0
+      },
+      {
+        "id": "e11-m-force-slab-force",
+        "from": "m-force",
+        "to": "slab",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-level-slab-level",
+        "from": "m-level",
+        "to": "slab",
+        "target": "level",
+        "amount": 0.35
+      },
+      {
+        "id": "e13-m-level-scuff-level",
+        "from": "m-level",
+        "to": "scuff",
+        "target": "level",
+        "amount": 0.1
+      },
+      {
+        "id": "e14-in-speed-scuff-rate",
         "from": "in-speed",
         "to": "scuff",
         "target": "rate",
-        "amount": 140
+        "amount": 900
+      },
+      {
+        "id": "e15-heel-out-audio",
+        "from": "heel",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-slab-out-audio",
+        "from": "slab",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-scuff-out-audio",
+        "from": "scuff",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       }
-    ],
-    "performance": null
+    ]
   },
-  "master": 0.65
+  "master": 1
 }

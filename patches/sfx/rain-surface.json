@@ -9,8 +9,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.3,
+      "default": 0.6,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -19,8 +19,8 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.5,
-      "smooth": 0.3,
+      "default": 0.6,
+      "smooth": 0,
       "curve": "lin"
     },
     {
@@ -29,8 +29,59 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.35,
-      "smooth": 0.3,
+      "default": 0.5,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "material",
+      "kind": "enum",
+      "unit": "",
+      "min": 0,
+      "max": 8,
+      "default": 7,
+      "smooth": 0,
+      "curve": "lin",
+      "values": [
+        "wood",
+        "metal",
+        "glass",
+        "stone",
+        "plastic",
+        "ceramic",
+        "concrete",
+        "tile",
+        "snow"
+      ]
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4924,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.4601,
+      "smooth": 0,
       "curve": "lin"
     }
   ],
@@ -42,10 +93,9 @@
       {
         "id": "in-energy",
         "type": "input",
-        "x": 10,
-        "y": 0,
-        "label": "energy",
-        "compact": true,
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
         "params": {
           "name": "energy"
         }
@@ -53,10 +103,9 @@
       {
         "id": "in-hardness",
         "type": "input",
-        "x": 10,
-        "y": 40,
-        "label": "hardness",
-        "compact": true,
+        "label": "Hardness",
+        "x": 20,
+        "y": 140,
         "params": {
           "name": "hardness"
         }
@@ -64,337 +113,992 @@
       {
         "id": "in-size",
         "type": "input",
-        "x": 10,
-        "y": 80,
-        "label": "size",
-        "compact": true,
+        "label": "Size",
+        "x": 20,
+        "y": 260,
         "params": {
           "name": "size"
         }
       },
       {
-        "id": "drift",
-        "type": "random",
-        "x": 0,
-        "y": 0,
-        "label": "Gentle rainfall drift",
-        "compact": true,
+        "id": "in-material",
+        "type": "input",
+        "label": "Material",
+        "x": 20,
+        "y": 380,
         "params": {
-          "rate": 0.6,
-          "depth": 1,
-          "smooth": 0.95
+          "name": "material"
         }
       },
       {
-        "id": "activity",
-        "type": "response",
-        "x": 0,
-        "y": 0,
-        "label": "Rain activity",
-        "compact": true,
-        "params": {
-          "input": 0,
-          "mode": "follow",
-          "attack": 0.01,
-          "release": 0.08,
-          "delay": 0,
-          "shape": 1,
-          "gain": 1,
-          "sensitivity": 0.04
-        }
-      },
-      {
-        "id": "bed-warm",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Dull patter bed",
-        "compact": true,
-        "params": {
-          "color": "brown",
-          "level": 0.1,
-          "width": 1
-        }
-      },
-      {
-        "id": "bed-warm-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Dull patter band",
-        "compact": true,
-        "params": {
-          "cutoff": 420,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "bed-bright",
-        "type": "noise",
-        "x": 0,
-        "y": 0,
-        "label": "Bright surface bed",
-        "compact": true,
-        "params": {
-          "color": "white",
-          "level": 0.009,
-          "width": 1
-        }
-      },
-      {
-        "id": "bed-bright-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Bright surface band",
-        "compact": true,
-        "params": {
-          "cutoff": 2500,
-          "resonance": 0.6,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "droplets",
-        "type": "grain",
-        "x": 0,
-        "y": 0,
-        "label": "Droplet contacts",
-        "compact": true,
-        "params": {
-          "wave": "filtered-noise",
-          "frequency": 3000,
-          "resonance": 0.6,
-          "rate": 40,
-          "attack": 0.0002,
-          "decay": 0.004,
-          "spread": 14,
-          "jitter": 1,
-          "variation": 1,
-          "glide": -0.35,
-          "delay": 0.01,
-          "width": 0.7,
-          "level": 0.45
-        }
-      },
-      {
-        "id": "droplet-filt",
-        "type": "filter",
-        "x": 0,
-        "y": 0,
-        "label": "Droplet band",
-        "compact": true,
-        "params": {
-          "cutoff": 3500,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "mix",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Rain mix",
-        "compact": true,
-        "params": {
-          "gain": 1.1
-        }
-      },
-      {
-        "id": "level",
-        "type": "gain",
-        "x": 0,
-        "y": 0,
-        "label": "Energy level",
-        "compact": true,
-        "params": {
-          "gain": 0
-        }
-      },
-      {
-        "id": "output-node",
-        "type": "output",
-        "x": 0,
-        "y": 0,
-        "label": "Rain output",
-        "compact": true,
-        "params": {
-          "gain": 0.9
-        }
-      },
-      {
-        "id": "m-energy-level",
+        "id": "m-level",
         "type": "map",
-        "x": 0,
-        "y": 0,
-        "label": "energy -> level",
-        "compact": true,
+        "label": "Energy -> level",
+        "x": 280,
+        "y": 20,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0,
-          "outMax": 1
+          "outMin": 0.0,
+          "outMax": 1.0
         },
         "curve": [
           [
             0,
-            0.012
+            0.03
           ],
           [
-            0.1,
-            0.025
+            0.3,
+            0.12
           ],
           [
-            0.9,
-            1.0
+            0.6,
+            0.4
           ],
           [
             1,
             1.0
           ]
         ]
+      },
+      {
+        "id": "m-rate",
+        "type": "map",
+        "label": "Energy -> drops per second",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 120,
+          "outMax": 4500
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.0157
+          ],
+          [
+            0.25,
+            0.0404
+          ],
+          [
+            0.375,
+            0.07925
+          ],
+          [
+            0.5,
+            0.14038
+          ],
+          [
+            0.625,
+            0.23653
+          ],
+          [
+            0.75,
+            0.38778
+          ],
+          [
+            0.875,
+            0.62571
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-wash-rate",
+        "type": "map",
+        "label": "Energy -> distant drops per second",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 1500,
+          "outMax": 16000
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.03562
+          ],
+          [
+            0.25,
+            0.0835
+          ],
+          [
+            0.375,
+            0.14788
+          ],
+          [
+            0.5,
+            0.23441
+          ],
+          [
+            0.625,
+            0.35075
+          ],
+          [
+            0.75,
+            0.50713
+          ],
+          [
+            0.875,
+            0.71737
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-f",
+        "type": "map",
+        "label": "Hardness -> drop click pitch (Hz)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 2160.0,
+          "outMax": 5960.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.07736
+          ],
+          [
+            0.25,
+            0.16505
+          ],
+          [
+            0.375,
+            0.26446
+          ],
+          [
+            0.5,
+            0.37715
+          ],
+          [
+            0.625,
+            0.5049
+          ],
+          [
+            0.75,
+            0.64972
+          ],
+          [
+            0.875,
+            0.81389
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Size -> drop contact time (s)",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 4e-05,
+          "outMax": 0.00038
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.04723
+          ],
+          [
+            0.25,
+            0.10709
+          ],
+          [
+            0.375,
+            0.18298
+          ],
+          [
+            0.5,
+            0.27917
+          ],
+          [
+            0.625,
+            0.40111
+          ],
+          [
+            0.75,
+            0.55569
+          ],
+          [
+            0.875,
+            0.75162
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-soft",
+        "type": "map",
+        "label": "Softer surface -> more water (bubbles)",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 0.15
+        }
+      },
+      {
+        "id": "bubble-lv",
+        "type": "math",
+        "label": "Level x water",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "drops",
+        "type": "crackle",
+        "label": "Near drops (clicks)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 40,
+          "spread": 2.4,
+          "sizePitch": 0.7,
+          "decay": 0.03,
+          "contact": 2e-05,
+          "range": 36,
+          "exponent": 1.3,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.35,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "splash",
+        "type": "crackle",
+        "label": "Splashes",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "crack",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 4200,
+          "spread": 1.6,
+          "sizePitch": 0.4,
+          "decay": 0.012,
+          "contact": 0.0002,
+          "range": 30,
+          "exponent": 1.2,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.3,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "bubbles",
+        "type": "crackle",
+        "label": "Drops into water (bubbles)",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "kind": "bubble",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 1800,
+          "spread": 1.4,
+          "sizePitch": 0.6,
+          "decay": 0.012,
+          "contact": 0.0002,
+          "range": 30,
+          "exponent": 1.2,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.3,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "wash",
+        "type": "crackle",
+        "label": "Distant drops (wash)",
+        "x": 540,
+        "y": 380,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 1300,
+          "spread": 3.0,
+          "sizePitch": 0.3,
+          "decay": 0.03,
+          "contact": 8e-05,
+          "range": 24,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.25,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "hits",
+        "type": "crackle",
+        "label": "Drop impacts on the surface (force)",
+        "x": 540,
+        "y": 500,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 3000,
+          "spread": 1.5,
+          "sizePitch": 0.5,
+          "decay": 0.03,
+          "contact": 0.0001,
+          "range": 36,
+          "exponent": 1.3,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.35,
+          "delay": 0.0,
+          "level": 4.0
+        }
+      },
+      {
+        "id": "surface",
+        "type": "modal",
+        "label": "Surface (material, shape)",
+        "x": 540,
+        "y": 620,
+        "params": {
+          "shape": "bar",
+          "material": "wood",
+          "frequency": 20,
+          "modes": 64,
+          "decay": 0.05,
+          "damping": 1.0,
+          "contact": 0.0005,
+          "force": 0,
+          "position": 0.3,
+          "vary": 0.3,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 4.0,
+          "strike": false,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "label": "Shape",
+        "x": 20,
+        "y": 500,
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "label": "Dim",
+        "x": 20,
+        "y": 620,
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "label": "Thickness",
+        "x": 20,
+        "y": 740,
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "m-h",
+        "type": "map",
+        "label": "Thickness (m)",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0005,
+          "outMax": 0.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.125,
+            0.00137
+          ],
+          [
+            0.25,
+            0.00463
+          ],
+          [
+            0.375,
+            0.01235
+          ],
+          [
+            0.5,
+            0.03065
+          ],
+          [
+            0.625,
+            0.07406
+          ],
+          [
+            0.75,
+            0.177
+          ],
+          [
+            0.875,
+            0.42112
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-il2",
+        "type": "map",
+        "label": "1 / dim\u00b2 (1/m\u00b2)",
+        "x": 280,
+        "y": 980,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 10000.0,
+          "outMax": 0.01
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.82217
+          ],
+          [
+            0.25,
+            0.96838
+          ],
+          [
+            0.375,
+            0.99438
+          ],
+          [
+            0.5,
+            0.999
+          ],
+          [
+            0.625,
+            0.99982
+          ],
+          [
+            0.75,
+            0.99997
+          ],
+          [
+            0.875,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-k",
+        "type": "map",
+        "label": "Shape -> bending constant",
+        "x": 280,
+        "y": 1100,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 6,
+          "scale": "lin",
+          "outMin": 1.0,
+          "outMax": 1.5
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.16666666666666666,
+            0.0
+          ],
+          [
+            0.3333333333333333,
+            0.0
+          ],
+          [
+            0.5,
+            0.4
+          ],
+          [
+            0.6666666666666666,
+            0.0
+          ],
+          [
+            0.8333333333333334,
+            1.0
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "h-l2",
+        "type": "math",
+        "label": "thickness / dim\u00b2",
+        "x": 280,
+        "y": 1220,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "body-f",
+        "type": "math",
+        "label": "x shape constant",
+        "x": 280,
+        "y": 1340,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-ring1",
+        "type": "map",
+        "label": "Thickness -> ring time",
+        "x": 280,
+        "y": 1460,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 8.35,
+          "outMax": 0.09
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.125,
+            0.40737
+          ],
+          [
+            0.25,
+            0.65156
+          ],
+          [
+            0.375,
+            0.79792
+          ],
+          [
+            0.5,
+            0.88566
+          ],
+          [
+            0.625,
+            0.93825
+          ],
+          [
+            0.75,
+            0.96978
+          ],
+          [
+            0.875,
+            0.98867
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.1837
+        }
       }
     ],
     "connections": [
       {
-        "id": "energy-activity",
+        "id": "e1-in-energy-m-level-in",
         "from": "in-energy",
-        "to": "activity",
-        "target": "input",
-        "amount": 1
-      },
-      {
-        "id": "activity-rate",
-        "from": "activity",
-        "to": "droplets",
-        "target": "rate",
-        "amount": 140
-      },
-      {
-        "id": "drift-rate",
-        "from": "drift",
-        "to": "droplets",
-        "target": "rate",
-        "amount": 20
-      },
-      {
-        "id": "warm-filt-in",
-        "from": "bed-warm",
-        "to": "bed-warm-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "warm-mix",
-        "from": "bed-warm-filt",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "bright-filt-in",
-        "from": "bed-bright",
-        "to": "bed-bright-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "bright-mix",
-        "from": "bed-bright-filt",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "droplets-filt-in",
-        "from": "droplets",
-        "to": "droplet-filt",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "droplets-mix",
-        "from": "droplet-filt",
-        "to": "mix",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "mix-level",
-        "from": "mix",
-        "to": "level",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "level-output",
-        "from": "level",
-        "to": "output-node",
-        "target": "audio",
-        "amount": 1
-      },
-      {
-        "id": "e-energy-in",
-        "from": "in-energy",
-        "to": "m-energy-level",
+        "to": "m-level",
         "target": "in",
-        "amount": 1
+        "amount": 1.0
       },
       {
-        "id": "e-energy-level",
-        "from": "m-energy-level",
-        "to": "level",
-        "target": "gain",
-        "amount": 1
+        "id": "e2-in-energy-m-rate-in",
+        "from": "in-energy",
+        "to": "m-rate",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-hard-warmlvl",
+        "id": "e3-in-energy-m-wash-rate-in",
+        "from": "in-energy",
+        "to": "m-wash-rate",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-in-hardness-m-f-in",
         "from": "in-hardness",
-        "to": "bed-warm",
-        "target": "level",
-        "amount": -0.26
+        "to": "m-f",
+        "target": "in",
+        "amount": 1.0
       },
       {
-        "id": "e-hard-brightlvl",
-        "from": "in-hardness",
-        "to": "bed-bright",
-        "target": "level",
-        "amount": 0.38
-      },
-      {
-        "id": "e-hard-brightf",
-        "from": "in-hardness",
-        "to": "bed-bright-filt",
-        "target": "cutoff",
-        "amount": -2000
-      },
-      {
-        "id": "e-hard-dropf",
-        "from": "in-hardness",
-        "to": "droplet-filt",
-        "target": "cutoff",
-        "amount": 2600
-      },
-      {
-        "id": "e-size-freq",
+        "id": "e5-in-size-m-contact-in",
         "from": "in-size",
-        "to": "droplets",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-hardness-m-soft-in",
+        "from": "in-hardness",
+        "to": "m-soft",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-level-bubble-lv-a",
+        "from": "m-level",
+        "to": "bubble-lv",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-soft-bubble-lv-b",
+        "from": "m-soft",
+        "to": "bubble-lv",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-m-rate-drops-rate",
+        "from": "m-rate",
+        "to": "drops",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e10-m-f-drops-frequency",
+        "from": "m-f",
+        "to": "drops",
         "target": "frequency",
-        "amount": -2200
+        "amount": 1.0
       },
       {
-        "id": "e-size-level",
-        "from": "in-size",
-        "to": "droplets",
+        "id": "e11-m-contact-drops-contact",
+        "from": "m-contact",
+        "to": "drops",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-level-drops-level",
+        "from": "m-level",
+        "to": "drops",
         "target": "level",
-        "amount": 1.1
+        "amount": 1.0
+      },
+      {
+        "id": "e13-m-rate-splash-rate",
+        "from": "m-rate",
+        "to": "splash",
+        "target": "rate",
+        "amount": 0.3
+      },
+      {
+        "id": "e14-m-level-splash-level",
+        "from": "m-level",
+        "to": "splash",
+        "target": "level",
+        "amount": 0.6
+      },
+      {
+        "id": "e15-m-rate-bubbles-rate",
+        "from": "m-rate",
+        "to": "bubbles",
+        "target": "rate",
+        "amount": 0.12
+      },
+      {
+        "id": "e16-bubble-lv-bubbles-level",
+        "from": "bubble-lv",
+        "to": "bubbles",
+        "target": "level",
+        "amount": 0.5
+      },
+      {
+        "id": "e17-m-wash-rate-wash-rate",
+        "from": "m-wash-rate",
+        "to": "wash",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "e18-m-level-wash-level",
+        "from": "m-level",
+        "to": "wash",
+        "target": "level",
+        "amount": 0.22
+      },
+      {
+        "id": "e19-m-rate-hits-rate",
+        "from": "m-rate",
+        "to": "hits",
+        "target": "rate",
+        "amount": 0.7
+      },
+      {
+        "id": "e20-hits-surface-audio",
+        "from": "hits",
+        "to": "surface",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e21-in-material-surface-material",
+        "from": "in-material",
+        "to": "surface",
+        "target": "material",
+        "amount": 1.0
+      },
+      {
+        "id": "e22-in-thickness-m-h-in",
+        "from": "in-thickness",
+        "to": "m-h",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e23-in-dim-m-il2-in",
+        "from": "in-dim",
+        "to": "m-il2",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e24-in-shape-m-k-in",
+        "from": "in-shape",
+        "to": "m-k",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e25-m-h-h-l2-a",
+        "from": "m-h",
+        "to": "h-l2",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-m-il2-h-l2-b",
+        "from": "m-il2",
+        "to": "h-l2",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-h-l2-body-f-a",
+        "from": "h-l2",
+        "to": "body-f",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-m-k-body-f-b",
+        "from": "m-k",
+        "to": "body-f",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e29-in-thickness-m-ring1-in",
+        "from": "in-thickness",
+        "to": "m-ring1",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e30-body-f-surface-frequency",
+        "from": "body-f",
+        "to": "surface",
+        "target": "frequency",
+        "amount": 1800
+      },
+      {
+        "id": "e31-m-ring1-surface-decay",
+        "from": "m-ring1",
+        "to": "surface",
+        "target": "decay",
+        "amount": 1.0
+      },
+      {
+        "id": "e32-in-shape-surface-shape",
+        "from": "in-shape",
+        "to": "surface",
+        "target": "shape",
+        "amount": 1.0
+      },
+      {
+        "id": "e33-m-level-surface-level",
+        "from": "m-level",
+        "to": "surface",
+        "target": "level",
+        "amount": 2
+      },
+      {
+        "id": "e34-drops-out-audio",
+        "from": "drops",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e35-splash-out-audio",
+        "from": "splash",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e36-bubbles-out-audio",
+        "from": "bubbles",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e37-wash-out-audio",
+        "from": "wash",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e38-surface-out-audio",
+        "from": "surface",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
       }
-    ],
-    "performance": null
+    ]
   },
   "master": 1
 }

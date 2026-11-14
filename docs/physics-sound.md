@@ -73,6 +73,20 @@ const roof = withBody(metal, { shape: 'sheet', dim: 4, thickness: 0.001 });    /
 - Reserved input `_dist`: a preset that declares it receives the distance in metres. Direction is
   handled by an HRTF panner, so `_pan` and `_doppler` are not sent.
 
+### How the presets consume the body (`modal` node)
+
+The `modal` node's `shape` enum has the `SHAPES` order (block, plate, sheet, bar, box, shell, bottle)
+and is modulatable, so the `shape` input (declared 0..6) wires straight into it. A preset computes the
+lowest mode as 1800 Hz · k_shape · thickness / dim² (bending of a plate or a bar of wood; k is 1 for a
+plate, a sheet, a box or a block, 1.2 for a bar, 0.35 for a shell or a bottle), the node's `material`
+scales it (steel 1.6×, glass 1.5×, ...), and `thickness` sets the ring time (a 0.5 mm sheet rings ~6×
+longer than the default 1.6 cm, a 0.5 m slab ~10× shorter). `box` and `bottle` add their air cavity.
+Consumed by `solid-impact`, `wood-crate-impact`, `metal-impact`, `glass-clink`, `footstep-wood`,
+`footstep-metal`, `slide-scrape` (the surface) and `roll-rumble` (the floor). The material itself is
+the preset; the generic ones (`solid-impact`, `slide-scrape`, `roll-rumble`, `rain-surface`) also
+declare an enum input `material` (`wood`, `metal`, `glass`, `stone`, `plastic`, `ceramic`, `concrete`,
+`tile`, `snow`; an index) that a slot can force through its `inputs`.
+
 ## API
 
 ```ts
@@ -163,10 +177,13 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
   the same τ: the grains then carry on average exactly the summed power of the impacts. The voice
   fades in over 50 ms, and fades out over 0.2 s from 0.15 s after the last impact: the cluster is
   never switched on or off in one step. The 0.3 s window slides with every impact (no window edge).
-- A cluster preset is a `grain` cloud whose grain is the single impact (same tone, decay and
-  energy-to-level map) and whose rate is `density` × 200, so its summed level follows the impacts it
-  stands for (one grain within ±2 dB of one impact). `particle-cluster` (pebbles, debris) and
-  `glass-cluster` (shards) are in `patches/sfx/`.
+- A cluster preset is a `crackle` cloud of `ring` events, each one a small version of the single
+  impact (same pitch range, contact and energy-to-level map), whose rate is `density` × 200, so its
+  summed level follows the impacts it stands for (the energy of one event within ±2 dB of one
+  impact). `particle-cluster` (pebbles, debris) and `glass-cluster` (shards) are in `patches/sfx/`.
+- Impact presets for the materials: `wood-crate-impact`, `metal-impact` (a struck steel plate),
+  `particle-impact`, `glass-clink`, `glass-shards`; `metal-ricochet` is a bullet glancing off metal
+  (ping and tumbling whine), not a plate hit.
 - `createSfxEngine({ swarm: false })` gives every impact its own voice; `swarm: { individual, ... }`
   tunes the grouping. `stats().clustered` counts the impacts absorbed.
 
@@ -209,16 +226,24 @@ rain.stop(0.6);
 - `rainOnFace` (Rust): drops are Poisson at 600·intensity^1.3·flux·min(area, 25 m²) per second
   (more area beyond 25 m² only adds density, the far parts are the chain's distance; above 4000
   drops/s each drop carries several). A drop is a short noise splash (bigger drops longer and
-  louder, harder surfaces shorter and brighter: a low-pass from 1.2 kHz for snow to 11 kHz for
-  metal) driving a 6-mode bank of the face's shape: base frequency from the shape, the local size
-  (a slab or a sheet answers with the patch the drop hits) and the stiffness (0.35 + 1.3·hardness²),
-  ring time from the shape, the thickness and the hardness. Faces over 2 m² alternate two banks
-  ±7 % apart. Snow and earth are nearly silent (0.08 of the level).
+  louder, harder surfaces shorter and brighter: a low-pass from 1.2 kHz for snow to 7 kHz for
+  metal, 1200 + 5800·hardness²) driving a 6-mode bank of the face's shape: base frequency from the
+  shape, the local size (a block answers with 0.3 m of its surface, a plate with 1 m, a sheet with
+  1 m) and the stiffness (0.35 + 1.3·hardness²), ring time from the shape, the thickness and the
+  hardness. Faces over 2 m² alternate two banks ±7 % apart. Snow and earth are nearly silent (0.08
+  of the level).
+- Checked against CC0 freesound recordings of rain on metal roofs (509116, 509113, a car roof 344460):
+  their spectral centroid is ~750 Hz (540-1100 Hz over 0.5 s windows), most energy under 2 kHz: a
+  metal roof drums, it does not ping. The sheet's modes were 1.6 kHz and up (centroid 2 kHz); they now
+  start at ~0.8 × 640 Hz with a wider spread and more of the drop is splash (centroid ~570 Hz, the
+  long-term spectrum 6.8 dB from the recordings' mean instead of 13.1). Tiles (refs 333509, 669487:
+  centroid ~1.4 kHz) and concrete (street rain 93033, 470484, 470485, 527498: ~1.3 kHz) were already
+  within the recordings' spread; no recording of rain on a wooden roof was found, wood stays as it was.
 - The same mechanism serves any source spread over the level's faces (hail, sand blown by the wind,
   sparks): a preset that reads `flux` and `area`.
 
-Measured in the studio (offline render, 2.9 s of rain at intensity 0.6, per-ear energy and spectral
-centroid), listener in the hall's centre with each roof: tiles 1.24 kHz, metal sheet 2.08 kHz (highs
+Measured in the studio before that check (offline render, 2.9 s of rain at intensity 0.6, per-ear
+energy and spectral centroid), listener in the hall's centre with each roof: tiles 1.24 kHz, metal sheet 2.08 kHz (highs
 7 dB above the tiles), wood boards 1.01 kHz, concrete slab 0.54 kHz and 20 dB quieter. Under the open
 shelters: tiles 1.12 kHz, wood 0.98 kHz. In the wooden shed under its metal roof 2.19 kHz. Walking
 from outside in under the hall's roof at 2 m/s, the largest change is 2.1 dB per 100 ms.

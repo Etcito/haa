@@ -96,18 +96,20 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
 const RATIOS: [[f64; MODES]; 7] = [
     [1.0, 1.48, 2.1, 2.9, 3.7, 4.6],
     [1.0, 1.59, 2.14, 2.3, 2.65, 2.92],
-    [1.0, 1.31, 1.73, 2.05, 2.42, 2.87],
+    [0.8, 1.05, 1.4, 1.8, 2.4, 3.1],
     [1.0, 2.76, 5.4, 8.93, 13.34, 18.64],
     [1.0, 2.3, 3.1, 3.8, 4.6, 5.9],
     [1.0, 2.32, 4.25, 6.63, 9.38, 12.5],
     [1.0, 3.0, 4.9, 6.8, 8.6, 10.7],
 ];
 /// Base frequency (Hz) of each shape at 0.3 m, before hardness.
-const BASE_HZ: [f64; 7] = [600.0, 900.0, 1400.0, 700.0, 250.0, 1200.0, 1000.0];
+// The sheet's base is low: rain on a metal roof drums (freesound CC0 recordings of rain on metal roofs:
+// spectral centroid ~750 Hz, most energy under 2 kHz), it does not ping.
+const BASE_HZ: [f64; 7] = [600.0, 900.0, 800.0, 700.0, 250.0, 1200.0, 1000.0];
 /// Ring time (s, 60 dB) of each shape's first mode on the hardest material.
 const RING_S: [f64; 7] = [0.012, 0.06, 0.25, 0.4, 0.05, 0.5, 0.3];
 /// How much of each drop goes into the modes (the rest is the splash itself).
-const RING_MIX: [f64; 7] = [0.15, 0.5, 0.8, 0.6, 0.55, 0.75, 0.6];
+const RING_MIX: [f64; 7] = [0.15, 0.5, 0.4, 0.6, 0.55, 0.75, 0.6];
 
 struct Bank {
     a1: [f64; MODES],
@@ -196,7 +198,8 @@ impl RainOnFace {
         // it, and a slab (the ground, a concrete roof) answers with its surface, not its whole size.
         let dim = match shape {
             0 => p[DIM].min(0.3),
-            2 => p[DIM].min(0.5),
+            1 => p[DIM].min(1.0),
+            2 => p[DIM].min(1.0),
             _ => p[DIM],
         };
         // Stiffer materials ring higher (sqrt(E/rho)): wood well under tiles, metal above both.
@@ -281,8 +284,8 @@ impl Node for RainOnFace {
             splash[1] += v * self.pan[i].sqrt();
             excite[self.bank_of[i]] += v;
         }
-        // Harder surfaces tick brighter: a one-pole low-pass from 1.2 kHz (snow) to 11 kHz (metal).
-        let cutoff = 1200.0 + 9800.0 * h;
+        // Harder surfaces tick brighter: a one-pole low-pass from 1.2 kHz (snow) to 7 kHz (metal).
+        let cutoff = 1200.0 + 5800.0 * h * h;
         let a = (-std::f64::consts::TAU * cutoff / self.sr).exp();
         for c in 0..2 {
             self.lp[c] = splash[c] + a * (self.lp[c] - splash[c]);
