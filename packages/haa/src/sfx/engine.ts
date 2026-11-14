@@ -14,6 +14,8 @@ import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
 import type { ChainState } from './spatial3d.ts';
 import { bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, TAPS_PER_VOICE, VoiceChain } from './spatial3d.ts';
+import type { FaceSource, FaceSourceOptions, SoundFace } from './faces.ts';
+import { createFaceSource } from './faces.ts';
 import type { SwarmOptions } from './swarm.ts';
 import { SwarmTracker } from './swarm.ts';
 
@@ -37,6 +39,8 @@ export interface SfxEngineOptions {
   occlusionStrength?: number;
   /** Reverb amount, 0..2: 0 dry, 1 the level estimated from the room, 2 exaggerated. */
   reverbAmount?: number;
+  /** Diffuse level relative to the physical estimate (dB): 0 is physical, default `WET_OFFSET_DB` (-7). */
+  reverbLevelDb?: number;
   /** Swarms of small impacts (slots with a `cluster` preset): grouping options, or false to give every impact its own voice. */
   swarm?: SwarmOptions | false;
   /** Ray budget of the acoustics (docs/physics-sound.md): more rays, smoother and slower. */
@@ -86,6 +90,8 @@ export interface PlayOptions {
   label?: string;
   /** Radius (m) of a large source (rain, an explosion): it spreads around the listener up close. */
   extent?: number;
+  /** The position is already the source's nearest point (a face emitter): the extent only spreads it. */
+  nearest?: boolean;
 }
 
 /** A running continuous voice started with `loop`. */
@@ -94,6 +100,8 @@ export interface SfxLoop {
   set(inputs: Partial<SfxInputs>): void;
   move(position: Vec3): void;
   setGain(gain: number): void;
+  /** Extra loss (dB at 250 Hz, 1 kHz, 4 kHz) of the direct sound: a face heard through its own solid. */
+  setTransmission(db: readonly [number, number, number]): void;
   stop(fadeS?: number): void;
 }
 
@@ -185,6 +193,12 @@ interface Slot {
   position: Vec3;
   /** Radius of a large source (m), 0 for a point. */
   extent: number;
+  /** The position is the nearest point of the source (face emitters). */
+  nearest: boolean;
+  /** Extra direct-path loss (dB per band), its smoothed value, and the fade-in of a continuous voice. */
+  tx: [number, number, number];
+  txs: [number, number, number];
+  fadeIn: number;
   level: number;
   energy: number;
   ac: Acoustic;
@@ -217,6 +231,13 @@ export interface SfxEngine {
   setOcclusionStrength(strength: number): void;
   /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
   setReverbAmount(amount: number): void;
+  /** Diffuse level relative to the physical estimate (dB, -30..+6): 0 is physical, default -7. */
+  setReverbLevel(db: number): void;
+  /**
+   * A distributed source on the level's faces (rain): one emitter per exposed face, fed by the
+   * face's flux, exposed area, material and body (docs/physics-sound.md, "Rain on faces").
+   */
+  faceSource(faces: SoundFace[], o: FaceSourceOptions): FaceSource;
   stats(): SfxStats;
   /** Rays cast during the last updates (room, reflections, occlusion), for a debug overlay. */
   rays(): RaySegment[];
@@ -243,13 +264,19 @@ const TAU_TAP = 0.1;
  * (hall centre, in front of the door, the doorway, outside); the knee only tames the wettest rooms.
  * The former hard cap made every closed room the same.
  */
-export const WET_OFFSET_DB = -5;
-export const WET_RATIO = 0.5;
+export const WET_OFFSET_DB = -7;
+/** Largest reverb send amplitude (+12 dB re the direct sound at 2 m). */
+export const SEND_MAX = 4;
+/** Voices fade out over this when stolen (a spare slot takes the new one meanwhile). */
+const STEAL_FADE_S = 0.06;
+/** Slots kept free for stealing with a fade instead of a cut. */
+const SPARE_SLOTS = 2;
+/** A continuous voice (slide, roll, loop, swarm) fades in over this. */
+const CONTINUOUS_FADE_IN_S = 0.05;
 
-/** Diffuse level as mixed (dB) from the physical one. */
-export function mixedWetDb(db: number): number {
-  const x = db + WET_OFFSET_DB;
-  return x <= 0 ? x : x * WET_RATIO;
+/** Diffuse level as mixed (dB) from the physical one: shifted by `offset` (0 = physical). */
+export function mixedWetDb(db: number, offset = WET_OFFSET_DB): number {
+  return db + offset;
 }
 const CONTINUOUS_FADE_S = 0.08;
 /** Audio-thread cost of one voice's 3D chain (5 HRTF panners, 6 delays, 4 biquads, the bank sends), measured in Chrome: ≈ 1.5-2 % of real time. */
@@ -274,6 +301,10 @@ export function levelAtSpeed(levels: readonly number[], speed: number): number {
     }
   }
   return levels[levels.length - 1];
+}
+
+function clampWetDb(db: number): number {
+  return Number.isFinite(db) ? Math.min(6, Math.max(-30, db)) : WET_OFFSET_DB;
 }
 
 function newAcoustic(): Acoustic {
@@ -317,6 +348,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const budget = o.cpuBudget ?? 0.6;
   let raycast = o.raycast;
   let occlusionStrength = o.occlusionStrength ?? 1;
+  let wetOffsetDb = clampWetDb(o.reverbLevelDb ?? WET_OFFSET_DB);
+  const faceSources = new Set<FaceSource>();
   const ao = o.acoustics ?? {};
   const traceEvery = ao.traceEvery ?? 0.1;
   const voiceEvery = ao.voiceEvery ?? 0.15;
@@ -350,7 +383,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const chain = new VoiceChain(ctx, dry, reverb.inputs);
     slots.push({
       index: i, chain, busy: false, id: 0, preset: '', oneShot: true, priority: 0, started: 0,
-      position: v3(0, 0, 0), extent: 0, level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
+      position: v3(0, 0, 0), extent: 0, nearest: false, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: 1, level: 0, energy: 0, ac: newAcoustic(), nextGeo: 0,
       key: null, stopping: false, cost: 0, speed: 0, quietSince: -1,
     });
   }
@@ -526,7 +559,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     trace = traceListener(listener.position, raycast, { rays: ao.traceRays ?? 256, bounces: ao.bounces ?? 6 }, rays);
     roomRays = rays;
     const feet = voiceReverb(trace, sub(listener.position, v3(0, 1.5, 0)), raycast, { stride: (ao.reverbStride ?? 2) * 2, ref: REF_DISTANCE });
-    room = { ...trace.space, wet: feet.energy > 0 ? Math.min(WET_MAX, 10 ** (mixedWetDb(10 * Math.log10(feet.energy)) / 20)) : 0, wetRt60: feet.rt60 };
+    room = { ...trace.space, wet: feet.energy > 0 ? Math.min(SEND_MAX, 10 ** (mixedWetDb(10 * Math.log10(feet.energy), wetOffsetDb) / 20)) : 0, wetRt60: feet.rt60 };
     nextRoom = now + traceEvery;
   }
 
@@ -604,7 +637,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     // Direct sound: the source, or the edge it bends around, at the length of that path.
     const toS = sub(s.position, L);
     const d = Math.max(1e-3, length(toS));
-    const dEff = Math.max(0.3, d - 0.8 * s.extent);
+    const shift = s.nearest ? 0 : 0.8 * s.extent;
+    const dEff = Math.max(0.3, d - shift);
     const dirS = scale(toS, 1 / d);
     const hidden = Math.min(1, Math.max(0, 1 - ac.visible));
     let dir = dirS;
@@ -615,20 +649,25 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       if (lv > 1e-3) {
         dir = normalize(add(scale(dirS, 1 - hidden), scale(toV, hidden / lv)));
         if (length(dir) < 1e-3) dir = dirS;
-        const around = lv + length(sub(s.position, ac.via)) - 0.8 * s.extent;
+        const around = lv + length(sub(s.position, ac.via)) - shift;
         len = dEff + (Math.max(dEff, around) - dEff) * hidden;
       }
     }
     const levels = raycast
       ? diffractionLevels({ visible: ac.visible, excess: ac.excess, found: ac.found > 0.5 }, occlusionStrength)
       : { bandsDb: [0, 0, 0] as [number, number, number] };
+    for (let b = 0; b < 3; b++) {
+      s.txs[b] += (s.tx[b] - s.txs[b]) * k(TAU_DIRECT);
+      levels.bandsDb[b] -= s.txs[b];
+    }
+    if (!immediate && s.fadeIn < 1) s.fadeIn = Math.min(1, s.fadeIn + dt / CONTINUOUS_FADE_IN_S);
     const near = len < REF_DISTANCE ? REF_DISTANCE / Math.max(len, NEAR_MIN_DISTANCE) : 1;
     const u = s.extent / Math.max(len, 0.01);
     const spread = u >= 1 ? 1 : u * u;
-    const send = Math.min(WET_MAX, 10 ** (mixedWetDb(ac.wetDb) / 20));
+    const send = Math.min(SEND_MAX, 10 ** (mixedWetDb(ac.wetDb, wetOffsetDb) / 20));
     const right = normalize(cross(listener.forward, listener.up));
     const state: ChainState = {
-      level: s.stopping ? NaN : s.level,
+      level: s.stopping ? NaN : s.level * s.fadeIn,
       delay: len / SPEED_OF_SOUND_M_S,
       // Air absorption, exaggerated for a game-sized world: -0.3 dB per metre above 4 kHz (-6 dB at 20 m).
       airShelfDb: -Math.min(24, 0.3 * len),
@@ -666,39 +705,46 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   }
 
   /** Find a slot for a voice of `rec` at `priority`: a free one, else steal a quieter one. */
+  /**
+   * Find a slot for a voice of `rec` at `priority`. Two slots stay spare: a stolen voice fades out
+   * over 60 ms in its own slot while the new one starts in a spare (a cut was a click). Only when
+   * every slot is busy, fading ones included, is the oldest fading voice cut.
+   */
   function allocate(rec: PresetRecord, priority: number): { slot: Slot | null; stole: string | null } {
     const busy = slots.filter((s) => s.busy);
-    let load = busy.reduce((a, s) => a + s.cost, 0);
-    const free = slots.filter((s) => !s.busy);
-    const fits = (): boolean => load + rec.cost <= budget;
-    if (free.length && fits()) {
+    let load = busy.reduce((a, s) => a + (s.stopping ? 0 : s.cost), 0);
+    let active = busy.filter((s) => !s.stopping).length;
+    const limit = Math.max(1, slots.length - SPARE_SLOTS);
+    const fits = (): boolean => load + rec.cost <= budget && active < limit;
+    const freeSlot = (): Slot | null => {
+      const free = slots.filter((s) => !s.busy);
+      if (!free.length) return null;
       // Prefer a slot that already holds this preset: no patch load on the audio thread.
-      const same = free.find((s) => s.preset === rec.name);
-      return { slot: same ?? free.sort((a, b) => a.started - b.started)[0], stole: null };
-    }
-    const victims = busy
-      .filter((s) => !s.stopping)
-      .sort((a, b) => a.priority - b.priority || a.started - b.started);
+      return free.find((s) => s.preset === rec.name) ?? free.sort((a, b) => a.started - b.started)[0];
+    };
     let stole: string | null = null;
-    let picked: Slot | null = free[0] ?? null;
-    for (const v of victims) {
-      if (v.priority >= priority) break;
-      stole = v.preset;
-      load -= v.cost;
-      if (!picked) {
-        picked = v;
-      } else {
-        pool.stop(v.index, v.id);
-        release(v);
+    if (!fits()) {
+      const victims = busy
+        .filter((s) => !s.stopping)
+        .sort((a, b) => a.priority - b.priority || a.started - b.started);
+      for (const v of victims) {
+        if (fits() || v.priority >= priority) break;
+        stole = v.preset;
+        load -= v.cost;
+        active--;
+        stopSlot(v, STEAL_FADE_S);
       }
-      if (fits()) break;
+      if (!fits()) return { slot: null, stole: null };
     }
-    if (!picked || !fits()) return { slot: null, stole: null };
-    if (picked.busy) {
-      pool.stop(picked.index, picked.id);
-      release(picked);
+    let slot = freeSlot();
+    if (!slot) {
+      const fading = slots.filter((s) => s.busy && s.stopping).sort((a, b) => a.started - b.started)[0];
+      if (!fading) return { slot: null, stole: null };
+      pool.stop(fading.index, fading.id);
+      release(fading);
+      slot = fading;
     }
-    return { slot: picked, stole };
+    return { slot, stole };
   }
 
   function start(
@@ -712,6 +758,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     kind: SfxLogEntry['kind'],
     key: string | null,
     extent?: number,
+    nearest?: boolean,
   ): Slot | null {
     const d = dist(position);
     const prio = priority ?? (inputs.energy + 0.05) / (1 + d / 8) + (oneShot ? 0 : 0.25);
@@ -745,6 +792,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const id = nextId++;
     Object.assign(slot, {
       busy: true, id, preset: rec.name, oneShot, priority: prio, started: ctx.currentTime, position, extent: extent ?? 0, ac: newAcoustic(),
+      nearest: !!nearest, tx: [0, 0, 0], txs: [0, 0, 0], fadeIn: oneShot ? 1 : 0,
       level: gain * levelTrim(rec, inputs.energy, kind), energy: inputs.energy,
       key, stopping: false, cost: rec.cost, speed: inputs.speed, quietSince: -1,
     });
@@ -832,7 +880,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         continue;
       }
       if (swarms.quiet(sw, now)) {
-        stopSlot(slot, 0.06);
+        // The swarm's cluster voice fades out (it faded in): the cluster is never switched on or off in one step.
+        stopSlot(slot, 0.2);
         clusterVoices.delete(sw.id);
         continue;
       }
@@ -916,10 +965,12 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     let current = fullInputs(inputs);
     let gain = opt.gain ?? 1;
     let pos = position;
+    let tx: [number, number, number] = [0, 0, 0];
     const alive = (): boolean => !!slot && slot.busy && slot.id === id && !slot.stopping;
     void preset(name).then((rec) => {
       if (!rec || stopped) return;
-      slot = start(rec, pos, current, false, gain, opt.priority, opt.label ?? name, 'loop', null, opt.extent);
+      slot = start(rec, pos, current, false, gain, opt.priority, opt.label ?? name, 'loop', null, opt.extent, opt.nearest);
+      if (slot) slot.tx = [...tx];
       if (slot) id = slot.id;
     });
     return {
@@ -938,6 +989,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         pos = p;
         if (!alive()) return;
         slot!.position = p;
+      },
+      setTransmission(db) {
+        tx = [db[0], db[1], db[2]];
+        if (alive()) slot!.tx = [...tx];
       },
       setGain(g) {
         gain = g;
@@ -960,6 +1015,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     runDue();
     updateSwarms(now);
     if (raycast && now >= nextRoom) retrace(now);
+    for (const f of faceSources) f.tick(dt);
     for (const s of slots) {
       if (!s.busy) continue;
       s.priority = (s.energy + 0.05) / (1 + dist(s.position) / 8) + (s.oneShot ? 0 : 0.25);
@@ -990,6 +1046,23 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     },
     setReverbAmount(amount) {
       reverb.setAmount(amount);
+    },
+    setReverbLevel(db) {
+      wetOffsetDb = clampWetDb(db);
+    },
+    faceSource(faces, fo) {
+      const src = createFaceSource({
+        raycast: () => raycast,
+        listener: () => listener.position,
+        loop: (preset, position, inputs, lo) => loop(preset, position, inputs, lo),
+      }, faces, fo);
+      const stop = src.stop;
+      src.stop = (fadeS) => {
+        stop(fadeS);
+        faceSources.delete(src);
+      };
+      faceSources.add(src);
+      return src;
     },
     stats() {
       const busy = slots.filter((s) => s.busy);

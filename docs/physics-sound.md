@@ -20,9 +20,43 @@ Every sfx preset can read these published inputs through an `input` node. Each o
 | `depth`    | penetration (÷ 10 cm) × softness of the surface, or the sinking given by the game (footsteps) |
 | `speed`    | tangential slip speed ÷ 10 m/s                                              |
 | `density`  | impact rate of a swarm ÷ 200 per second (cluster presets only, see Swarms)  |
+| `shape`    | the ringing object's resonator shape: index in `SHAPES` ÷ 6 (see Resonator body) |
+| `dim`      | the ringing object's largest extent, log-scaled from 1 cm (0) to 10 m (1)   |
+| `thickness`| its wall or plate thickness, log-scaled from 0.5 mm (0) to 0.5 m (1)        |
+| `flux`     | a face under a distributed source: max(0, −n·d) × exposure (rain, see Rain on faces) |
+| `area`     | that face's exposed area, log-scaled from 0.01 m² (0) to 10 000 m² (1)       |
 
 For `slide` and `roll`, `energy` is the pressing power (normal force × speed, in watts) on the same
 log axis.
+
+### Resonator body (hand-chosen shape)
+
+Material and shape are separate: the material says what the object is made of (its presets,
+`hardness`, `absorption`), the body says what it is shaped like. The shape is chosen by hand on the
+object, never computed from the mesh.
+
+```ts
+import { SHAPES, withBody } from '@etcito/haa/sfx';
+// SHAPES = ['block', 'plate', 'sheet', 'bar', 'box', 'shell', 'bottle']
+const crate = withBody(wood, { shape: 'box', dim: 0.6, thickness: 0.02 });      // hollow wooden box
+const slab = withBody(concrete, { shape: 'block', dim: 2, thickness: 0.3 });   // thick concrete slab
+const roof = withBody(metal, { shape: 'sheet', dim: 4, thickness: 0.001 });    // thin metal sheet
+// materialOf(collider) returns the object's material: crate for the crate's collider, and so on.
+```
+
+- `SoundBody = { shape, dim, thickness? }` (metres). `withBody(material, body)` returns that
+  object's material: same presets, its own body. `defineMaterial({ ..., body })` sets a default body.
+- Every preset that rings an object receives that object's body: the impact presets of both
+  sides each get their own object's `shape`, `dim`, `thickness` (and the other side's `hardness`),
+  a slide the surface's, a roll the roller's, a step the ground's, a break the breaking object's,
+  rain on a face that face's. A slot's forced `inputs` still win.
+- In the graph: declare `shape` with `min: 0, max: 6` (linear) to receive the index, then select a
+  mode table by it (block, plate, sheet, bar, box, shell, bottle, in that order); `dim` sets the base
+  frequency (bigger is lower), `thickness` the damping and how bending-dominated the modes are (a
+  thin sheet rings long and dense, a block is dead after a few ms). Without a body the defaults are
+  `shape` 0 (block), `dim` 0.4 (≈ 16 cm), `thickness` 0.5 (≈ 1.6 cm).
+- Ownership: the declaration and the plumbing are here (contract.ts); the nodes and presets that
+  consume `shape` / `dim` / `thickness` are the presets' work.
 
 - A one-shot preset (`impact`, `step`, `break`) is a timeline graph. It is restarted for each event
   and stopped after one pass, even when the patch loops. Its inputs are set before the restart, and
@@ -100,9 +134,13 @@ sfx.stats().voices;  // per voice: visible share, excess path, direct loss, diff
   - A slot keeps its last patch, and a new voice goes to a slot that already holds its preset.
   - Admission is a CPU budget: each preset's render cost is measured once on the main thread, the
     3D chain adds 1.8 % (see Acoustic model), and the default budget is 60 % of the audio thread.
-  - When the budget or the slots are full, the voice with the lowest priority is stolen. Priority is
+  - When the budget or the voices are full, the voice with the lowest priority is stolen. Priority is
     energy ÷ (1 + d/8), +0.25 for a continuous voice. A one-shot estimated below −60 dB is not
     started.
+  - A stolen voice fades out over 60 ms in its own slot while the new one starts in a spare: 2 of
+    the slots are kept for that (16 slots, 14 voices at once). Only when every slot is busy, fading
+    ones included, is the oldest fading voice cut. A continuous voice (slide, roll, a loop, a swarm's
+    cluster voice) fades in over 50 ms; one-shots start at once (their attack is the sound).
   - A slide/roll voice is started only when it would be heard: each looping `speed` preset's RMS is
     measured once at 13 speeds, and a contact estimated under −70 dB at the listener (that level at
     its speed, 1/r beyond 2 m) takes no voice. A running one that stays 6 dB under that for 0.25 s is
@@ -123,13 +161,67 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
   `density` is the impact rate (a leaky count, τ = 0.08 s, ÷ 200), `energy` the power mean (on
   the 48 dB axis of the impact presets) and `size`, `hardness` the means of the last impacts, with
   the same τ: the grains then carry on average exactly the summed power of the impacts. The voice
-  stops 0.15 s after the last impact.
+  fades in over 50 ms, and fades out over 0.2 s from 0.15 s after the last impact: the cluster is
+  never switched on or off in one step. The 0.3 s window slides with every impact (no window edge).
 - A cluster preset is a `grain` cloud whose grain is the single impact (same tone, decay and
   energy-to-level map) and whose rate is `density` × 200, so its summed level follows the impacts it
   stands for (one grain within ±2 dB of one impact). `particle-cluster` (pebbles, debris) and
   `glass-cluster` (shards) are in `patches/sfx/`.
 - `createSfxEngine({ swarm: false })` gives every impact its own voice; `swarm: { individual, ... }`
   tunes the grouping. `stats().clustered` counts the impacts absorbed.
+
+## Rain on faces (distributed sources from the geometry)
+
+Rain is not one loop around the listener: every exposed face of the level plays its own rain,
+driven by its geometry, its material and its hand-chosen body (`src/sfx/faces.ts`, node
+`rainOnFace` in haa-core, preset `patches/sfx/rain-on-face.json`).
+
+```ts
+import { withBody } from '@etcito/haa/sfx';
+const faces: SoundFace[] = [{
+  center, normal,           // outward normal
+  u, v,                     // half extents in its plane: the face spans center ± u ± v
+  material: withBody(tile, { shape: 'plate', dim: 0.3, thickness: 0.012 }),
+  thickness: 0.2,           // the solid behind it (a roof slab): heard from under it, through it
+  label: 'hall roof',
+}, /* ... every face of the level: roofs, plates, floors, the ground, walls */];
+const rain = sfx.faceSource(faces, { preset: 'rain-on-face', direction: { x: 0, y: -1, z: 0 }, intensity: 0.6 });
+rain.set({ direction: windTilted });   // a wall starts to receive rain
+rain.setFaces(faces);                  // a roof changed material
+rain.stop(0.6);
+```
+
+- Per face: `flux` = max(0, −n·d) (a vertical wall under vertical rain gets 0, a roof facing
+  wind-driven rain the most). Exposure: a grid of cells (2 m, at most 40 × 40 per face), each casting
+  one ray toward where the rain comes from; the exposed area is the cells whose ray escapes (the
+  ground under a roof or under the snow patch is dry). Recomputed when the direction changes.
+- The emitter of a face sits at its nearest exposed part (the nearest exposed cell, refined by the
+  exposed cells around it), with `extent` = √(area/π) (at most 20 m) and `nearest`: standing on the
+  wet ground the rain is all around, a roof 10 m away comes from its edge. Under a face (behind it
+  and within its footprint) it radiates from the solid's other surface through a loss by body
+  (`FAR_SIDE_LOSS_DB`: a sheet 3/5/8 dB at 250 Hz/1 kHz/4 kHz, a plate 10/16/24, a block 28/38/50),
+  ramped over the last metre of the footprint: inside the hall the rain is on the roof above you,
+  coloured by the room's reverb.
+- The preset receives `energy` (intensity), `flux`, `area`, the face material's `hardness` and the
+  body's `shape`, `dim`, `thickness`. The 6 faces loudest at the listener play (estimated from
+  intensity, flux, area, hardness, far-side loss and distance); a playing face leaves only for one
+  3 dB louder, and faces fade in and out over 0.6 s.
+- `rainOnFace` (Rust): drops are Poisson at 600·intensity^1.3·flux·min(area, 25 m²) per second
+  (more area beyond 25 m² only adds density, the far parts are the chain's distance; above 4000
+  drops/s each drop carries several). A drop is a short noise splash (bigger drops longer and
+  louder, harder surfaces shorter and brighter: a low-pass from 1.2 kHz for snow to 11 kHz for
+  metal) driving a 6-mode bank of the face's shape: base frequency from the shape, the local size
+  (a slab or a sheet answers with the patch the drop hits) and the stiffness (0.35 + 1.3·hardness²),
+  ring time from the shape, the thickness and the hardness. Faces over 2 m² alternate two banks
+  ±7 % apart. Snow and earth are nearly silent (0.08 of the level).
+- The same mechanism serves any source spread over the level's faces (hail, sand blown by the wind,
+  sparks): a preset that reads `flux` and `area`.
+
+Measured in the studio (offline render, 2.9 s of rain at intensity 0.6, per-ear energy and spectral
+centroid), listener in the hall's centre with each roof: tiles 1.24 kHz, metal sheet 2.08 kHz (highs
+7 dB above the tiles), wood boards 1.01 kHz, concrete slab 0.54 kHz and 20 dB quieter. Under the open
+shelters: tiles 1.12 kHz, wood 0.98 kHz. In the wooden shed under its metal roof 2.19 kHz. Walking
+from outside in under the hall's roof at 2 m/s, the largest change is 2.1 dB per 100 ms.
 
 ## Acoustic model
 
@@ -165,7 +257,7 @@ inside the room sounded like the middle of the room. Causes, measured on the stu
 specular with 35 % scattering, deterministic (the same place gives the same paths). It gives the
 listener's space (`stats().room`): share of rays that hit nothing, share that leave within the 6
 bounces (openings, sky), mean free path, energy kept per bounce (absorption and leaks together),
-RT60 = 60·l / (c·dB lost per bounce), clamped to 0.1-3 s, and a volume estimate. It keeps every
+RT60 = 60·l / (c·dB lost per bounce), clamped to 0.1-4.5 s, and a volume estimate. It keeps every
 bounce point, and the points the listener sees along its rays (for the direct path search).
 Recomputed every 0.1 s (≈ 1500 casts, 3-4 ms; a Rapier cast costs 2-2.7 µs from JS).
 
@@ -188,20 +280,24 @@ last orders carry on at the measured decay.
 - Direction: the energy-weighted arrival direction; its length is how directional the field is.
 - Pre-delay: the time by which 15 % of the traced energy has arrived.
 
-Mix: the level is lowered by 5 dB (`WET_OFFSET_DB`) and above 0 dB grows at half the rate
-(`WET_RATIO`), then capped at +6 dB. A bare room is 10 dB wetter than a footstep's direct sound at
-the feet (critical distance under half a metre): true, and a wash. The offset keeps the contrasts
-between places; the knee only tames the wettest rooms.
+Mix: the level is shifted by the reverb level, `setReverbLevel(dB)` (`createSfxEngine({
+reverbLevelDb })`, −30..+6 dB; **0 dB is the physical estimate**, the default −7 dB), then capped at
++12 dB re the direct sound at 2 m. A bare room is 10 dB wetter than a footstep's direct sound at
+the feet (critical distance under half a metre): true, and a wash. A constant shift keeps every
+contrast between places. The studio's Reverb slider is this value. (`setReverbAmount` still scales
+the bank's output and lengthens RT60 above 1.)
 
 ### Reverb bank
 
-7 convolvers, always running, with impulse responses rendered once by the HAA engine (a burst into
-the `space` node at full wet) at RT60 0.25, 0.35, 0.5, 0.7, 1.0, 1.4 and 2.0 s, √2 apart, each at
-unit energy and calibrated on its late decay (Schroeder T20 from 50 ms: the `space` tail bends, its
-late slope read 20 % longer than its T20 from the onset); the 2 s one is a 1.6 s render slowed by an
-exponential gain, also calibrated. A voice sends to the two neighbours of its RT60 (sine law, equal
-power): a voice walking from the shed into the hall glides from one IR to the next. Two decays a
-factor 2 apart did not blend (a 0.86 s shed measured 1.37 s). Start-up: 200 ms for the 7 renders.
+9 convolvers, always running, with impulse responses rendered once by the HAA engine (a burst into
+the `space` node at full wet) at RT60 0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8 and 4.0 s, √2 apart,
+each at unit energy and calibrated on its late decay (Schroeder T20 from 50 ms: the `space` tail
+bends, its late slope read 20 % longer than its T20 from the onset); from 2 s up they are a 1.6 s
+render slowed by an exponential gain, also calibrated (measured 1.98, 2.77, 3.97 s). A voice sends to
+the two neighbours of its RT60 (sine law, equal power): a voice walking from the shed into the hall
+glides from one IR to the next. Two decays a factor 2 apart did not blend (a 0.86 s shed measured
+1.37 s). Start-up: 380 ms for the 9 renders. The hall's computed decay (clamped at 4.5 s) now plays
+at the bank's 4 s: a click at its centre measures T20 3.99 s (it was held at 2 s).
 
 ### Voice chain
 
@@ -226,8 +322,9 @@ trunk -> send -> pre-delay -> low-pass (absorbent rooms are darker) -> stereo pa
   Chrome's biquads and delays on their per-sample paths.
 - Cost (16 pink-noise loops, chains and bank, no ray cast, offline): 1.45 × real time with 6 taps of
   their own filters, two air filters, a proximity shelf and setTarget every frame; 1.29 with the
-  writes above; 0.75 with 4 taps sharing one filter and one air shelf (the former chain: 0.61). The
-  engine budgets 1.8 % of the audio thread per chain.
+  writes above; 0.75 with 4 taps sharing one filter and one air shelf (the former chain: 0.61); with
+  the bank extended to 4 s and 14 voices (2 spare slots), 0.92. The engine budgets 1.8 % of the audio
+  thread per chain.
 
 ### Direct path: gradual occlusion and diffraction
 
@@ -270,24 +367,30 @@ diffuse level and direction 0.2 s, reverb time 0.35 s, taps 0.1 s.
 The studio's 3D scene (haa-studio, `src/ui/panels/scene/`) is the test bed: a first-person player
 (WASD / ZQSD / arrows, mouse look on click, Shift to run) is the listener, a Rapier capsule that
 walks through the doors; its footsteps play the ground's `step` slot at the foot (3 cm above the
-surface, about 1.6 m below the ears), stride and energy from its speed. A concrete hall (12 x 8 x
-5 m, a 2 m door) and a wooden shed (4 x 4 x 2.6 m, wooden floor) give two spaces to walk between.
+surface, about 1.6 m below the ears), stride and energy from its speed (`footstep-wood` and
+`footstep-metal` are used as soon as patches/sfx has them). A concrete hall (12 x 8 x 5 m, a 2 m
+door, its roof material chosen in the panel: tiles, metal sheet, wood boards, concrete slab) and a
+wooden shed under a metal sheet roof (4 x 4 x 2.6 m, wooden floor) give two spaces to walk between,
+and two open shelters side by side (tiles, wood boards) compare roofs in the rain. Every object
+declares its body by hand. The panel's Rain tilt tilts the rain toward −x.
+Pointer lock could not be granted to an automated Chrome window (`WrongDocumentError`, the window
+is not the focused one); drag-to-look works there, and Esc stops the walk.
 
 A 1 ms click, energy per ear in windows from its arrival, dB relative to the dry click's direct
 sound at 2 m. Studio hall (12 x 8 x 5 m concrete, 2 m door), the listener's own click 1.5 m ahead
 on the floor; both builds on the same geometry.
 
-| listener            | before: late (50 ms-2 s), T20 | now: late, T20, voice RT60 |
-|---------------------|-------------------------------|----------------------------|
-| hall centre         | +5.3 dB, 2.07 s               | +6.4 dB, 2.05 s, 3 s (bank max 2 s) |
-| 1 m inside the door | +8.0 dB, 2.07 s               | +0.8 dB, 2.06 s            |
-| in the doorway      | −4.8 dB, 0.76 s               | −6.0 dB, 1.85 s            |
-| 4 m outside         | −24.1 dB, 0.14 s              | −18.7 dB, 0.47 s           |
-| wooden shed centre  | +5.5 dB, 0.76 s               | +3.5 dB, 1.01 s (RT60 0.86 s) |
-| shed door           | −4.5 dB, 0.33 s               | −8.8 dB, 0.74 s            |
+| listener            | before: late (50 ms-2 s), T20 | now (reverb level −7 dB): late, T20 |
+|---------------------|-------------------------------|-------------------------------------|
+| hall centre         | +5.3 dB, 2.07 s               | +6.9 dB, 3.99 s                     |
+| 1 m inside the door | +8.0 dB, 2.07 s               | +0.6 dB, 3.21 s                     |
+| in the doorway      | −4.8 dB, 0.76 s               | −8.7 dB, 1.60 s                     |
+| 4 m outside         | −24.1 dB, 0.14 s              | −20.6 dB, 0.48 s                    |
+| shed centre         | +5.5 dB, 0.76 s               | +6.1 dB, 1.06 s                     |
+| shed door           | −4.5 dB, 0.33 s               | −9.7 dB, 0.92 s                     |
 
-A click at the hall's centre heard from those places: now +8.1 / +8.6 / +6.4 (L +8.1, R +4.6) /
-−1.6 dB (L +1.7, R −4.9: through the door, on the left), T20 2.06 s everywhere; before +5.2 / +8.0 /
+A click at the hall's centre heard from those places: now +9.8 / +10.3 / +6.5 (L +8.1, R +4.8) /
+−4.0 dB (L −0.7, R −7.2: through the door, on the left), T20 4.0 s everywhere; before +5.2 / +8.0 /
 −4.9 / −33.0 dB, T20 0.37 s outside.
 
 A footstep (`footstep-concrete`, at the feet) against the same step dry (no ray, no reverb), first

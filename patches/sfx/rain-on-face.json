@@ -1,0 +1,213 @@
+{
+  "haa": 1,
+  "id": "rain-on-face",
+  "title": "Rain on a face",
+  "description": "Rain on one face of the level, driven by the geometry: flux = max(0, -n.d) of the face under the rain direction, its exposed area, its material (hardness) and its hand-chosen resonator (shape, dim, thickness). The runtime places one per exposed face (docs/physics-sound.md, Rain on faces).",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.6,
+      "smooth": 0.1,
+      "curve": "lin"
+    },
+    {
+      "name": "flux",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "smooth": 0.1,
+      "curve": "lin"
+    },
+    {
+      "name": "area",
+      "kind": "continuous",
+      "unit": "m²",
+      "min": 0.01,
+      "max": 10000,
+      "default": 4,
+      "smooth": 0.1,
+      "curve": "log"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.8,
+      "smooth": 0.1,
+      "curve": "lin"
+    },
+    {
+      "name": "shape",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 6,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "dim",
+      "kind": "continuous",
+      "unit": "m",
+      "min": 0.01,
+      "max": 10,
+      "default": 0.3,
+      "smooth": 0.1,
+      "curve": "log"
+    },
+    {
+      "name": "thickness",
+      "kind": "continuous",
+      "unit": "m",
+      "min": 0.0005,
+      "max": 0.5,
+      "default": 0.01,
+      "smooth": 0.1,
+      "curve": "log"
+    }
+  ],
+  "graph": {
+    "duration": 1,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-flux",
+        "type": "input",
+        "params": {
+          "name": "flux"
+        }
+      },
+      {
+        "id": "in-area",
+        "type": "input",
+        "params": {
+          "name": "area"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "in-shape",
+        "type": "input",
+        "params": {
+          "name": "shape"
+        }
+      },
+      {
+        "id": "in-dim",
+        "type": "input",
+        "params": {
+          "name": "dim"
+        }
+      },
+      {
+        "id": "in-thickness",
+        "type": "input",
+        "params": {
+          "name": "thickness"
+        }
+      },
+      {
+        "id": "rain",
+        "type": "rainOnFace",
+        "params": {
+          "intensity": 0,
+          "flux": 0,
+          "area": 0.01,
+          "hardness": 0,
+          "shape": 0,
+          "dim": 0.01,
+          "thickness": 0.0005,
+          "level": 0.5
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "params": {
+          "gain": 1
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c-energy",
+        "from": "in-energy",
+        "to": "rain",
+        "target": "intensity",
+        "amount": 1
+      },
+      {
+        "id": "c-flux",
+        "from": "in-flux",
+        "to": "rain",
+        "target": "flux",
+        "amount": 1
+      },
+      {
+        "id": "c-area",
+        "from": "in-area",
+        "to": "rain",
+        "target": "area",
+        "amount": 1
+      },
+      {
+        "id": "c-hardness",
+        "from": "in-hardness",
+        "to": "rain",
+        "target": "hardness",
+        "amount": 1
+      },
+      {
+        "id": "c-shape",
+        "from": "in-shape",
+        "to": "rain",
+        "target": "shape",
+        "amount": 1
+      },
+      {
+        "id": "c-dim",
+        "from": "in-dim",
+        "to": "rain",
+        "target": "dim",
+        "amount": 1
+      },
+      {
+        "id": "c-thickness",
+        "from": "in-thickness",
+        "to": "rain",
+        "target": "thickness",
+        "amount": 1
+      },
+      {
+        "id": "c-out",
+        "from": "rain",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  }
+}

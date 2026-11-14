@@ -298,7 +298,7 @@ export function setListener(ctx: BaseAudioContext, pos: Vec3, forward: Vec3, up:
  * Two decays a factor 2 apart did not blend into the one between: the longer one set the tail (a
  * 0.86 s shed measured 1.37 s).
  */
-export const BANK_RT60: readonly number[] = [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0];
+export const BANK_RT60: readonly number[] = [0.25, 0.35, 0.5, 0.7, 1.0, 1.4, 2.0, 2.8, 4.0];
 /** Longest decay the `space` node renders faithfully (s); longer ones are stretched from it. */
 const SPACE_MAX_RT60 = 1.6;
 const BANK_DAMPING = 0.15;
@@ -375,7 +375,7 @@ export function reverbIrPatch(rt60: number, absorption: number, duration = Math.
  */
 export function renderReverbIr(ctx: BaseAudioContext, engine: HaaEngine, rt60: number, absorption: number): AudioBuffer {
   const rendered = Math.min(rt60, SPACE_MAX_RT60);
-  const duration = Math.min(5, rt60 * 1.25 + 0.15);
+  const duration = Math.min(5.5, rt60 * 1.25 + 0.15);
   const patch = reverbIrPatch(rendered, absorption, duration);
   const voice = engine.createVoice(ctx.sampleRate, 11);
   const sr = ctx.sampleRate;

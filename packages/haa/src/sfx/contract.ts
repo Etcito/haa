@@ -7,8 +7,11 @@ import type { Vec3 } from './acoustics.ts';
 /**
  * Published inputs every sfx preset may read through an `input` node; each one is 0..1. `density`
  * is the impact rate of a swarm (impacts per second / `DENSITY_FULL`); only cluster presets read it.
+ * `shape`, `dim` and `thickness` describe the object that rings (its hand-chosen `SoundBody`);
+ * `flux` and `area` describe a face under a distributed source (rain on a roof). A preset receives
+ * only the inputs it declares.
  */
-export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed', 'density'] as const;
+export const SFX_INPUTS = ['energy', 'size', 'hardness', 'depth', 'speed', 'density', 'shape', 'dim', 'thickness', 'flux', 'area'] as const;
 export type SfxInputName = (typeof SFX_INPUTS)[number];
 export type SfxInputs = Record<SfxInputName, number>;
 
@@ -36,6 +39,41 @@ export interface SoundSlot {
   cluster?: SoundSlot | string;
 }
 
+/**
+ * Resonator shapes an object can be declared with, chosen by hand (never computed from the mesh).
+ * The `shape` input carries the index / (SHAPES.length − 1); a preset that declares `shape` with
+ * min 0 and max 6 receives the index itself.
+ *
+ * - block:  a solid chunk (concrete slab, stone, brick): heavily damped, few low modes.
+ * - plate:  a thick rigid plate (a tile, a wooden board, a manhole cover): plate modes, moderate ring.
+ * - sheet:  a thin flexible sheet (corrugated metal roof, sheet steel, plywood skin): dense, long ring.
+ * - bar:    a rod, beam or pipe: harmonic-ish bar modes (1 : 2.76 : 5.40 ...).
+ * - box:    a hollow box (a crate, a cabinet): wall modes plus a cavity (Helmholtz) thump.
+ * - shell:  a hollow curved body (a bucket, a can, a bell): ringing shell modes.
+ * - bottle: a hollow body with a neck (a bottle, a jar): shell modes plus a cavity tone.
+ */
+export const SHAPES = ['block', 'plate', 'sheet', 'bar', 'box', 'shell', 'bottle'] as const;
+export type ResonatorShape = (typeof SHAPES)[number];
+
+/** Characteristic dimension range (largest extent) mapped log-linearly onto `dim`: 1 cm .. 10 m. */
+export const DIM_METRES: readonly [number, number] = [0.01, 10];
+/** Wall or plate thickness range mapped log-linearly onto `thickness`: 0.5 mm .. 0.5 m. */
+export const THICKNESS_METRES: readonly [number, number] = [0.0005, 0.5];
+/** Face area range mapped log-linearly onto `area`: 0.01 m² .. 10 000 m². */
+export const AREA_M2: readonly [number, number] = [0.01, 1e4];
+
+/**
+ * The hand-chosen resonator of one object, next to its material: a hollow wooden box, a thick
+ * concrete slab and a thin metal sheet hit with the same energy must not sound alike.
+ */
+export interface SoundBody {
+  shape: ResonatorShape;
+  /** Largest extent (m). */
+  dim: number;
+  /** Wall or plate thickness (m); a block's thickness is its dim. */
+  thickness?: number;
+}
+
 /** A sound material: which preset each interaction plays, plus the physical hints. */
 export interface SoundMaterial {
   name: string;
@@ -46,6 +84,8 @@ export interface SoundMaterial {
   sounds: Partial<Record<InteractionKind, SoundSlot>>;
   /** Kinetic energy in joules above which an impact breaks a body made of it (needs a `break` slot). */
   breakEnergy?: number;
+  /** The object's resonator (see `withBody`): its presets receive `shape`, `dim` and `thickness`. */
+  body?: SoundBody;
 }
 
 /** A material written loosely: slots may be bare preset names, hints default to 0.5 / 0.1. */
@@ -55,6 +95,7 @@ export interface SoundMaterialSpec {
   absorption?: number;
   sounds?: Partial<Record<InteractionKind, SoundSlot | string>>;
   breakEnergy?: number;
+  body?: SoundBody;
 }
 
 export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
@@ -71,6 +112,27 @@ export function defineMaterial(spec: SoundMaterialSpec): SoundMaterial {
     absorption: clamp01(spec.absorption ?? 0.1),
     sounds,
     breakEnergy: spec.breakEnergy,
+    body: spec.body ? { ...spec.body } : undefined,
+  };
+}
+
+/**
+ * One object's material: the shared material (its presets, hardness, absorption) with this object's
+ * resonator. Return it from the adapter's `materialOf` for that object's colliders; the presets
+ * stay the material's, only the body inputs change.
+ */
+export function withBody(material: SoundMaterial, body: SoundBody): SoundMaterial {
+  return { ...material, body: { ...body } };
+}
+
+/** The 0..1 inputs of a body: `shape` (index / 6), `dim`, `thickness`. */
+export function bodyInputs(body: SoundBody | undefined): Partial<SfxInputs> {
+  if (!body) return {};
+  const i = SHAPES.indexOf(body.shape);
+  return {
+    shape: i < 0 ? 0 : i / (SHAPES.length - 1),
+    dim: logUnit(body.dim, DIM_METRES),
+    thickness: logUnit(body.thickness ?? body.dim, THICKNESS_METRES),
   };
 }
 
@@ -100,6 +162,7 @@ export const energyFromJoules = (joules: number): number => logUnit(joules, ENER
 export const sizeFromMass = (kg: number): number => logUnit(kg, SIZE_KG);
 export const speedFromVelocity = (mps: number): number => clamp01(mps / SPEED_FULL);
 export const depthFromMetres = (m: number): number => clamp01(m / DEPTH_FULL);
+export const areaFromSquareMetres = (m2: number): number => logUnit(m2, AREA_M2);
 
 /** Inverse of `energyFromJoules`, for game code that thinks in joules. */
 export function joulesFromEnergy(energy: number): number {
@@ -123,6 +186,11 @@ export function fullInputs(partial: Partial<SfxInputs> | undefined): SfxInputs {
     depth: clamp01(partial?.depth ?? 0),
     speed: clamp01(partial?.speed ?? 0),
     density: clamp01(partial?.density ?? 0),
+    shape: clamp01(partial?.shape ?? 0),
+    dim: clamp01(partial?.dim ?? 0.4),
+    thickness: clamp01(partial?.thickness ?? 0.5),
+    flux: clamp01(partial?.flux ?? 1),
+    area: clamp01(partial?.area ?? 0.4),
   };
 }
 
@@ -158,7 +226,8 @@ export function resolveInteraction(
     const slot = m.sounds[kind];
     if (!slot) return null;
     const own = m === surface && m !== striker ? surfaceInputs : undefined;
-    const merged = fullInputs({ ...base, ...own, hardness: other.hardness, ...slot.inputs });
+    // The preset of `m` rings `m`: it gets the other side's hardness and its own body.
+    const merged = fullInputs({ ...base, ...own, hardness: other.hardness, ...bodyInputs(m.body), ...slot.inputs });
     return { material: m, kind, slot, inputs: merged, gain: slot.gain ?? 1 };
   };
   switch (kind) {
