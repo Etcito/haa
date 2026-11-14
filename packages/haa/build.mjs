@@ -23,6 +23,7 @@ const ENTRIES = [
   },
   { entry: 'src/bank.ts', outfile: 'dist/bank.js', platform: 'neutral' },
   { entry: 'src/sfx/index.ts', outfile: 'dist/sfx.js', platform: 'browser' },
+  { entry: 'src/sfx/field-worker.ts', outfile: 'dist/field-worker.js', platform: 'browser' },
   { entry: 'src/sfx/bake-worker.ts', outfile: 'dist/bake-worker.js', platform: 'browser' },
   { entry: 'src/sfx/render-worker.ts', outfile: 'dist/render-worker.js', platform: 'browser' },
   { entry: 'src/sfx/mix-worker.ts', outfile: 'dist/mix-worker.js', platform: 'browser' },

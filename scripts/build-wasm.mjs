@@ -18,6 +18,12 @@ try {
     new URL('../target/wasm32-unknown-unknown/release/haa_mix.wasm', import.meta.url),
     new URL('../packages/haa/pkg/haa-mix.wasm', import.meta.url),
   );
+  // The baked acoustic field (crates/haa-field, with haa-trace's geometry): its own small wasm, for a worker and the main thread.
+  execFileSync('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown', '-p', 'haa-field'], { stdio: 'inherit', cwd: ROOT });
+  copyFileSync(
+    new URL('../target/wasm32-unknown-unknown/release/haa_field.wasm', import.meta.url),
+    new URL('../packages/haa/pkg/haa-field.wasm', import.meta.url),
+  );
 } catch (error) {
   console.error(`[build-wasm] ${String(error instanceof Error ? error.message : error).replace(/\s*\r?\n\s*/g, ' ')}`);
   process.exit(1);

@@ -15,6 +15,7 @@ import type { SfxPoolOutMsg } from './pool-protocol.ts';
 import type { ChainState } from './spatial3d.ts';
 import { activeBankWeights, BANK_RT60, bankWeights, NEAR_MIN_DISTANCE, REF_DISTANCE, ReverbBank, setListener, TAPS_PER_VOICE, VoiceChain } from './spatial3d.ts';
 import type { FaceSource, FaceSourceOptions, SoundFace } from './faces.ts';
+import type { SfxFieldProvider } from './field.ts';
 import { createFaceSource } from './faces.ts';
 import type { SwarmOptions } from './swarm.ts';
 import type { OrchestratorStats, SfxOrchestrator } from './orchestrator.ts';
@@ -71,6 +72,11 @@ export interface AcousticsOptions {
   traceEvery?: number;
   /** Geometry period of each voice (s). Default 0.15. */
   voiceEvery?: number;
+  /**
+   * A baked acoustic field (field.ts `AcousticField`): where it has cells, each voice reads its
+   * direct path, diffuse field and early reflections from it instead of casting rays.
+   */
+  field?: SfxFieldProvider;
 }
 
 export interface PresetRecord {
@@ -665,14 +671,23 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   /** Recompute a voice's geometry (direct path, its diffuse field, its echoes) when due. */
   function geometry(s: Slot, now: number, immediate: boolean): void {
     if (!raycast || !(immediate || now >= s.nextGeo)) return;
-    if (!trace) retrace(now);
     const rays: RaySegment[] = [];
     const ac = s.ac;
-    ac.path = directPath(s.position, listener.position, trace, raycast, { extent: s.extent }, rays);
-    ac.reverb = trace ? voiceReverb(trace, s.position, raycast, { stride: ao.reverbStride ?? 2, ref: REF_DISTANCE }) : null;
-    const refl = earlyReflections(s.position, listener.position, raycast, {
-      max: TAPS_PER_VOICE, directions: SOURCE_DIRS, soft: 0.35, minDelay: 0.0015, scattering: 0.35,
-    }, rays);
+    const field = ao.field;
+    let refl: Reflection[];
+    if (field && field.ready(s.position) && field.ready(listener.position)) {
+      // The baked field: one lookup per source instead of rays (docs/physics-sound.md, "Acoustic field").
+      ac.path = field.path(s.position, listener.position, s.extent);
+      ac.reverb = field.reverb(s.position, listener.position, ac.path);
+      refl = field.reflections(s.position, listener.position);
+    } else {
+      if (!trace) retrace(now);
+      ac.path = directPath(s.position, listener.position, trace, raycast, { extent: s.extent }, rays);
+      ac.reverb = trace ? voiceReverb(trace, s.position, raycast, { stride: ao.reverbStride ?? 2, ref: REF_DISTANCE }) : null;
+      refl = earlyReflections(s.position, listener.position, raycast, {
+        max: TAPS_PER_VOICE, directions: SOURCE_DIRS, soft: 0.35, minDelay: 0.0015, scattering: 0.35,
+      }, rays);
+    }
     // A tap keeps its plane while the plane reflects; a new plane takes a free tap from silence.
     const keep = new Set(refl.map((r) => r.key));
     for (const t of ac.taps) if (t && !keep.has(t.key)) t.target = 0;
@@ -1159,7 +1174,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     lastFrame = now;
     runDue();
     updateSwarms(now);
-    if (raycast && now >= nextRoom) retrace(now);
+    ao.field?.listener(l.position);
+    const fieldHere = !!ao.field && ao.field.ready(l.position);
+    if (raycast && now >= nextRoom && !fieldHere) retrace(now);
     for (const f of faceSources) f.tick(dt);
     for (const s of slots) {
       if (!s.busy) continue;

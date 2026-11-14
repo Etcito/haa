@@ -61,6 +61,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "haa-field"
+version = "0.2.0"
+dependencies = [
+ "haa-trace",
+]
+
+[[package]]
 name = "haa-fit"
 version = "0.2.0"
 dependencies = [
@@ -70,6 +77,10 @@ dependencies = [
 
 [[package]]
 name = "haa-mix"
+version = "0.2.0"
+
+[[package]]
+name = "haa-trace"
 version = "0.2.0"
 
 [[package]]

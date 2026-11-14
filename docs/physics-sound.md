@@ -709,3 +709,99 @@ reverb is an FDN, not the rendered responses (its onset is the lines' first echo
 wide part of a large source is spread over all speakers, not its own stereo; the listener's
 translation reaches the sound one lookahead later (43 ms); the diffuse field is shared per worker
 (its direction is a per-voice bias at the FDN input, not a per-voice pan).
+
+## Acoustic field (prototype, branch `field`)
+
+A baked sparse voxel field instead of rays per sound event, behind
+`createSfxEngine({ acoustics: { field } })` (`src/sfx/field.ts`, `field-wasm.ts`, `field-worker.ts`,
+crate `crates/haa-field` on top of the `compute` branch's `crates/haa-trace` geometry). Without the
+option, or where the field has no cells yet, the voices use the rays as before.
+
+### What the yellow lines are (the owner's question)
+
+The yellow lines (`RAY_COLORS.reflection`) are the early reflections of each playing sound: source →
+bounce point → listener, one per reflecting surface. They are found by casting 64 fixed directions
+from the source, one candidate per surface plane, keeping the 4 shortest valid paths. In boxy rooms
+the shortest are always the floor, the ceiling and the nearest walls, all axis-aligned, so every
+event draws the same pattern: the bounce points sit where the straight source-listener line meets
+those planes.
+
+### Design as built
+
+- **Grid.** Coarse cells over the level (1 or 2 m; the studio covers x -32..64, y 0..6, z -20..68),
+  stored in 4 x 4 x 4 bricks allocated only where cells are baked. A fine level (0.5 m cells, a box of
+  12 x 4 x 12 m) follows the listener: re-baked in a second worker when it has moved 2 m or every 3 s,
+  from the static geometry plus the moving bodies big enough to matter (half extent ≥ 0.15 m: crates,
+  not pebbles) plus occupancy points; it replaces the previous fine level once fully baked.
+- **Per cell (Rust, `bake_cell`).** Solid test (a cast from the centre that starts inside a box);
+  for air: 64 Fibonacci directions cast once each, projected on order-2 real spherical harmonics
+  (9 coefficients) for the distance to the obstacle (clamped at 30 m) and for the openness (1 where
+  the ray escapes within 60 m); a 64-ray, 6-bounce trace (haa-trace's listener trace) for the decay
+  per bounce and the mean free path, from which RT60 (0.1-8.5 s); absorption, escape share; and 26
+  link bits, one ray to each neighbour centre (the flood's graph). About 240 casts per air cell.
+- **Bake.** In a worker, 200 cells per slice, nearest to the listener first (re-sorted when the listener
+  moves 2 cells); the records (27 floats per cell) go to the main thread, which ingests them into its
+  own wasm copy. `invalidate(lo, hi)` re-bakes the cells of a box after a static change (a door, a
+  roof material).
+- **Propagation field.** When the listener changes cell, a Dijkstra flood through the links from the
+  cells it sees, up to 40 m of path. A source reads its path: the 8 cells around it that it sees, the
+  flooded distance, the chain of parents string-pulled into straight legs (one ray per leg test), the
+  excess over the straight line, and the first corner (where the sound arrives from). Visible sources
+  short-cut with one ray.
+- **Lookups (per voice, per geometry update).** Trilinear read of the source and listener probes
+  (air cells only). Diffuse field: Sabine from the probe, 16π·(2 m)²/A with A = 0.161·V/RT60,
+  V = 3.375·mfp³ (cube from the mean free path), times the closed share; one space: the mean of the
+  two probes; two spaces (the path bends through an opening, or the probes' decays differ by more
+  than 2x: a room seen through its door): the source room through the opening's diffraction loss
+  (or 1/10 when seen through) plus the listener's own room, arriving from the opening. Direction: the
+  listener's enclosed side (against its openness harmonic) or the opening. Pre-delay half the mean
+  free path. Early reflections: the 6 axis walls from the source's distance harmonic, mirrored, kept
+  when the listener is on the source's side and two rays see the bounce point (4 kept).
+- **Occupancy input.** `field.occupy(points)` takes world points from any renderer; the studio reads
+  its depth buffer (96 x 54, packed depth, unprojected) once a second when "Depth → field" is on.
+  Points become 0.5 m boxes in the next fine bake and age out after 8 s. RAA's world volume is an SDF:
+  a bake there would sample it at the cell centres (solid), sphere-trace it for the 64 distances, and
+  step it for the links, with no triangle rays at all; the depth buffer would not be needed.
+- **Debug view.** "Field cells" draws the baked cells: blue enclosed, green open, brighter for a
+  longer decay; the fine level as smaller points.
+
+### Measured (Chrome; studio scene; own click 1.5 m ahead unless noted; late = 50 ms-2 s, dB re the dry click at 2 m)
+
+| case                          | rays: late, T20       | field 1 m: late, T20   |
+|-------------------------------|-----------------------|------------------------|
+| hall centre                   | +5.8 dB, 3.59 s       | +9.5 dB, 3.06 s        |
+| 1 m inside the door           | −1.3 dB, 1.96 s       | +3.5 dB, 1.78 s        |
+| in the doorway                | −10.2 dB, 1.35 s      | −3.5 dB, 1.05 s        |
+| 4 m outside                   | −20.2 dB, 0.46 s      | −20.0 dB, 0.45 s       |
+| shed centre                   | +6.1 dB, 1.07 s       | +5.7 dB (L 8.5, R 2.9), 0.87 s |
+| shed door                     | −10.0 dB, 0.88 s      | −1.6 dB, 0.51 s        |
+| hall source heard 4 m outside | L −0.4, R −7.6, 4.79 s | L 2.4, R −2.5, 2.94 s |
+| big empty, centre / door      | −1.9 / −1.1 dB, 8.03 / 8.03 s | +3.2 / +4.0 dB, 7.46 / 6.93 s |
+| big with cubes, centre / door | −0.5 / +0.4 dB, 7.45 / 6.74 s | +3.6 / +3.8 dB, 6.33 / 5.25 s |
+
+- Order kept everywhere (centre > door > doorway > outside, 29 dB of contrast in the field against
+  26 dB with rays); the clutter shortens the decay in both (field −15 / −24 %, rays −7 / −16 %).
+- With 2 m cells the 4 m shed is two cells across and came out 11 dB too dry (−5.0 dB, RT60 0.65 s)
+  while the hall matched the 1 m grid (+9.4 dB, 3.1 s): 1 m is the useful size for rooms of a few metres.
+- Continuity (pink noise, largest 100 ms step): behind the free wall 2.1 dB (rays 2.4), walking out
+  of the hall 1.5 dB (rays 1.3).
+- Main thread, 10 voices: rays 2.31 ms per frame; field 0.53 ms with the listener still, 1.11 ms
+  walking (a flood each time the listener changes cell: 15 ms for the 18 000 cells within 40 m; the
+  full 50 000-cell flood took 41 ms). A lookup costs about 5 µs.
+- Bake: 2 m grid 6 336 cells in 1.4 s of worker time (1.48 M casts), 0.84 MB; 1 m grid 50 688 cells
+  in 7.8 s (12.0 M casts), 6.8 MB; fine level 4 608 cells in 0.2-0.3 s, 0.46 MB.
+- Depth: a 96 x 54 capture costs 2-7 ms on the main thread (17 ms the first time) and gives 5 184
+  points; five views turning on the spot marked 1 600 fine cells. Where every object already has a
+  collider (this scene) the fine level did not change (hall centre RT60 2.83 s, mean free path 4.85 m
+  with and without): the depth adds only geometry without colliders, and costs a render.
+
+### Where the field is worse
+
+- Early reflections: only 6 axis-aligned walls per source; oblique walls, clutter and diffuse early
+  energy are not represented (the cubes add 8-12 dB of early energy with rays, about 1 dB in the field).
+- Coupled spaces seen through an opening: the probes do not know the opening's size (a fixed 1/10).
+- A hitch of 15 ms on the main thread at each cell change while walking (the flood); it belongs in
+  the worker.
+- Until the bake reaches a place (1 m grid: 8 s for the whole scene, nearest first) the rays answer.
+- Levels sit 3-5 dB above the rays in the big rooms and the hall (Sabine from the probe vs the traced
+  energy): not calibrated.

@@ -1,0 +1,15 @@
+[package]
+name = "haa-field"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Baked sparse acoustic field of the sfx runtime: a coarse voxel grid of the level whose cells hold spherical harmonics of obstacle distance and openness plus room scalars, and a propagation field flooded from the listener's cell (docs/physics-sound.md, \"Acoustic field\")."
+
+# A separate small wasm (packages/haa/pkg/haa-field.wasm): baked in a worker, queried on the main
+# thread, never in the AudioWorklet. Geometry and ray casts come from haa-trace.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+haa-trace = { path = "../haa-trace" }

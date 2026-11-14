@@ -1,0 +1,14 @@
+[package]
+name = "haa-trace"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Acoustic ray tracer of the sfx runtime: its own geometry (boxes, triangles), a BVH, and the listener trace, diffuse field, direct path and early reflections of docs/physics-sound.md."
+
+# A separate small wasm (packages/haa/pkg/haa-trace.wasm, ~tens of kB): it runs on the main thread
+# or in a worker, never in the AudioWorklet, and needs neither the synthesis engine nor any import.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]

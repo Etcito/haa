@@ -42,6 +42,8 @@
     },
     "./worklet": "./dist/worklet.js",
     "./wasm": "./pkg/haa.wasm",
+    "./field-wasm": "./pkg/haa-field.wasm",
+    "./field-worker": "./dist/field-worker.js",
     "./bake-worker": "./dist/bake-worker.js",
     "./render-worker": "./dist/render-worker.js",
     "./mix-worker": "./dist/mix-worker.js",

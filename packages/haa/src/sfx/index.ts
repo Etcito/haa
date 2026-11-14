@@ -3,6 +3,8 @@ export * from './contract.ts';
 export * from './acoustics.ts';
 export * from './raytrace.ts';
 export * from './faces.ts';
+export * from './field.ts';
+export * from './field-wasm.ts';
 export * from './rapier.ts';
 export * from './pool-protocol.ts';
 export * from './pool.ts';
