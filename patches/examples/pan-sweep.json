@@ -1,0 +1,81 @@
+{
+  "haa": 1,
+  "id": "pan-sweep",
+  "title": "Pan sweep · a tone moving between left and right",
+  "inputs": [],
+  "graph": {
+    "duration": 4,
+    "loop": true,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "lfo",
+        "type": "lfo",
+        "x": 60,
+        "y": 200,
+        "label": "LFO · 0.5 Hz",
+        "params": {
+          "rate": 0.5,
+          "depth": 1,
+          "wave": "sine"
+        }
+      },
+      {
+        "id": "osc",
+        "type": "oscillator",
+        "x": 60,
+        "y": 60,
+        "label": "Oscillateur",
+        "params": {
+          "frequency": 220,
+          "wave": "triangle",
+          "level": 0.35
+        }
+      },
+      {
+        "id": "pan",
+        "type": "pan",
+        "x": 320,
+        "y": 60,
+        "label": "Panoramique",
+        "params": {
+          "pan": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "x": 580,
+        "y": 60,
+        "label": "Sortie audio",
+        "params": {
+          "gain": 0.75
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "edge-osc-pan",
+        "from": "osc",
+        "to": "pan",
+        "target": "audio",
+        "amount": 1
+      },
+      {
+        "id": "edge-lfo-pan",
+        "from": "lfo",
+        "to": "pan",
+        "target": "pan",
+        "amount": 1
+      },
+      {
+        "id": "edge-pan-out",
+        "from": "pan",
+        "to": "out",
+        "target": "audio",
+        "amount": 1
+      }
+    ]
+  },
+  "master": 1
+}

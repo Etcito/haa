@@ -174,3 +174,7 @@ HAA-only nodes (no Sona counterpart) for acoustic, electric and bass guitar part
 - `chorus`, `flanger`, `phaser`, `tremolo` (effects): stereo modulation effects (`rate`, `depth`, `mix`, `feedback`, `width`). A wah is the existing `filter` (bandpass) with its cutoff driven by an `lfo`, `curve` or `input`.
 
 Examples: `patches/examples/guitar-acoustic-pluck.json`, `guitar-electric-clean.json`, `guitar-electric-crunch.json`, `guitar-electric-lead.json`, `bass-guitar.json`.
+
+## Mixing
+
+- `pan` (effect): constant-power panning. `pan` -1 is hard left, 0 leaves the input unchanged, 1 is hard right; a stereo input is balanced (each channel scaled), never summed. Modulatable, so an `lfo` or `curve` moves a part across the stereo field. Example: `patches/examples/pan-sweep.json`.
