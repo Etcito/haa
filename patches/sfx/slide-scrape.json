@@ -179,7 +179,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 9000
+          "outMax": 20000
         },
         "curve": [
           [
@@ -212,7 +212,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 3160.0,
-          "outMax": 660.0
+          "outMax": 260.0
         },
         "curve": [
           [
@@ -221,127 +221,127 @@
           ],
           [
             0.0312,
-            0.05937
+            0.07868
           ],
           [
             0.0625,
-            0.11599
+            0.15175
           ],
           [
             0.0938,
-            0.16998
+            0.21961
           ],
           [
             0.125,
-            0.22147
+            0.28263
           ],
           [
             0.1562,
-            0.27057
+            0.34115
           ],
           [
             0.1875,
-            0.31739
+            0.39551
           ],
           [
             0.2188,
-            0.36204
+            0.44599
           ],
           [
             0.25,
-            0.40462
+            0.49287
           ],
           [
             0.2812,
-            0.44522
+            0.5364
           ],
           [
             0.3125,
-            0.48394
+            0.57683
           ],
           [
             0.3438,
-            0.52087
+            0.61438
           ],
           [
             0.375,
-            0.55608
+            0.64925
           ],
           [
             0.4062,
-            0.58966
+            0.68164
           ],
           [
             0.4375,
-            0.62168
+            0.71172
           ],
           [
             0.4688,
-            0.65222
+            0.73965
           ],
           [
             0.5,
-            0.68133
+            0.76559
           ],
           [
             0.5312,
-            0.7091
+            0.78968
           ],
           [
             0.5625,
-            0.73558
+            0.81205
           ],
           [
             0.5938,
-            0.76084
+            0.83283
           ],
           [
             0.625,
-            0.78492
+            0.85212
           ],
           [
             0.6562,
-            0.80788
+            0.87004
           ],
           [
             0.6875,
-            0.82978
+            0.88669
           ],
           [
             0.7188,
-            0.85066
+            0.90214
           ],
           [
             0.75,
-            0.87058
+            0.9165
           ],
           [
             0.7812,
-            0.88957
+            0.92983
           ],
           [
             0.8125,
-            0.90768
+            0.94221
           ],
           [
             0.8438,
-            0.92495
+            0.9537
           ],
           [
             0.875,
-            0.94142
+            0.96438
           ],
           [
             0.9062,
-            0.95712
+            0.9743
           ],
           [
             0.9375,
-            0.9721
+            0.98351
           ],
           [
             0.9688,
-            0.98638
+            0.99206
           ],
           [
             1.0,
@@ -510,15 +510,15 @@
           "rise": 0.0,
           "fall": 0,
           "frequency": 40,
-          "spread": 2.2,
+          "spread": 1.0,
           "sizePitch": 0.5,
           "decay": 0.03,
           "contact": 2e-05,
-          "range": 30,
+          "range": 15,
           "exponent": 1.2,
           "modes": 2,
-          "regularity": 0.05,
-          "clump": 0.7,
+          "regularity": 0.0,
+          "clump": 0.2,
           "delay": 0.0,
           "level": 1.0
         }
@@ -964,8 +964,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 2.65,
-          "outMax": -0.005
+          "outMin": 1.75,
+          "outMax": -0.02
         },
         "curve": [
           [
@@ -1107,7 +1107,7 @@
         "type": "gain",
         "label": "Contact noise level",
         "x": 800,
-        "y": 140,
+        "y": 20,
         "params": {
           "gain": 0
         }
@@ -1119,7 +1119,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.1083
+          "gain": 0.0278
         }
       }
     ],
@@ -1174,126 +1174,126 @@
         "amount": 1.0
       },
       {
-        "id": "e9-in-material-body-material",
+        "id": "e8-in-material-body-material",
         "from": "in-material",
         "to": "body",
         "target": "material",
         "amount": 1.0
       },
       {
-        "id": "e10-in-thickness-m-h-in",
+        "id": "e9-in-thickness-m-h-in",
         "from": "in-thickness",
         "to": "m-h",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e11-in-dim-m-il2-in",
+        "id": "e10-in-dim-m-il2-in",
         "from": "in-dim",
         "to": "m-il2",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e12-in-shape-m-k-in",
+        "id": "e11-in-shape-m-k-in",
         "from": "in-shape",
         "to": "m-k",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e13-m-h-h-l2-a",
+        "id": "e12-m-h-h-l2-a",
         "from": "m-h",
         "to": "h-l2",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e14-m-il2-h-l2-b",
+        "id": "e13-m-il2-h-l2-b",
         "from": "m-il2",
         "to": "h-l2",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e15-h-l2-body-f-a",
+        "id": "e14-h-l2-body-f-a",
         "from": "h-l2",
         "to": "body-f",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e16-m-k-body-f-b",
+        "id": "e15-m-k-body-f-b",
         "from": "m-k",
         "to": "body-f",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e17-in-thickness-m-ring1-in",
+        "id": "e16-in-thickness-m-ring1-in",
         "from": "in-thickness",
         "to": "m-ring1",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e18-body-f-body-frequency",
+        "id": "e17-body-f-body-frequency",
         "from": "body-f",
         "to": "body",
         "target": "frequency",
         "amount": 1800
       },
       {
-        "id": "e19-m-ring1-body-decay",
+        "id": "e18-m-ring1-body-decay",
         "from": "m-ring1",
         "to": "body",
         "target": "decay",
         "amount": 1.0
       },
       {
-        "id": "e20-in-shape-body-shape",
+        "id": "e19-in-shape-body-shape",
         "from": "in-shape",
         "to": "body",
         "target": "shape",
         "amount": 1.0
       },
       {
-        "id": "e21-slip-body-audio",
+        "id": "e20-slip-body-audio",
         "from": "slip",
         "to": "body",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e22-m-level-body-level",
+        "id": "e21-m-level-body-level",
         "from": "m-level",
         "to": "body",
         "target": "level",
-        "amount": 1.0
+        "amount": 2.0
       },
       {
-        "id": "e23-slip-direct-audio",
+        "id": "e22-slip-direct-audio",
         "from": "slip",
         "to": "direct",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e24-m-level-direct-gain",
+        "id": "e23-m-level-direct-gain",
         "from": "m-level",
         "to": "direct",
         "target": "gain",
-        "amount": 0.35
+        "amount": 0.1
       },
       {
-        "id": "e25-body-out-audio",
+        "id": "e24-body-out-audio",
         "from": "body",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e26-direct-out-audio",
+        "id": "e25-direct-out-audio",
         "from": "direct",
         "to": "out",
         "target": "audio",

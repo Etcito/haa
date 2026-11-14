@@ -213,7 +213,7 @@ nothing alike); `rain-surface`, `slide-scrape` and `roll-rumble` take the same t
 joists and on a steel floor plate. `gunshot` is a firearm shot at the muzzle (N-wave crack, blast, low punch, the action's click; `size` the calibre).
 `pistol-9mm`, `smg` (one round, fired 12 times a second by the game) and `shotgun` are `blast`-based shots built against
 CC0 recordings of each weapon (a reference gate: descriptors, a CNN tagger and its embedding, each checked on held-out
-recordings and wrong sounds), `shotgun-pump` the pump racked once. `ball-bounce` is a pressurised rubber ball landing
+recordings and wrong sounds), `shotgun-pump` the pump racked once, `casing` a spent brass case landing. `ball-bounce` is a pressurised rubber ball landing
 (`hardness` is the floor's: bright on concrete, swallowed by snow), `snow-roll` snow under a rolling or sliding weight.
 The input names and values are in `docs/physics-sound.md`.
 

@@ -196,8 +196,14 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
   blast; the game fires several pellets) and `shotgun-pump` (the rack, ~0.35 s after the shot). The bullets'
   hits are their material's impact slot. `gunshot` stays for older games. A preset stops at the output
   limiter: a shot louder than the crate by more than the preset's own range is the game's voice `gain`
-  (the studio scene: real peak SPL at 1 m, 9 mm ~157 dB, 12-gauge ~162, a 20 kg crate dropped ~112,
-  compressed 0.35 dB per dB above the crate and 0.8 below).
+  (the studio scene maps loudness, not peaks: real fast-weighted maxima at 1 m, 9 mm ~130 dB(A), 12-gauge
+  ~135, a 20 kg crate dropped ~95, compressed 0.35 dB per dB above the crate and 0.8 below; a shot holds its
+  blast for 100 ms where the crate's knock dies at once, so the shots' gains are under 1). The submachine
+  gun's round has a shorter tail than the pistol's: at 12/s each round must end before the next (the
+  recordings dip 16 dB between rounds).
+- `casing` is a spent brass case landing (a thin tube ringing, three or four bounces with a tick each;
+  `hardness` is the floor's); the game plays one by the shooter's foot ~0.5 s after each pistol or
+  submachine-gun round.
 - `ball-bounce` is a ball's own impact: `hardness` is the floor's (the contract gives a preset the other
   side's), a soft floor (snow) takes most of the blow. A soft striker (rubber, 0.35) barely sets
   `solid-impact` ringing (its level follows the striker's hardness), and `solid-impact` rings a body larger

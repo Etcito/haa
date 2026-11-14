@@ -470,7 +470,7 @@
         "params": {
           "duration": 0.004,
           "negative": 0.6,
-          "noise": 0.6,
+          "noise": 1.2,
           "noiseDecay": 0.06,
           "tone": 900,
           "delay": 0.006,
@@ -1143,7 +1143,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.127
+          "gain": 0.2563
         }
       }
     ],
@@ -1237,7 +1237,7 @@
         "from": "puff-level",
         "to": "puff",
         "target": "level",
-        "amount": 0.3
+        "amount": 0.8
       },
       {
         "id": "e14-puff-puff-lp-audio",
@@ -1286,7 +1286,7 @@
         "from": "shell-level",
         "to": "shell",
         "target": "level",
-        "amount": 2.0
+        "amount": 0.5
       },
       {
         "id": "e21-in-thickness-m-h-in",
@@ -1370,7 +1370,7 @@
         "from": "slap-level",
         "to": "slap",
         "target": "level",
-        "amount": 0.04
+        "amount": 0.08
       },
       {
         "id": "e33-puff-lp-out-audio",

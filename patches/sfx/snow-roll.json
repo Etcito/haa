@@ -81,7 +81,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0.0,
-          "outMax": 1.0
+          "outMax": 2.856767
         },
         "curve": [
           [
@@ -147,7 +147,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 6000
+          "outMax": 80
         },
         "curve": [
           [
@@ -208,8 +208,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 760.0,
-          "outMax": 520.0
+          "outMin": 2460.0,
+          "outMax": 1710.0
         }
       },
       {
@@ -224,7 +224,7 @@
           "rise": 0.0,
           "fall": 0,
           "frequency": 40,
-          "spread": 2.0,
+          "spread": 2.5,
           "sizePitch": 0.5,
           "decay": 0.008,
           "contact": 0.0002,
@@ -244,8 +244,8 @@
         "x": 800,
         "y": 20,
         "params": {
-          "cutoff": 1500,
-          "resonance": 0.5,
+          "cutoff": 500,
+          "resonance": 1.5,
           "mode": "bandpass"
         }
       },
@@ -281,7 +281,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.057
+          "gain": 1.0
         }
       }
     ],
