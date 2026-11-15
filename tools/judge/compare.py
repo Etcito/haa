@@ -21,7 +21,12 @@ def verdict(r):
     ours, real = r.get("ours_model"), r.get("ref_model")
     if ours is None:
         return "-"
-    if ours >= 0.66 or (real is not None and ours >= real):
+    if ours >= 0.66:
+        return "named like the real ones"
+    # The model's verdict on ours only means something where it names the real recordings (half the time or more).
+    if real is None or real < 0.5:
+        return "cannot decide"
+    if ours >= real:
         return "named like the real ones"
     return "not named" if ours == 0 else "partly named"
 
