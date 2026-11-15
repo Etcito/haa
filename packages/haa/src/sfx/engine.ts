@@ -8,7 +8,7 @@ import { add, cross, dot, earlyReflections, length, normalize, scale, SPEED_OF_S
 import type { DirectPath, ListenerTrace, SpaceEstimate, VoiceReverb } from './raytrace.ts';
 import { diffractionLevels, directPath, sphereDirections, traceListener, voiceReverb } from './raytrace.ts';
 import type { InteractionKind, SfxEvent, SfxInputs, SoundMaterial, SoundMaterialSpec } from './contract.ts';
-import { bodyInputs, defineMaterial, fallbackGain, fullInputs, isContinuous, materialInput, resolveInteraction, SFX_INPUTS } from './contract.ts';
+import { bodyInputs, defineMaterial, energyFromJoules, fallbackGain, fullInputs, isContinuous, materialInput, resolveInteraction, SFX_INPUTS, sizeFromMass } from './contract.ts';
 import { createSfxPool } from './pool.ts';
 import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
@@ -45,6 +45,8 @@ export interface SfxEngineOptions {
   reverbAmount?: number;
   /** Diffuse level relative to the physical estimate (dB): 0 is physical, the default (`WET_OFFSET_DB`). */
   reverbLevelDb?: number;
+  /** The rooms' decay times relative to their bare walls' estimate (default `DECAY_SCALE`). */
+  reverbDecay?: number;
   /** Swarms of small impacts (slots with a `cluster` preset): grouping options, or false to give every impact its own voice. */
   swarm?: SwarmOptions | false;
   /** Ray budget of the acoustics (docs/physics-sound.md): more rays, smoother and slower. */
@@ -138,9 +140,15 @@ export interface SfxLogEntry {
   kind: InteractionKind | 'play' | 'loop';
   inputs: SfxInputs;
   slot: number;
-  /** 'started' | 'dropped' | 'culled' | 'stole <preset>' | 'missing' | 'not playable' */
+  /** 'started' | 'dropped' | 'culled' | 'stole <preset>' | 'missing' | 'not playable' | 'swarm' (merged into a running cluster voice) */
   result: string;
   distance: number;
+  /** Where the sound is (a started voice, a swarm's centre). */
+  position?: Vec3;
+  /** A started one-shot plays a baked cell (true) or live (false). */
+  baked?: boolean;
+  /** A started voice's gain (linear: the slot gain, level trim and baked gain). */
+  level?: number;
 }
 
 export interface SfxStats {
@@ -289,12 +297,23 @@ export interface SfxEngine {
    * Resolves with the cells queued.
    */
   prewarmPlays(items: ReadonlyArray<{ preset: string; inputs: Partial<SfxInputs> }>): Promise<number>;
+  /**
+   * Bake the one-shots of these impacts as an event would resolve them: `striker` (of `mass` kg) on a
+   * fixed `surface`, at each normal contact speed (m/s), both sides' slots. A scene lists its
+   * throwables at the speeds of their first bounces (a ball's first three bounces played live, cold).
+   */
+  prewarmImpacts(items: ReadonlyArray<{ striker: SoundMaterial; surface: SoundMaterial; mass: number; speeds: readonly number[] }>): Promise<number>;
   /** Occlusion strength, 0..2 (default 1); the running voices follow at their next geometry update. */
   setOcclusionStrength(strength: number): void;
   /** Reverb amount, 0..2 (default 1): scales the wet level estimated from the room. */
   setReverbAmount(amount: number): void;
   /** Diffuse level relative to the physical estimate (dB, -30..+6): 0 is physical, default -7. */
   setReverbLevel(db: number): void;
+  /**
+   * The rooms' decay relative to their bare walls' estimate (0.3-1.5): the diffuse level follows (a
+   * room's reverberant energy grows with its decay time).
+   */
+  setReverbDecay(scale: number): void;
   /**
    * A distributed source on the level's faces (rain): one emitter per exposed face, fed by the
    * face's flux, exposed area, material and body (docs/physics-sound.md, "Rain on faces").
@@ -377,6 +396,14 @@ function ceilingCurve(n = 4097): Float32Array<ArrayBuffer> {
  * upper bands' air loss is the mixer's (haa-mix AIR_RT_4K, AIR_RT_8K).
  */
 const AIR_RT_MID = 38;
+/**
+ * The rooms' decay relative to the walls' estimate. A level's bare concrete box rings like an empty
+ * one; real buildings of that kind have doors, leaks, roof structure and contents. Measured real
+ * spaces (OpenAIR, MIT survey, AIR): large halls at 500 Hz 5.1 s (a reactor hall), 6.6 (a sports hall),
+ * 7.0 (an underground garage), 10.4 (an empty warehouse); rooms of a few hundred m3 0.85-2.8 s. At 0.7
+ * the 6000 m3 building plays about 4.5 s and the 480 m3 hall about 2.1 s.
+ */
+export const DECAY_SCALE = 0.7;
 function withAir(rt: number): number {
   return 1 / (1 / Math.max(0.05, rt) + 1 / AIR_RT_MID);
 }
@@ -468,6 +495,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   const orch = o.orchestrator ?? null;
   let occlusionStrength = o.occlusionStrength ?? 1;
   let wetOffsetDb = clampWetDb(o.reverbLevelDb ?? WET_OFFSET_DB);
+  let decayScale = Math.min(1.5, Math.max(0.3, o.reverbDecay ?? DECAY_SCALE));
+  let decayDb = 10 * Math.log10(decayScale);
   const faceSources = new Set<FaceSource>();
   const ao = o.acoustics ?? {};
   const traceEvery = ao.traceEvery ?? 0.1;
@@ -928,7 +957,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     // passes through it: the send loses the mid-band transmission loss too. Without it, under the
     // hall's 0.3 m concrete roof the rain's reverb sat 14 dB above its direct sound (-60.9 dB wet,
     // -74.9 dry): the slab let the rain into the room's reverb untouched.
-    const send = Math.min(SEND_MAX, 10 ** ((mixedWetDb(ac.wetDb, wetOffsetDb) - s.txs[1]) / 20));
+    const send = Math.min(SEND_MAX, 10 ** ((mixedWetDb(ac.wetDb, wetOffsetDb) + decayDb - s.txs[1]) / 20));
     const right = normalize(cross(listener.forward, listener.up));
     // The reflected energy begins with the room's first reflection (Barron's model: from the direct
     // sound on), not with the field's onset of its later paths: timed from that onset (25 ms after a
@@ -955,8 +984,8 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       // right ear (head shadow, room), 5-8 dB lower, not 25.
       sendPan: 0.5 * dot(ac.rdir, right),
       bank: orch
-        ? activeBankWeights(offThread ? reverb.stretched(withAir(Math.exp(ac.rtLog))) : Math.min(orch.bankCap(), reverb.stretched(withAir(Math.exp(ac.rtLog)))), reverb.allowedMask)
-        : bankWeights(reverb.stretched(withAir(Math.exp(ac.rtLog)))),
+        ? activeBankWeights(offThread ? reverb.stretched(decayScale * withAir(Math.exp(ac.rtLog))) : Math.min(orch.bankCap(), reverb.stretched(decayScale * withAir(Math.exp(ac.rtLog)))), reverb.allowedMask)
+        : bankWeights(reverb.stretched(decayScale * withAir(Math.exp(ac.rtLog)))),
       tapHz: tapCutoff(ac),
       rdir: ac.rdir,
       priority: s.priority,
@@ -1113,7 +1142,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     geometry(slot, ctx.currentTime, true);
     applyChain(slot, 0, true);
     useBank();
-    log({ ...base, slot: slot.index, result: stole ? `stole ${stole}` : 'started' });
+    log({ ...base, slot: slot.index, result: stole ? `stole ${stole}` : 'started', position, baked: !!baked, level: slot.level });
     return slot;
   }
 
@@ -1174,6 +1203,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       voice.slot.position = sw.center;
       voice.slot.energy = cin.energy;
       pool.set(voice.slot.index, voice.id, declaredInputs(rec, cin));
+      log({ label: `${label} ×swarm`, preset: rec.name, kind: 'impact', inputs: cin, slot: voice.slot.index, result: 'swarm', distance: dist(sw.center), position: sw.center });
       return true;
     }
     const s = start(rec, sw.center, cin, false, c.gain, undefined, `${label} ×swarm`, 'impact', null);
@@ -1378,7 +1408,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const cap = orch ? orch.bankCap() : Infinity;
     for (const s of slots) {
       if (!s.busy || s.stopping) continue;
-      const w = bankWeights(Math.min(cap, reverb.stretched(withAir(Math.exp(s.ac.rtLog)))));
+      const w = bankWeights(Math.min(cap, reverb.stretched(decayScale * withAir(Math.exp(s.ac.rtLog)))));
       const send = 10 ** (s.ac.wetDb / 20);
       w.forEach((x, i) => (demand[i] += x * send));
     }
@@ -1427,6 +1457,29 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     return items.length;
   }
 
+  async function prewarmImpacts(list: ReadonlyArray<{ striker: SoundMaterial; surface: SoundMaterial; mass: number; speeds: readonly number[] }>): Promise<number> {
+    if (!orch) return 0;
+    const items: Array<{ rec: PresetRecord; declared: Record<string, number> }> = [];
+    const seen = new Set<string>();
+    for (const { striker, surface, mass, speeds } of list) {
+      for (const v of speeds) {
+        // As the Rapier adapter builds an impact on a fixed surface (rapier.ts tryImpact).
+        const inputs = { energy: energyFromJoules(0.5 * mass * v * v), size: sizeFromMass(mass), depth: 0, speed: 0 };
+        for (const r of resolveInteraction('impact', striker, surface, inputs)) {
+          const rec = await preset(r.slot.preset);
+          if (!rec || !rec.playable) continue;
+          const declared = declaredInputs(rec, r.inputs);
+          const key = `${rec.name}|${JSON.stringify(declared)}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          items.push({ rec, declared });
+        }
+      }
+    }
+    orch.prewarm(items);
+    return items.length;
+  }
+
   /** Connect the bank's convolvers the busy voices feed; the others leave after their tail. */
   function useBank(): void {
     const n = reverb.inputs.length;
@@ -1453,6 +1506,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     update,
     prewarm,
     prewarmPlays,
+    prewarmImpacts,
     setTracer(t) {
       tracer = t;
       trace = null;
@@ -1471,6 +1525,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     },
     setReverbLevel(db) {
       wetOffsetDb = clampWetDb(db);
+    },
+    setReverbDecay(scale) {
+      decayScale = Math.min(1.5, Math.max(0.3, Number.isFinite(scale) ? scale : DECAY_SCALE));
+      decayDb = 10 * Math.log10(decayScale);
     },
     faceSource(faces, fo) {
       const src = createFaceSource({

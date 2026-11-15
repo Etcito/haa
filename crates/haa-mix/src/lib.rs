@@ -199,9 +199,39 @@ impl Voice {
     }
 }
 
-/// Line lengths at 48 kHz (5-35 ms, primes): the first echo 5 ms after the send, as the rendered
-/// responses start (2.8-7.4 ms; with 12 ms lines the onset was hollow).
-const FDN_LEN_48K: [usize; 8] = [241, 409, 593, 787, 991, 1213, 1433, 1667];
+/// Lines per decay step. With 8 lines of 5-35 ms (0.15 s in all) the late tail was a set of fixed
+/// resonances (an organ: its fine spectrum correlated 0.82 between frames 170 ms apart, against
+/// 0.015-0.065 for the real tails of a garage, a reactor hall, a warehouse, a sports hall, a
+/// mausoleum): a step's modes are about total delay / 1 s per Hz. Now 16 lines whose total delay
+/// follows the decay (`line_lengths`; at 0.15 x the decay, Schroeder's minimum, the tail still read
+/// 0.11-0.15, at 0.3 x 0.04-0.09), each read through a slowly moving delay (`MOD_DEPTH_S`) so no mode
+/// stays put.
+const LINES: usize = 16;
+/// Outputs of a step: the 8 speakers of the ring (each fed by two lines of opposite sign).
+const RING_OUT: usize = 8;
+/// Depth of each line's delay modulation (s, peak to peak) and the rates (Hz), one per line.
+const MOD_DEPTH_S: f32 = 0.001;
+const MOD_RATES: [f32; LINES] = [0.31, 0.37, 0.43, 0.47, 0.53, 0.59, 0.61, 0.67, 0.71, 0.73, 0.79, 0.83, 0.89, 0.97, 1.03, 1.09];
+
+/// A step's line lengths (samples, distinct primes): their total is 0.3 x the decay, at most 1 s +
+/// 0.05 x the decay (longer lines need more loss per pass than the first-order shelves give), at least
+/// 0.16 x (decay / 0.25 s)^0.25 s so that no two steps share their lengths (neighbouring steps must be
+/// uncorrelated: the host weighs them for that); spread 1 : 2.7 from the shortest to the longest.
+fn line_lengths(rt: f32, sr: f32) -> Vec<usize> {
+    let total = (0.3 * rt).min(1.0 + 0.05 * rt).max(0.16 * (rt / 0.25).powf(0.25)) * sr;
+    let f: Vec<f32> = (0..LINES).map(|i| 0.55 * (2.7f32).powf(i as f32 / (LINES - 1) as f32)).collect();
+    let sum: f32 = f.iter().sum();
+    let is_prime = |n: usize| n >= 2 && (2..).take_while(|d| d * d <= n).all(|d| n % d != 0);
+    let mut out: Vec<usize> = Vec::with_capacity(LINES);
+    for x in f {
+        let mut n = (x / sum * total) as usize;
+        while !is_prime(n) || out.contains(&n) {
+            n += 1;
+        }
+        out.push(n);
+    }
+    out
+}
 /// Taps of the early part (`Fdn::early`): the lines' output builds up over their lengths (5-35 ms), so
 /// a sparse FIR over the same window fills what is missing of an exponential decay from the send on
 /// (taps 16 per output, delays stratified, signs and source lines pseudo-random).
@@ -222,7 +252,7 @@ const AIR_RT_4K: f32 = 5.9;
 const AIR_RT_8K: f32 = 1.7;
 const SHELF_LOW_HZ: f32 = 250.0;
 const SHELF_4K_HZ: f32 = 2800.0;
-const SHELF_8K_HZ: f32 = 6500.0;
+const SHELF_8K_HZ: f32 = 5000.0;
 
 struct Fdn {
     rt: f32,
@@ -230,15 +260,19 @@ struct Fdn {
     scale: f32,
     bands: (f32, f32),
     lines: Vec<Vec<f32>>,
-    pos: [usize; 8],
+    /// Each line's nominal length (samples) and its read delay's oscillator (cos, sin, step cos, step sin).
+    lens: Vec<usize>,
+    osc: [(f32, f32, f32, f32); LINES],
+    depth: f32,
+    pos: [usize; LINES],
     /// Mid-band loop gain per line, and the low/high bands' gains relative to it (shelves in the loop).
-    g: [f32; 8],
-    gl: [f32; 8],
-    gh: [f32; 8],
-    g8: [f32; 8],
-    lp_lo: [f32; 8],
-    lp_hi: [f32; 8],
-    lp_8k: [f32; 8],
+    g: [f32; LINES],
+    gl: [f32; LINES],
+    gh: [f32; LINES],
+    g8: [f32; LINES],
+    lp_lo: [f32; LINES],
+    lp_hi: [f32; LINES],
+    lp_8k: [f32; LINES],
     k_lo: f32,
     k_hi: f32,
     k_8k: f32,
@@ -251,15 +285,15 @@ struct Fdn {
     hf: (f32, f32),
     /// The early part: taps (delay, source line, output, gain) over the input's recent history.
     early: Vec<(usize, usize, usize, f32)>,
-    hist: Vec<[f32; 8]>,
+    hist: Vec<[f32; LINES]>,
     hpos: usize,
     /// Samples left while the early taps can still hear an input.
     early_alive: usize,
     /// The early taps' low-pass state per output and coefficient.
-    early_lp: [f32; 8],
+    early_lp: [f32; RING_OUT],
     k_early: f32,
     /// The flat-band loop gains and output gain set at init (`set_bands` keeps the mid band's level).
-    base: ([f32; 8], [f32; 8], [f32; 8], [f32; 8], f32),
+    base: ([f32; LINES], [f32; LINES], [f32; LINES], [f32; LINES], f32),
 }
 
 /// One impulse response's measures (`Fdn::impulse_response`).
@@ -296,9 +330,9 @@ fn t20_of(env: &[f64], skip: usize, sr: f32) -> f32 {
 }
 
 impl Fdn {
-    fn gains(lens: &[usize], rt: f32, sr: f32) -> [f32; 8] {
-        let mut g = [0.0; 8];
-        for i in 0..8 {
+    fn gains(lens: &[usize], rt: f32, sr: f32) -> [f32; LINES] {
+        let mut g = [0.0; LINES];
+        for i in 0..LINES {
             g[i] = 10f32.powf(-3.0 * lens[i] as f32 / (rt * sr));
         }
         g
@@ -312,7 +346,7 @@ impl Fdn {
     /// other band. An octave's decay is its slowest part's, its lower edge: the two shelves' losses
     /// solve the 2 x 2 system that gives each band its target there (without it an 8 s hall rang 4.0 s
     /// at 4 kHz and 2.7 s at 8 kHz for 3.4 s and 1.4 s).
-    fn band_gains(lens: &[usize], rt: f32, scale: f32, sr: f32, (lo, hi): (f32, f32), (c4, c8): (f32, f32)) -> ([f32; 8], [f32; 8], [f32; 8], [f32; 8]) {
+    fn band_gains(lens: &[usize], rt: f32, scale: f32, sr: f32, (lo, hi): (f32, f32), (c4, c8): (f32, f32)) -> ([f32; LINES], [f32; LINES], [f32; LINES], [f32; LINES]) {
         let gm = Self::gains(lens, rt * scale, sr);
         let lo = Self::gains(lens, rt * lo * scale, sr);
         let h4 = Self::gains(lens, scale * c4 / (1.0 / (rt * hi) + 1.0 / AIR_RT_4K), sr);
@@ -334,11 +368,11 @@ impl Fdn {
         // for 1.37, and the mid band rang longer than its target).
         let lp = |f: f32, corner: f32| 1.0 - phi(f, corner);
         let (pl, pm) = (lp(177.0, SHELF_LOW_HZ), lp(707.0, SHELF_LOW_HZ));
-        let mut g = [1.0; 8];
-        let mut gl = [1.0; 8];
-        let mut gh = [1.0; 8];
-        let mut g8 = [1.0; 8];
-        for i in 0..8 {
+        let mut g = [1.0; LINES];
+        let mut gl = [1.0; LINES];
+        let mut gh = [1.0; LINES];
+        let mut g8 = [1.0; LINES];
+        for i in 0..LINES {
             let ln_gl = (lo[i] / gm[i]).ln() / (pl - pm);
             g[i] = (gm[i].ln() - pm * ln_gl).exp().min(0.9999);
             gl[i] = ln_gl.exp().min(0.9999 / g[i]);
@@ -355,37 +389,49 @@ impl Fdn {
     }
 
     fn new(rt: f32, sr: f32) -> Fdn {
-        let lens: Vec<usize> = FDN_LEN_48K.iter().map(|&l| ((l as f32) * sr / 48000.0) as usize).collect();
-        let (g, gl, gh, g8) = Self::band_gains(&lens, rt, 1.0, sr, (1.0, 1.0), (1.0, 1.0));
+        let lens = line_lengths(rt, sr);
+        let depth = MOD_DEPTH_S * sr;
+        // The loop's mean delay is the length less half the modulation.
+        let eff: Vec<usize> = lens.iter().map(|&l| l - (depth / 2.0) as usize).collect();
+        let (g, gl, gh, g8) = Self::band_gains(&eff, rt, 1.0, sr, (1.0, 1.0), (1.0, 1.0));
         let early_len = lens.iter().copied().max().unwrap_or(1) + 2;
+        let mut osc = [(1.0, 0.0, 1.0, 0.0); LINES];
+        for (j, o) in osc.iter_mut().enumerate() {
+            let w = 2.0 * PI * MOD_RATES[j] / sr;
+            let ph = j as f32 * 2.399_963;
+            *o = (ph.cos(), ph.sin(), w.cos(), w.sin());
+        }
         let mut f = Fdn {
             rt,
             scale: 1.0,
             bands: (1.0, 1.0),
-            lines: lens.iter().map(|&l| vec![0.0; l]).collect(),
-            pos: [0; 8],
+            lines: lens.iter().map(|&l| vec![0.0; l + 4]).collect(),
+            lens: eff.clone(),
+            osc,
+            depth,
+            pos: [0; LINES],
             g,
             gl,
             gh,
             g8,
-            lp_lo: [0.0; 8],
-            lp_hi: [0.0; 8],
-            lp_8k: [0.0; 8],
+            lp_lo: [0.0; LINES],
+            lp_hi: [0.0; LINES],
+            lp_8k: [0.0; LINES],
             k_lo: coef(SHELF_LOW_HZ, sr),
             k_hi: coef(SHELF_4K_HZ, sr),
             k_8k: coef(SHELF_8K_HZ, sr),
             out_gain: 1.0,
-            input: vec![[0.0; BLOCK]; 8],
+            input: vec![[0.0; BLOCK]; LINES],
             fed: false,
             alive: 0,
             hf: (1.0, 1.0),
             early: Vec::new(),
             // One block more than the taps reach: a block is written whole before the taps read it.
-            hist: vec![[0.0; 8]; early_len + BLOCK],
+            hist: vec![[0.0; LINES]; early_len + BLOCK],
             hpos: 0,
             early_alive: 0,
-            base: ([1.0; 8], [1.0; 8], [1.0; 8], [1.0; 8], 1.0),
-            early_lp: [0.0; 8],
+            base: ([1.0; LINES], [1.0; LINES], [1.0; LINES], [1.0; LINES], 1.0),
+            early_lp: [0.0; RING_OUT],
             k_early: coef(EARLY_LP_HZ, sr),
         };
         // One pass that measures the late T20 of the mid band (500 Hz-1 kHz, where the walls' estimate
@@ -400,11 +446,22 @@ impl Fdn {
         if r.t20_4k > 0.0 && r.t20_8k > 0.0 {
             f.hf = ((t4 / (r.t20_4k * f.scale)).clamp(0.3, 3.0), (t8 / (r.t20_8k * f.scale)).clamp(0.3, 3.0));
         }
-        let (g, gl, gh, g8) = Self::band_gains(&lens, rt, f.scale, sr, (1.0, 1.0), f.hf);
+        let (g, gl, gh, g8) = Self::band_gains(&eff, rt, f.scale, sr, (1.0, 1.0), f.hf);
         f.g = g;
         f.gl = gl;
         f.gh = gh;
         f.g8 = g8;
+        // A second pass for the upper octaves: with long lines the shelves' loss per pass is larger and
+        // the first estimate falls short (8 kHz rang 2.4 s for 1.4 at 8 s).
+        let r = f.impulse_response(sr, true);
+        if r.t20_4k > 0.0 && r.t20_8k > 0.0 {
+            f.hf = ((f.hf.0 * t4 / r.t20_4k).clamp(0.1, 3.0), (f.hf.1 * t8 / r.t20_8k).clamp(0.1, 3.0));
+            let (g, gl, gh, g8) = Self::band_gains(&eff, rt, f.scale, sr, (1.0, 1.0), f.hf);
+            f.g = g;
+            f.gl = gl;
+            f.gh = gh;
+            f.g8 = g8;
+        }
         f.design_early(sr);
         // The level is set in the mid band, where the walls' estimate is made: a band's diffuse energy
         // grows with its decay time, so the bands that air absorbs are quieter, not the others louder.
@@ -418,7 +475,7 @@ impl Fdn {
 
     /// Steady-state energy of the loop around angular frequency `w` (rad/sample) for loop gains
     /// (g, gl, gh, g8): per line 1 / (1 - |loop|^2), summed (the orthogonal matrix keeps the energy).
-    fn loop_energy(&self, w: f32, (g, gl, gh, g8): ([f32; 8], [f32; 8], [f32; 8], [f32; 8])) -> f32 {
+    fn loop_energy(&self, w: f32, (g, gl, gh, g8): ([f32; LINES], [f32; LINES], [f32; LINES], [f32; LINES])) -> f32 {
         let lp = |k: f32| {
             // k / (1 - (1 - k) e^-jw)
             let (dr, di) = (1.0 - (1.0 - k) * w.cos(), (1.0 - k) * w.sin());
@@ -427,7 +484,7 @@ impl Fdn {
         };
         let (lo, h4, h8) = (lp(self.k_lo), lp(self.k_hi), lp(self.k_8k));
         let mut e = 0.0;
-        for j in 0..8 {
+        for j in 0..LINES {
             // Low shelf 1 + (gl - 1) LP, high shelves g + (1 - g) LP.
             let a = (1.0 + (gl[j] - 1.0) * lo.0, (gl[j] - 1.0) * lo.1);
             let b = (gh[j] + (1.0 - gh[j]) * h4.0, (1.0 - gh[j]) * h4.1);
@@ -476,12 +533,12 @@ impl Fdn {
         let mut taps: Vec<(usize, usize, usize)> = (0..EARLY_TAPS)
             .map(|i| {
                 let d = 1 + (((i as f32 + rnd()) / EARLY_TAPS as f32) * (len - 2) as f32) as usize;
-                (d.min(len - 1), (rnd() * 8.0) as usize % 8, i % 8)
+                (d.min(len - 1), (rnd() * LINES as f32) as usize % LINES, i % RING_OUT)
             })
             .collect();
         taps.sort_by_key(|t| t.0);
-        // The impulse probe feeds 1/sqrt 8 to each line: a tap of gain g adds g^2 / 8 to its block
-        // (in the mid band, the low-pass keeps |LP(707 Hz)|^2 of it).
+        // The impulse probe feeds 1/sqrt LINES to each line: a tap of gain g adds g^2 / LINES to its
+        // block (in the mid band, the low-pass keeps |LP(707 Hz)|^2 of it).
         let mut per_block = vec![0usize; blocks];
         for t in &taps {
             per_block[t.0 / BLOCK] += 1;
@@ -489,7 +546,7 @@ impl Fdn {
         for t in taps {
             let b = t.0 / BLOCK;
             let keep = 1.0 / (1.0 + (707.0 / EARLY_LP_HZ as f64).powi(2));
-            let gg = 8.0 * deficit[b] / per_block[b].max(1) as f64 / keep;
+            let gg = LINES as f64 * deficit[b] / per_block[b].max(1) as f64 / keep;
             if gg <= 0.0 {
                 continue;
             }
@@ -503,14 +560,15 @@ impl Fdn {
     fn impulse_response(&self, sr: f32, hf: bool) -> Resp {
         let mut probe = Fdn {
             lines: self.lines.iter().map(|l| vec![0.0; l.len()]).collect(),
-            hist: vec![[0.0; 8]; self.hist.len()],
+            lens: self.lens.clone(),
+            hist: vec![[0.0; LINES]; self.hist.len()],
             early: self.early.clone(),
-            pos: [0; 8],
-            lp_lo: [0.0; 8],
-            lp_hi: [0.0; 8],
-            lp_8k: [0.0; 8],
+            pos: [0; LINES],
+            lp_lo: [0.0; LINES],
+            lp_hi: [0.0; LINES],
+            lp_8k: [0.0; LINES],
             out_gain: 1.0,
-            input: vec![[0.0; BLOCK]; 8],
+            input: vec![[0.0; BLOCK]; LINES],
             fed: true,
             alive: usize::MAX,
             ..*self.shallow()
@@ -527,7 +585,8 @@ impl Fdn {
         let mut st = [[0.0f32; 8]; SPEAKERS];
         let mut st4 = [[0.0f32; 8]; SPEAKERS];
         let mut st8 = [[0.0f32; 8]; SPEAKERS];
-        let total = ((self.rt * 1.3).min(11.0) * sr) as usize;
+        // To 0.8 x the decay (the T20 needs -25 dB, the level what is above -48 dB), at most 8 s.
+        let total = ((self.rt * 0.8 + 0.2).min(8.0) * sr) as usize;
         let mut env_mid: Vec<f64> = Vec::with_capacity(total / BLOCK + 1);
         let mut env4: Vec<f64> = Vec::new();
         let mut env8: Vec<f64> = Vec::new();
@@ -536,8 +595,8 @@ impl Fdn {
         while done < total {
             let n = BLOCK.min(total - done);
             if done == 0 {
-                for j in 0..8 {
-                    probe.input[j][0] = 1.0 / 8f32.sqrt();
+                for j in 0..LINES {
+                    probe.input[j][0] = 1.0 / (LINES as f32).sqrt();
                 }
             }
             out.iter_mut().for_each(|x| *x = 0.0);
@@ -584,14 +643,17 @@ impl Fdn {
             scale: self.scale,
             bands: self.bands,
             lines: Vec::new(),
-            pos: [0; 8],
+            lens: Vec::new(),
+            osc: self.osc,
+            depth: self.depth,
+            pos: [0; LINES],
             g: self.g,
             gl: self.gl,
             gh: self.gh,
             g8: self.g8,
-            lp_lo: [0.0; 8],
-            lp_hi: [0.0; 8],
-            lp_8k: [0.0; 8],
+            lp_lo: [0.0; LINES],
+            lp_hi: [0.0; LINES],
+            lp_8k: [0.0; LINES],
             k_lo: self.k_lo,
             k_hi: self.k_hi,
             k_8k: self.k_8k,
@@ -605,14 +667,16 @@ impl Fdn {
             hpos: 0,
             early_alive: 0,
             base: self.base,
-            early_lp: [0.0; 8],
+            early_lp: [0.0; RING_OUT],
             k_early: self.k_early,
         })
     }
 
     /// Run `n` samples: inputs from `self.input`, outputs added onto `bus` (speaker-major planes).
     fn process(&mut self, bus: &mut [f32], n: usize) {
-        let s = 1.0 / 8f32.sqrt();
+        // 16-point Hadamard, orthonormal: 1/4; two lines per speaker, 1/sqrt 2.
+        let s = 0.25;
+        let half = std::f32::consts::FRAC_1_SQRT_2;
         let hl = self.hist.len();
         if self.input.iter().any(|row| row[..n].iter().any(|&x| x != 0.0)) {
             self.early_alive = hl + n;
@@ -623,7 +687,7 @@ impl Fdn {
             // cost): the block's input is written, then each tap reads a run of the history.
             let mut hp = self.hpos;
             for i in 0..n {
-                for j in 0..8 {
+                for j in 0..LINES {
                     self.hist[hp][j] = self.input[j][i];
                 }
                 hp += 1;
@@ -651,12 +715,26 @@ impl Fdn {
             }
             self.hpos = hp;
         }
+        let depth = self.depth;
         for i in 0..n {
-            let mut v = [0.0f32; 8];
-            for j in 0..8 {
+            let mut v = [0.0f32; LINES];
+            for j in 0..LINES {
                 let l = &self.lines[j];
-                let o = l[self.pos[j]];
-                bus[j * BLOCK + i] += o * self.out_gain;
+                let size = l.len();
+                // Read through a delay moving over [len - depth, len] (linear interpolation).
+                let (c, sn, cw, sw) = self.osc[j];
+                self.osc[j] = (c * cw - sn * sw, sn * cw + c * sw, cw, sw);
+                let d = (self.lens[j] as f32 + depth / 2.0) - depth * 0.5 * (1.0 + sn);
+                let mut rp = self.pos[j] as f32 - d;
+                if rp < 0.0 {
+                    rp += size as f32;
+                }
+                let i0 = rp as usize % size;
+                let fr = rp - rp.floor();
+                let i1 = if i0 + 1 == size { 0 } else { i0 + 1 };
+                let o = l[i0] + (l[i1] - l[i0]) * fr;
+                let sign = if j < RING_OUT { 1.0 } else { -1.0 };
+                bus[(j % RING_OUT) * BLOCK + i] += sign * half * o * self.out_gain;
                 // Low shelf (DC gain gl, 1 above 250 Hz), then high shelf (1 below 3 kHz, gh above):
                 // first order, monotone, never above the largest band gain: stable.
                 self.lp_lo[j] += self.k_lo * (o - self.lp_lo[j]);
@@ -667,9 +745,9 @@ impl Fdn {
                 let x3 = self.lp_8k[j] + self.g8[j] * (x2 - self.lp_8k[j]);
                 v[j] = x3 * self.g[j];
             }
-            // 8-point Hadamard (fast Walsh-Hadamard), orthonormal.
-            for h in [1usize, 2, 4] {
-                for a in (0..8).step_by(h * 2) {
+            // 16-point Hadamard (fast Walsh-Hadamard), orthonormal.
+            for h in [1usize, 2, 4, 8] {
+                for a in (0..LINES).step_by(h * 2) {
                     for b in a..a + h {
                         let (x, y) = (v[b], v[b + h]);
                         v[b] = x + y;
@@ -677,17 +755,23 @@ impl Fdn {
                     }
                 }
             }
-            for j in 0..8 {
-                let len = self.lines[j].len();
+            for j in 0..LINES {
+                let size = self.lines[j].len();
                 self.lines[j][self.pos[j]] = self.input[j][i] + v[j] * s;
-                self.pos[j] = (self.pos[j] + 1) % len;
+                self.pos[j] = if self.pos[j] + 1 == size { 0 } else { self.pos[j] + 1 };
             }
+        }
+        // The oscillators stay on the unit circle.
+        for o in self.osc.iter_mut() {
+            let r = 1.0 / (o.0 * o.0 + o.1 * o.1).sqrt();
+            o.0 *= r;
+            o.1 *= r;
         }
         if early {
             self.early_alive = self.early_alive.saturating_sub(n);
             if self.early_alive == 0 {
-                self.hist.iter_mut().for_each(|h| *h = [0.0; 8]);
-                self.early_lp = [0.0; 8];
+                self.hist.iter_mut().for_each(|h| *h = [0.0; LINES]);
+                self.early_lp = [0.0; RING_OUT];
             }
         }
         for row in self.input.iter_mut() {
@@ -814,16 +898,15 @@ impl Mixer {
                 let ys = vo.read(delay + lerp(cur[p::PREDELAY], tgt[p::PREDELAY], t) * sr);
                 vo.send_lp += ks * (ys - vo.send_lp);
                 let u = vo.send_lp * lerp(cur[p::SEND], tgt[p::SEND], t) * level;
-                // The host's weights keep the energy of two independent responses (cos, sin). The
-                // FDNs of two steps share their lines and matrix, so their responses add in phase:
-                // the squared weights (summing to 1) keep the energy of that coherent sum. With the
-                // weights themselves a send between two steps came out up to 3.2 dB louder (+1.8 dB
-                // in the hall, 2.95 s between 2.8 and 4 s), measured in the mixer's buses.
+                // The host's weights keep the energy of two independent responses (cos, sin): each
+                // step has its own line lengths, so their responses are uncorrelated. (When every
+                // step shared the same 8 lines they added in phase, and squared weights were used.)
+                // Each of the 16 lines takes its ring speaker's weight / sqrt 2.
                 for &(k, a, b) in &fed_steps {
-                    let x = u * lerp(a * a, b * b, t);
+                    let x = u * lerp(a, b, t) * std::f32::consts::FRAC_1_SQRT_2;
                     let f = &mut self.fdn[k];
-                    for j in 0..8 {
-                        f.input[j][i] += x * lw[j];
+                    for j in 0..LINES {
+                        f.input[j][i] += x * lw[j % RING_OUT];
                     }
                 }
             }
@@ -862,7 +945,7 @@ impl Mixer {
             if ((f.bands.0 / lo).ln().abs() < 0.01) && ((f.bands.1 / hi).ln().abs() < 0.01) {
                 continue;
             }
-            let lens: Vec<usize> = f.lines.iter().map(|l| l.len()).collect();
+            let lens = f.lens.clone();
             let (g, gl, gh, g8) = Fdn::band_gains(&lens, f.rt, f.scale, sr, (lo, hi), f.hf);
             f.g = g;
             f.gl = gl;
@@ -983,6 +1066,62 @@ mod tests {
             let e = e * f.out_gain * f.out_gain / (DIFFUSE_GAIN * DIFFUSE_GAIN);
             assert!((10.0 * e.log10()).abs() < 1.0, "rt {rt}: {e}");
             assert!((t20 / rt - 1.0).abs() < 0.08, "rt {rt}: T20 {t20}");
+        }
+    }
+
+    /// The organ (mix4): 8 fixed lines of 8.5-25 ms gave every tail the same few stationary modes, heard
+    /// as a pitch (the judge's tail tonality 11.8-15 dB on the scene's captures, real rooms 4.5-8.2).
+    /// The tail 0.15-0.55 s after an impulse, Welch power spectrum (4096-point Hann, half overlap) from
+    /// 100 Hz to 4 kHz: no line stands more than 10 dB above the median of its third of an octave.
+    #[test]
+    fn a_decay_tail_has_no_pitch() {
+        let sr = 48000.0f32;
+        let n = 4096usize;
+        for rt in [1.0f32, 3.0] {
+            let mut f = Fdn::new(rt, sr);
+            let total = (0.6 * sr) as usize;
+            let mut y: Vec<f32> = Vec::with_capacity(total + BLOCK);
+            let mut out = vec![0.0f32; SPEAKERS * BLOCK];
+            while y.len() < total {
+                for row in f.input.iter_mut() {
+                    row.iter_mut().for_each(|x| *x = 0.0);
+                }
+                if y.is_empty() {
+                    for row in f.input.iter_mut() {
+                        row[0] = 1.0 / (LINES as f32).sqrt();
+                    }
+                }
+                out.iter_mut().for_each(|x| *x = 0.0);
+                f.process(&mut out, BLOCK);
+                y.extend_from_slice(&out[..BLOCK]);
+            }
+            let (k0, k1) = ((100.0 * n as f32 / sr) as usize, (4000.0 * n as f32 / sr) as usize);
+            let mut p = vec![0.0f64; k1 + 1];
+            let (a, b) = ((0.15 * sr) as usize, (0.55 * sr) as usize);
+            let mut start = a;
+            while start + n <= b {
+                for (k, pk) in p.iter_mut().enumerate().skip(k0) {
+                    let (mut re, mut im) = (0.0f64, 0.0f64);
+                    for i in 0..n {
+                        let w = 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / n as f64).cos();
+                        let ph = 2.0 * std::f64::consts::PI * (k * i) as f64 / n as f64;
+                        let x = f64::from(y[start + i]) * w;
+                        re += x * ph.cos();
+                        im -= x * ph.sin();
+                    }
+                    *pk += re * re + im * im;
+                }
+                start += n / 2;
+            }
+            let mut worst = 0.0f64;
+            for k in k0..=k1 {
+                let (lo, hi) = (((k as f64) / 2f64.powf(1.0 / 6.0)) as usize, (((k as f64) * 2f64.powf(1.0 / 6.0)) as usize).min(k1));
+                let mut w: Vec<f64> = p[lo.max(k0)..=hi.max(lo.max(k0))].to_vec();
+                w.sort_by(|x, y| x.partial_cmp(y).unwrap());
+                let med = w[w.len() / 2].max(1e-30);
+                worst = worst.max(10.0 * (p[k] / med).log10());
+            }
+            assert!(worst < 10.0, "rt {rt}: a line {worst:.1} dB above its third of an octave");
         }
     }
 }

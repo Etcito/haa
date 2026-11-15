@@ -44,6 +44,9 @@ export interface MixStats {
   workers?: Array<MixWorkerDiag | null>;
 }
 
+/** The decode's diffuse-field equalisation (see `createMixPool`). */
+export const DF_EQ = { lowHz: 700, lowDb: -5, highHz: 6000, highDb: 3 } as const;
+
 export interface MixPool extends SfxPool {
   readonly offThread: true;
   readonly mixer: true;
@@ -176,6 +179,23 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
   const split = ctx.createChannelSplitter(MIX_BUSES);
   node.connect(split);
   const output = ctx.createGain();
+  // Diffuse-field equalisation of the decode. Chrome's HRTF set is tilted: averaged over 72 directions
+  // it gives +4.6 dB at 125-250 Hz, 0 at 1 kHz, -2.8 at 8 kHz, -4.5 at 16 kHz (frontal, -9 to -12 dB at
+  // 6-10 kHz), and every voice came out dull: a white noise 2 m ahead read 250 Hz +8 dB, 8 kHz -5 dB re
+  // 1 kHz, as one HRTF panner fed directly. A low shelf (700 Hz, -5 dB) and a high shelf (6 kHz, +3 dB)
+  // bring that average within +-0.8 dB from 125 Hz to 16 kHz; the directional differences stay.
+  const decode = ctx.createGain();
+  const eqLow = ctx.createBiquadFilter();
+  eqLow.type = 'lowshelf';
+  eqLow.frequency.value = DF_EQ.lowHz;
+  eqLow.gain.value = DF_EQ.lowDb;
+  const eqHigh = ctx.createBiquadFilter();
+  eqHigh.type = 'highshelf';
+  eqHigh.frequency.value = DF_EQ.highHz;
+  eqHigh.gain.value = DF_EQ.highDb;
+  decode.connect(eqLow);
+  eqLow.connect(eqHigh);
+  eqHigh.connect(output);
   MIX_SPEAKERS.forEach((s, i) => {
     const pan = ctx.createPanner();
     pan.panningModel = 'HRTF';
@@ -189,7 +209,7 @@ export async function createMixPool(ctx: BaseAudioContext, o: MixPoolOptions): P
       pan.positionZ.value = s[2];
     } else (pan as unknown as { setPosition(x: number, y: number, z: number): void }).setPosition(s[0], s[1], s[2]);
     split.connect(pan, i);
-    pan.connect(output);
+    pan.connect(decode);
   });
   const listeners = new Set<(msg: SfxPoolOutMsg) => void>();
   const loads = o.workers.map(() => 0);

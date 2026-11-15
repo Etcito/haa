@@ -43,6 +43,23 @@ interface Voice {
   endAt: number;
   /** What a block of this voice costs (ms, moving average): synthesis + spatialisation. */
   costMs: number;
+  /** Samples played, and how long its output has stayed under `QUIET` (one-shots end there). */
+  age: number;
+  quiet: number;
+}
+
+/**
+ * A one-shot ends when its own output has stayed under -100 dBFS for 250 ms after its first 100 ms, not at
+ * the duration its preset declares: solid-impact declares 2.5 s, a ball's bounce on it lasts 70 ms, and
+ * the voice held its slot (and its worker's time) the whole 2.5 s.
+ */
+const QUIET = 1e-5;
+const QUIET_S = 0.25;
+const MIN_AGE_S = 0.1;
+function blockPeak(x: Float32Array, n: number): number {
+  let p = 0;
+  for (let k = 0; k < n; k++) p = Math.max(p, Math.abs(x[k]));
+  return p;
 }
 
 const scope = globalThis as unknown as { onmessage: ((e: MessageEvent<MixWorkerIn>) => void) | null; postMessage(m: MixWorkerOut): void };
@@ -156,7 +173,9 @@ function renderBlock(w: number, fill: number): Float32Array {
       const n = Math.max(0, Math.min(Q, sm.l.length - sm.pos));
       for (let k = 0; k < Q; k++) input[k] = k < n ? 0.5 * (sm.l[sm.pos + k] + sm.r[sm.pos + k]) * sm.gain : 0;
       sm.pos += Q;
-      if (sm.pos >= sm.l.length) {
+      v.age += Q;
+      v.quiet = blockPeak(input, Q) < QUIET ? v.quiet + Q : 0;
+      if (sm.pos >= sm.l.length || (v.age > MIN_AGE_S * sr && v.quiet > QUIET_S * sr)) {
         v.sample = null;
         v.drain = Math.ceil(((p[P.DELAY] + 0.06) * sr) / Q) * Q;
       }
@@ -173,7 +192,9 @@ function renderBlock(w: number, fill: number): Float32Array {
       for (let k = 0; k < Q; k++) input[k] = 0.5 * (l[k] + r[k]);
       if (v.oneShot) {
         v.framesLeft -= Q;
-        if (v.framesLeft <= 0) playing = false;
+        v.age += Q;
+        v.quiet = blockPeak(input, Q) < QUIET ? v.quiet + Q : 0;
+        if (v.framesLeft <= 0 || (v.age > MIN_AGE_S * sr && v.quiet > QUIET_S * sr)) playing = false;
       } else if (!playing && v.timeline) {
         v.voice.restart();
         playing = true;
@@ -259,6 +280,8 @@ async function loop(): Promise<void> {
 
 function startVoice(v: Voice, id: number, oneShot: boolean): void {
   v.id = id;
+  v.age = 0;
+  v.quiet = 0;
   v.oneShot = oneShot;
   v.endAt = -1;
   v.drain = 0;
@@ -294,7 +317,7 @@ scope.onmessage = (e) => {
         m.owned.forEach((slot, local) => {
           voices.set(slot, {
             slot, local, voice: engine!.createVoice(sr, (m.seed + slot * 7919) >>> 0), key: null, id: 0, active: false, oneShot: true, timeline: true,
-            framesLeft: 0, drain: 0, sample: null, thinned: 0, endAt: -1, costMs: 0.05,
+            framesLeft: 0, drain: 0, sample: null, thinned: 0, endAt: -1, costMs: 0.05, age: 0, quiet: 0,
           });
         });
         scope.postMessage({ t: 'ready' });

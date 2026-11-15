@@ -38,8 +38,20 @@ export interface RCollider {
   parent(): RBody | null;
   translation(): RVec;
   mass(): number;
+  /** Rapier's shape type (0 ball, 2 capsule, 10 cylinder, 11 cone, 13 round cylinder, 14 round cone). */
+  shapeType?(): number;
 }
 
+/** Collider shapes that roll: ball, capsule, cylinder, cone and their rounded forms. */
+const ROLLING_SHAPES = new Set([0, 2, 10, 11, 13, 14]);
+/** Resonator shapes that roll (a ball's shell, a bottle on its side). */
+const ROLLING_BODIES = new Set(['shell', 'bottle']);
+/**
+ * Pressing power (the `energy` input) under which a slide or roll is not heard: a contact with almost
+ * no normal force (a body skimming the ground between two bounces) is not a scrape. A grenade's slide
+ * ran 1.1 s at energy 0.00 after its 5 J landing and was the loudest part of the capture.
+ */
+const MIN_CONTINUOUS_ENERGY = 0.15;
 /**
  * A contact's sound is placed this far off the contact point, toward the centre of the body that
  * strikes or moves: the point lies on the surface it touches (an impact at y = 0.00 on the ground),
@@ -302,9 +314,18 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
       const moving = b1 && !b1.isFixed() ? b1 : b2;
       const center = moving && !moving.isSleeping() ? length(moving.linvel()) : 0;
       if (moving === b2) [striker, surface] = [m2, m1];
+      const movingCollider = moving === b2 ? c2 : c1;
+      // The moving body's own slots lead: a body whose shape rolls plays its own roll slot while it
+      // rolls or tumbles, slip or not (a grenade's contacts slipped and played the ground's
+      // slide-scrape for 1.1 s); the others roll only without slip, else slide.
+      const shape = movingCollider.shapeType?.();
+      const rollsByShape = (shape !== undefined && ROLLING_SHAPES.has(shape)) || (!!striker.body && ROLLING_BODIES.has(striker.body.shape));
       const rollSlot = striker.sounds.roll || surface.sounds.roll;
       const slideSlot = surface.sounds.slide || striker.sounds.slide;
-      if (rollSlot && center > minSlide && slip < center * 0.3) {
+      if (striker.sounds.roll && rollsByShape && center > minSlide) {
+        kind = 'roll';
+        speed = center;
+      } else if (rollSlot && center > minSlide && slip < center * 0.3) {
         kind = 'roll';
         speed = center;
       } else if (slideSlot && slip > minSlide) {
@@ -312,6 +333,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
         speed = slip;
       }
       force = hit.impulse;
+      if (kind && energyFromJoules(Math.max(1e-6, (force / Math.max(1e-4, stepDt)) * speed)) < MIN_CONTINUOUS_ENERGY) kind = null;
     }
     if (kind) pair.quietSince = time;
     // Hold a running voice through 150 ms of stillness (a box catching on an edge).

@@ -1111,3 +1111,52 @@ that trend: no change.
 room) to 1.41 (an empty campground cabin), 8k/500 0.24 to 1.27 (a suburban garage 0.48 / 0.27, an A-frame
 cabin 0.74 / 0.74, a basement store 1.27 / 1.27). The empty shed (1.01 / 0.79) is inside; the hall's
 8k/500 0.39 is between the large halls (0.10-0.37) and the lecture room (0.55-0.75).
+
+### The organ, the decay, the output's highs, contacts (mix4)
+
+Judged on captures of the scene's real output (the judge's locked capture tool, its detectors), not
+listened to.
+
+**The organ.** Every step's tail rang at a few fixed pitches. Each step was an 8-line FDN with 8.5-25 ms
+lines: its modes are sparse and stationary (an 8.5 ms line, 409 samples, is ~117 Hz, the blind model's
+"A#2" on the hall shot). Frame-to-frame fine-structure correlation of the tail was 0.82, against 0.015-0.065
+for real IR tails (AIR, MIT survey); the judge's tail tonality was 11.8-15 dB on the shots (real rooms
+4.5-8.2). Now each step has 16 lines whose total length follows its decay (Schroeder's modal density:
+0.3 x RT60, at most 1 s + 0.05 x RT60, at least 0.16 x (RT60 / 0.25)^0.25 s, distinct primes per step so
+neighbouring steps do not sum in phase). Each read point moves by up to 1 ms at 0.3-1.1 Hz (linear
+interpolation), and a 16-point Hadamard mixes the lines. A second high-band pass corrects the 4/8 kHz
+decay that long lines stretch (8 kHz shelf corner 5 kHz). On the scene's captures the judge's tail
+tonality reads 0 on ball-hall (13.3 dB at 3.6 kHz before) and 6.9 dB on the hall shot (references 6.5).
+Test: `a_decay_tail_has_no_pitch` (the old FDN 11.5 dB, now 7.5 / 4.2 dB at 1 / 3 s).
+
+**The decay.** The buildings' tails were the physical decay of bare concrete (the big building 7.1 s);
+real used halls of that size measure 5-7 s (a reactor hall 5.1, a sports hall 6.6, a garage 7.0), mid-size
+rooms 0.85-2.8 s. `DECAY_SCALE = 0.7` puts ours in the lower middle; `setReverbDecay(scale)` (0.3-1.5,
+the studio's Decay slider) changes it live. Judge's decay / audible time: big-building shot 7.1 / 4.95 ->
+5.3 / 3.65 s, hall shot 3.5 / 3.25 -> 2.8 / 2.3 s.
+
+**The output's highs.** The mixer itself is flat (white noise in, its 16 buses' sum out, 125 Hz to
+16 kHz, toward a speaker, between speakers, gliding delay). Chrome's HRTF set is tilted: averaged over 72 directions +4.6 dB at 125-250 Hz,
+-2.8 at 8 kHz, -4.5 at 16 kHz re 1 kHz. The decode now has a diffuse-field equalisation (`DF_EQ`: low
+shelf 700 Hz -5 dB, high shelf 6 kHz +3 dB): the average is within +-0.8 dB from 125 Hz to 16 kHz.
+
+**Contacts.**
+- A body whose collider rolls (ball, capsule, cylinder, cone, their rounded forms; a shell or bottle
+  resonator) plays its own roll slot while it rolls or tumbles, slip or not. A grenade played the
+  ground's slide-scrape for 1.1 s at energy 0 after landing; it now plays ball-roll. Other bodies roll
+  only without slip, else slide.
+- A slide or roll whose pressing power (`energy`) is under 0.15 is not started: a body skimming the
+  ground between two bounces is not a scrape.
+- The surface's impact slot follows the striker inside its preset (`hardness` is the striker's, `size`
+  its mass, with `energy`); successive bounces stay separate events.
+- A one-shot ends when its own output has stayed under -100 dBFS for 250 ms after its first 100 ms,
+  not at its preset's declared duration (solid-impact declared 2.5 s for a 70 ms bounce and held its
+  slot and its worker's time that long).
+- `prewarmImpacts`: a scene bakes its throwables' first bounces as an event would resolve them (striker
+  mass, normal speeds). The studio warms the ball, grenade, crate and bottle on concrete, wood and snow;
+  30 balls then played 90 of 90 impacts from baked cells.
+
+**Pebbles "saturating".** Not reproduced on an unloaded machine. pebbles and pebbles-close: the limiter
+never engaged, 0 underruns, 0 frozen blocks, peaks -42 to -47 dBFS, no clipping or clicks. The only
+mechanism seen that cuts the output is a mix worker starving under machine load (the worklet fades
+that worker's share out for a block and back in).
