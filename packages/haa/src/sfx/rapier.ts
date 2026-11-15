@@ -216,9 +216,14 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
         point = v3(sx / k, sy / k, sz / k);
       }
       if (!point) {
+        // No solver contact this step: the moving body is where it touches. The middle of the two
+        // colliders' origins is only right for two small bodies; a level mesh's origin is the world's
+        // (a bullet on the vault's far wall was heard 12 m away, outside, behind the stone).
+        const f1 = c1.parent()?.isFixed() ?? false;
+        const f2 = c2.parent()?.isFixed() ?? false;
         const a = c1.translation();
         const b = c2.translation();
-        point = scale(add(a, b), 0.5);
+        point = f1 && !f2 ? v3(b.x, b.y, b.z) : f2 && !f1 ? v3(a.x, a.y, a.z) : scale(add(a, b), 0.5);
       }
       if (!best || impulse > best.impulse) best = { point, normal, depth, impulse };
     });

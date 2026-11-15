@@ -50,7 +50,7 @@ class Collider implements RCollider {
 
 /** A world with one contact pair whose manifold the test sets. */
 function world(colliders: Collider[]) {
-  const contact = { normal: v(0, 1, 0), point: v(0, 0, 0), impulse: 0, depth: 0 };
+  const contact = { normal: v(0, 1, 0), point: v(0, 0, 0), impulse: 0, depth: 0, solver: 1 };
   const w: RWorld = {
     getCollider: (h) => colliders.find((c) => c.handle === h) ?? null,
     forEachActiveRigidBody: (f) => colliders.forEach((c) => !c.parent().isFixed() && f(c.parent())),
@@ -60,7 +60,7 @@ function world(colliders: Collider[]) {
         numContacts: () => 1,
         contactDist: () => -contact.depth,
         contactImpulse: () => contact.impulse,
-        numSolverContacts: () => 1,
+        numSolverContacts: () => contact.solver,
         solverContactPoint: () => contact.point,
       };
       f(m, false);
@@ -111,6 +111,24 @@ test('an impact takes its energy and size from the pre-step velocity and the str
   // Both sides ring, each with the other's hardness.
   const sounds = resolveInteraction(e.kind, e.striker, e.surface, e.inputs, e.surfaceInputs);
   assert.deepEqual(sounds.map((s) => [s.slot.preset, s.inputs.hardness]), [['glass-impact', 0.55], ['wood-impact', 0.95]]);
+});
+
+test('an impact with no solver contact is placed at the moving body, not halfway to the fixed mesh origin', () => {
+  // A level mesh (the vault) has its collider at the world origin: the middle of the two origins put a
+  // bullet's hit on the vault's far wall 12 m away, outside the stone.
+  const { sfx, bottle, contact, events } = setup(wood, 0.01);
+  bottle.pos = v(23.8, 1.1, 16);
+  bottle.lin = v(0, -120, 0);
+  sfx.beforeStep();
+  bottle.lin = v(0, 70, 0);
+  contact.impulse = 1.9;
+  contact.solver = 0;
+  sfx.contactStarted(10, 20);
+  sfx.afterStep(null, 1 / 60);
+  const e = events.find((x) => x.kind === 'impact')!;
+  assert.ok(e, 'the hit plays');
+  const d = Math.hypot(e.position.x - 23.8, e.position.y - 1.1, e.position.z - 16);
+  assert.ok(d < 0.1, `hit placed ${d.toFixed(2)} m from the bullet`);
 });
 
 test('a resting contact and a repeat within the cooldown stay silent', () => {
