@@ -80,8 +80,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0,
-          "outMax": 1.0
+          "outMin": 0.0,
+          "outMax": 1.627
         },
         "curve": [
           [
@@ -456,7 +456,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.7102
+          "gain": 1.0
         }
       }
     ],

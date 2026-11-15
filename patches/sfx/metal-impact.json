@@ -176,7 +176,7 @@
         }
       },
       {
-        "id": "level",
+        "id": "lv-size",
         "type": "math",
         "label": "Energy x size -> level",
         "x": 280,
@@ -190,11 +190,54 @@
         }
       },
       {
+        "id": "m-hard-lv",
+        "type": "map",
+        "label": "Striker hardness -> level",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.1,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.4,
+            0.3333
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "level",
+        "type": "math",
+        "label": "x striker hardness",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
         "id": "m-contact",
         "type": "map",
         "label": "Hardness -> contact time (s)",
         "x": 280,
-        "y": 380,
+        "y": 620,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -343,7 +386,7 @@
         "type": "map",
         "label": "Energy -> force (glide, contact)",
         "x": 280,
-        "y": 500,
+        "y": 740,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -417,7 +460,7 @@
         "type": "map",
         "label": "Thickness (m)",
         "x": 280,
-        "y": 620,
+        "y": 860,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -566,7 +609,7 @@
         "type": "map",
         "label": "1 / dim\u00b2 (1/m\u00b2)",
         "x": 280,
-        "y": 740,
+        "y": 980,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -715,7 +758,7 @@
         "type": "map",
         "label": "Shape -> bending constant",
         "x": 280,
-        "y": 860,
+        "y": 1100,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -760,7 +803,7 @@
         "type": "math",
         "label": "thickness / dim\u00b2",
         "x": 280,
-        "y": 980,
+        "y": 1220,
         "params": {
           "a": 0,
           "b": 0,
@@ -774,7 +817,7 @@
         "type": "math",
         "label": "x shape constant",
         "x": 280,
-        "y": 1100,
+        "y": 1340,
         "params": {
           "a": 0,
           "b": 0,
@@ -788,14 +831,14 @@
         "type": "map",
         "label": "Thickness -> ring time",
         "x": 280,
-        "y": 1220,
+        "y": 1460,
         "params": {
           "in": 0,
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0.49,
-          "outMax": -0.041
+          "outMin": 0.54,
+          "outMax": 0.009
         },
         "curve": [
           [
@@ -933,6 +976,57 @@
         ]
       },
       {
+        "id": "m-ring-size",
+        "type": "map",
+        "label": "Striker mass -> ring time factor",
+        "x": 280,
+        "y": 1580,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.15
+          ],
+          [
+            0.3,
+            0.25
+          ],
+          [
+            0.45,
+            0.35
+          ],
+          [
+            0.72,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "ring-size",
+        "type": "math",
+        "label": "Ring time x striker mass",
+        "x": 280,
+        "y": 1700,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
         "id": "thud",
         "type": "modal",
         "label": "Mount thud",
@@ -966,7 +1060,7 @@
         "type": "map",
         "label": "Size -> thud pitch (Hz)",
         "x": 280,
-        "y": 1340,
+        "y": 1820,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -1137,168 +1231,210 @@
         "amount": 1.0
       },
       {
-        "id": "e3-m-level-level-a",
+        "id": "e3-m-level-lv-size-a",
         "from": "m-level",
+        "to": "lv-size",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-size-lv-lv-size-b",
+        "from": "m-size-lv",
+        "to": "lv-size",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-hard-lv-in",
+        "from": "in-hardness",
+        "to": "m-hard-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-lv-size-level-a",
+        "from": "lv-size",
         "to": "level",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e4-m-size-lv-level-b",
-        "from": "m-size-lv",
+        "id": "e7-m-hard-lv-level-b",
+        "from": "m-hard-lv",
         "to": "level",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e5-in-hardness-m-contact-in",
+        "id": "e8-in-hardness-m-contact-in",
         "from": "in-hardness",
         "to": "m-contact",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e6-in-energy-m-force-in",
+        "id": "e9-in-energy-m-force-in",
         "from": "in-energy",
         "to": "m-force",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e7-m-contact-plate-contact",
+        "id": "e10-m-contact-plate-contact",
         "from": "m-contact",
         "to": "plate",
         "target": "contact",
         "amount": 1.0
       },
       {
-        "id": "e8-m-force-plate-force",
+        "id": "e11-m-force-plate-force",
         "from": "m-force",
         "to": "plate",
         "target": "force",
         "amount": 1.0
       },
       {
-        "id": "e9-level-plate-level",
+        "id": "e12-level-plate-level",
         "from": "level",
         "to": "plate",
         "target": "level",
         "amount": 1.0
       },
       {
-        "id": "e10-in-thickness-m-h-in",
+        "id": "e13-in-thickness-m-h-in",
         "from": "in-thickness",
         "to": "m-h",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e11-in-dim-m-il2-in",
+        "id": "e14-in-dim-m-il2-in",
         "from": "in-dim",
         "to": "m-il2",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e12-in-shape-m-k-in",
+        "id": "e15-in-shape-m-k-in",
         "from": "in-shape",
         "to": "m-k",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e13-m-h-h-l2-a",
+        "id": "e16-m-h-h-l2-a",
         "from": "m-h",
         "to": "h-l2",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e14-m-il2-h-l2-b",
+        "id": "e17-m-il2-h-l2-b",
         "from": "m-il2",
         "to": "h-l2",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e15-h-l2-body-f-a",
+        "id": "e18-h-l2-body-f-a",
         "from": "h-l2",
         "to": "body-f",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e16-m-k-body-f-b",
+        "id": "e19-m-k-body-f-b",
         "from": "m-k",
         "to": "body-f",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e17-in-thickness-m-ring1-in",
+        "id": "e20-in-thickness-m-ring1-in",
         "from": "in-thickness",
         "to": "m-ring1",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e18-body-f-plate-frequency",
+        "id": "e21-body-f-plate-frequency",
         "from": "body-f",
         "to": "plate",
         "target": "frequency",
         "amount": 1800
       },
       {
-        "id": "e19-m-ring1-plate-decay",
-        "from": "m-ring1",
+        "id": "e22-ring-size-plate-decay",
+        "from": "ring-size",
         "to": "plate",
         "target": "decay",
         "amount": 1.0
       },
       {
-        "id": "e20-in-shape-plate-shape",
+        "id": "e23-in-shape-plate-shape",
         "from": "in-shape",
         "to": "plate",
         "target": "shape",
         "amount": 1.0
       },
       {
-        "id": "e21-in-size-m-f2-in",
+        "id": "e24-in-size-m-ring-size-in",
+        "from": "in-size",
+        "to": "m-ring-size",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e25-m-ring1-ring-size-a",
+        "from": "m-ring1",
+        "to": "ring-size",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-m-ring-size-ring-size-b",
+        "from": "m-ring-size",
+        "to": "ring-size",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-in-size-m-f2-in",
         "from": "in-size",
         "to": "m-f2",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e22-m-f2-thud-frequency",
+        "id": "e28-m-f2-thud-frequency",
         "from": "m-f2",
         "to": "thud",
         "target": "frequency",
         "amount": 1.0
       },
       {
-        "id": "e23-m-force-thud-force",
+        "id": "e29-m-force-thud-force",
         "from": "m-force",
         "to": "thud",
         "target": "force",
         "amount": 1.0
       },
       {
-        "id": "e24-level-thud-level",
+        "id": "e30-level-thud-level",
         "from": "level",
         "to": "thud",
         "target": "level",
         "amount": 0.35
       },
       {
-        "id": "e25-plate-out-audio",
+        "id": "e31-plate-out-audio",
         "from": "plate",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e26-thud-out-audio",
+        "id": "e32-thud-out-audio",
         "from": "thud",
         "to": "out",
         "target": "audio",
