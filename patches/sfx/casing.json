@@ -188,8 +188,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 1555.0,
-          "outMax": 655.0
+          "outMin": 4665.0,
+          "outMax": 1965.0
         },
         "curve": [
           [
@@ -486,8 +486,8 @@
           "material": "metal",
           "frequency": 20,
           "modes": 8,
-          "decay": 0.1,
-          "damping": 1.0,
+          "decay": 0.25,
+          "damping": 0.5,
           "contact": 2e-05,
           "force": 1.0,
           "position": 0.3,
@@ -536,7 +536,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.105
+          "gain": 0.1134
         }
       }
     ],

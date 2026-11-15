@@ -689,13 +689,27 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 0.4
-        }
+          "outMax": 0.8
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.3,
+            0.25
+          ],
+          [
+            1,
+            1
+          ]
+        ]
       },
       {
         "id": "m-depth-bass",
         "type": "map",
-        "label": "Depth -> weight texture",
+        "label": "Depth -> weight going down (3 cm: light, deep snow: a heavy low crunch)",
         "x": -400,
         "y": 480,
         "params": {
@@ -704,8 +718,26 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 0.06
-        }
+          "outMax": 0.9
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.3,
+            0.04
+          ],
+          [
+            0.6,
+            0.3
+          ],
+          [
+            1,
+            1
+          ]
+        ]
       },
       {
         "id": "m-speed-scuff",

@@ -994,7 +994,60 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.6402
+          "gain": 0.492954
+        }
+      },
+      {
+        "id": "boom",
+        "type": "blast",
+        "label": "Low boom (the struck body's lowest resonance)",
+        "x": 540,
+        "y": 1100,
+        "params": {
+          "duration": 0.015,
+          "negative": 0.35,
+          "noise": 0,
+          "noiseDecay": 0.03,
+          "tone": 9000,
+          "delay": 0.006,
+          "level": 0.0
+        }
+      },
+      {
+        "id": "boom-bp",
+        "type": "filter",
+        "label": "Boom band-pass",
+        "x": 800,
+        "y": 1100,
+        "params": {
+          "cutoff": 135.0,
+          "resonance": 3.0,
+          "mode": "bandpass"
+        }
+      },
+      {
+        "id": "clink",
+        "type": "crackle",
+        "label": "Clink (steel on steel, a few ms)",
+        "x": 540,
+        "y": 1220,
+        "params": {
+          "kind": "crack",
+          "rate": 4000,
+          "rise": 0,
+          "fall": 0.004,
+          "frequency": 4500.0,
+          "spread": 1.5,
+          "sizePitch": 0.2,
+          "decay": 0.0015,
+          "contact": 0.0002,
+          "range": 10,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.006,
+          "level": 0
         }
       }
     ],
@@ -1191,6 +1244,41 @@
       {
         "id": "e28-scuff-out-audio",
         "from": "scuff",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "b-src-boom",
+        "from": "m-level",
+        "to": "boom",
+        "target": "level",
+        "amount": 1.5
+      },
+      {
+        "id": "b-boom-bp",
+        "from": "boom",
+        "to": "boom-bp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "b-bp-out",
+        "from": "boom-bp",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "b-src-clink",
+        "from": "m-level",
+        "to": "clink",
+        "target": "level",
+        "amount": 0.3
+      },
+      {
+        "id": "b-clink-out",
+        "from": "clink",
         "to": "out",
         "target": "audio",
         "amount": 1.0

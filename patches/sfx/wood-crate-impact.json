@@ -1015,8 +1015,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 95.0,
-          "outMax": 22.0
+          "outMin": 190.0,
+          "outMax": 44.0
         },
         "curve": [
           [
@@ -1389,7 +1389,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.3697
+          "gain": 0.44364
         }
       }
     ],
