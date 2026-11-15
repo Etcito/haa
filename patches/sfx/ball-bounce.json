@@ -501,7 +501,7 @@
           "frequency": 20,
           "modes": 24,
           "decay": 0.05,
-          "damping": 4.0,
+          "damping": 1.5,
           "contact": 2e-05,
           "force": 0,
           "position": 0.3,
@@ -1143,7 +1143,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.6078
+          "gain": 0.79
         }
       }
     ],
@@ -1286,7 +1286,7 @@
         "from": "shell-level",
         "to": "shell",
         "target": "level",
-        "amount": 0.5
+        "amount": 0.325
       },
       {
         "id": "e21-in-thickness-m-h-in",
@@ -1356,7 +1356,7 @@
         "from": "m-ring1",
         "to": "shell",
         "target": "decay",
-        "amount": 1.0
+        "amount": 0.55
       },
       {
         "id": "e31-in-shape-shell-shape",
@@ -1370,7 +1370,7 @@
         "from": "slap-level",
         "to": "slap",
         "target": "level",
-        "amount": 0.08
+        "amount": 0.04
       },
       {
         "id": "e33-puff-lp-out-audio",
