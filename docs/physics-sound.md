@@ -213,6 +213,9 @@ slots. An impact whose striker's slot has a `cluster` preset goes through `Swarm
   floor's hardness, a quiet gritty murmur with one bump per turn and nothing under 150 Hz (a soft floor: a crunch).
   The surface's `roll-rumble` (a barrel, a crate) and `slide-scrape` ring a body larger than 1 m like a 1 m
   piece, as `solid-impact` does: the 160 m ground played its whole-body modes as thunder under every roll and slide.
+- A surface's slots follow the other body: `solid-impact`'s ring time follows the striker's `size` (a 0.6 kg ball
+  0.35x, a 20 kg crate 1x) on top of its level following the striker's hardness and size; `slide-scrape`'s level
+  follows the slider's `size` (a 20 kg crate full, a 0.4 kg grenade or a bottle -12 dB, a pebble almost nothing).
 - `steel-clack` is a small dense filled steel body landing (a grenade): a dull clack and a tick, no ring (a hollow
   metal shell rang like a bell).
 - A breakable material breaks only against a hard enough side (`breaksOn`): the impact energy counts

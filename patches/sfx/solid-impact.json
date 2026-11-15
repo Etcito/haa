@@ -868,8 +868,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 7.75,
-          "outMax": 0.08
+          "outMin": 7.800000000000001,
+          "outMax": 0.13
         },
         "curve": [
           [
@@ -1005,6 +1005,57 @@
             1.0
           ]
         ]
+      },
+      {
+        "id": "m-ring-size",
+        "type": "map",
+        "label": "Striker mass -> ring time factor",
+        "x": 280,
+        "y": 1580,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.15
+          ],
+          [
+            0.3,
+            0.25
+          ],
+          [
+            0.45,
+            0.35
+          ],
+          [
+            0.72,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "ring-size",
+        "type": "math",
+        "label": "Ring time x striker mass",
+        "x": 280,
+        "y": 1700,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
       },
       {
         "id": "out",
@@ -1173,8 +1224,8 @@
         "amount": 1800
       },
       {
-        "id": "e23-m-ring1-body-decay",
-        "from": "m-ring1",
+        "id": "e23-ring-size-body-decay",
+        "from": "ring-size",
         "to": "body",
         "target": "decay",
         "amount": 1.0
@@ -1187,7 +1238,28 @@
         "amount": 1.0
       },
       {
-        "id": "e25-body-out-audio",
+        "id": "e25-in-size-m-ring-size-in",
+        "from": "in-size",
+        "to": "m-ring-size",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e26-m-ring1-ring-size-a",
+        "from": "m-ring1",
+        "to": "ring-size",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e27-m-ring-size-ring-size-b",
+        "from": "m-ring-size",
+        "to": "ring-size",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e28-body-out-audio",
         "from": "body",
         "to": "out",
         "target": "audio",

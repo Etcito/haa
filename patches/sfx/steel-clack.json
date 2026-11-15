@@ -350,9 +350,9 @@
         "params": {
           "shape": "block",
           "material": "metal",
-          "frequency": 1125.0,
+          "frequency": 3125.0,
           "modes": 12,
-          "decay": 0.08,
+          "decay": 0.2,
           "damping": 4.0,
           "contact": 2e-05,
           "force": 0,
@@ -404,7 +404,7 @@
         "params": {
           "shape": "block",
           "material": "wood",
-          "frequency": 180.0,
+          "frequency": 320.0,
           "modes": 6,
           "decay": 0.08,
           "damping": 4.0,
@@ -456,7 +456,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.27
+          "gain": 0.7102
         }
       }
     ],
@@ -522,14 +522,14 @@
         "from": "lv",
         "to": "body",
         "target": "level",
-        "amount": 0.2
+        "amount": 0.6
       },
       {
         "id": "e10-lv-tick-level",
         "from": "lv",
         "to": "tick",
         "target": "level",
-        "amount": 0.4
+        "amount": 0.8
       },
       {
         "id": "e11-m-force-thud-force",
@@ -543,14 +543,14 @@
         "from": "m-level",
         "to": "thud",
         "target": "level",
-        "amount": 1.2
+        "amount": 0.4
       },
       {
         "id": "e13-lv-knock-level",
         "from": "lv",
         "to": "knock",
         "target": "level",
-        "amount": 1.0
+        "amount": 0.3
       },
       {
         "id": "e14-body-out-audio",

@@ -168,11 +168,66 @@
         ]
       },
       {
+        "id": "m-size-lv",
+        "type": "map",
+        "label": "Slider mass -> level",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.2,
+            0.04
+          ],
+          [
+            0.43,
+            0.25
+          ],
+          [
+            0.6,
+            0.6
+          ],
+          [
+            0.72,
+            1
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "lv-size",
+        "type": "math",
+        "label": "Speed x mass -> level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
         "id": "m-rate",
         "type": "map",
         "label": "Speed -> stick-slip events per second",
         "x": 280,
-        "y": 140,
+        "y": 380,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -205,7 +260,7 @@
         "type": "map",
         "label": "Size -> grit pitch (Hz): a heavier slider grinds lower",
         "x": 280,
-        "y": 260,
+        "y": 500,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -354,7 +409,7 @@
         "type": "map",
         "label": "Hardness -> grit contact (s)",
         "x": 280,
-        "y": 380,
+        "y": 620,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -587,7 +642,7 @@
         "type": "map",
         "label": "Thickness (m)",
         "x": 280,
-        "y": 500,
+        "y": 740,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -736,7 +791,7 @@
         "type": "map",
         "label": "1 / dim\u00b2 (1/m\u00b2, capped at 1.0 m)",
         "x": 280,
-        "y": 620,
+        "y": 860,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -885,7 +940,7 @@
         "type": "map",
         "label": "Shape -> bending constant",
         "x": 280,
-        "y": 740,
+        "y": 980,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -930,7 +985,7 @@
         "type": "math",
         "label": "thickness / dim\u00b2",
         "x": 280,
-        "y": 860,
+        "y": 1100,
         "params": {
           "a": 0,
           "b": 0,
@@ -944,7 +999,7 @@
         "type": "math",
         "label": "x shape constant",
         "x": 280,
-        "y": 980,
+        "y": 1220,
         "params": {
           "a": 0,
           "b": 0,
@@ -958,7 +1013,7 @@
         "type": "map",
         "label": "Thickness -> ring time",
         "x": 280,
-        "y": 1100,
+        "y": 1340,
         "params": {
           "in": 0,
           "inMin": 0,
@@ -1132,168 +1187,189 @@
         "amount": 1.0
       },
       {
-        "id": "e2-in-speed-m-rate-in",
+        "id": "e2-in-size-m-size-lv-in",
+        "from": "in-size",
+        "to": "m-size-lv",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-lv-size-a",
+        "from": "m-level",
+        "to": "lv-size",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-size-lv-lv-size-b",
+        "from": "m-size-lv",
+        "to": "lv-size",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-speed-m-rate-in",
         "from": "in-speed",
         "to": "m-rate",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e3-in-size-m-f-in",
+        "id": "e6-in-size-m-f-in",
         "from": "in-size",
         "to": "m-f",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e4-in-hardness-m-contact-in",
+        "id": "e7-in-hardness-m-contact-in",
         "from": "in-hardness",
         "to": "m-contact",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e5-m-rate-slip-rate",
+        "id": "e8-m-rate-slip-rate",
         "from": "m-rate",
         "to": "slip",
         "target": "rate",
         "amount": 1.0
       },
       {
-        "id": "e6-m-f-slip-frequency",
+        "id": "e9-m-f-slip-frequency",
         "from": "m-f",
         "to": "slip",
         "target": "frequency",
         "amount": 1.0
       },
       {
-        "id": "e7-m-contact-slip-contact",
+        "id": "e10-m-contact-slip-contact",
         "from": "m-contact",
         "to": "slip",
         "target": "contact",
         "amount": 1.0
       },
       {
-        "id": "e8-in-material-body-material",
+        "id": "e11-in-material-body-material",
         "from": "in-material",
         "to": "body",
         "target": "material",
         "amount": 1.0
       },
       {
-        "id": "e9-in-thickness-m-h-in",
+        "id": "e12-in-thickness-m-h-in",
         "from": "in-thickness",
         "to": "m-h",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e10-in-dim-m-il2-in",
+        "id": "e13-in-dim-m-il2-in",
         "from": "in-dim",
         "to": "m-il2",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e11-in-shape-m-k-in",
+        "id": "e14-in-shape-m-k-in",
         "from": "in-shape",
         "to": "m-k",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e12-m-h-h-l2-a",
+        "id": "e15-m-h-h-l2-a",
         "from": "m-h",
         "to": "h-l2",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e13-m-il2-h-l2-b",
+        "id": "e16-m-il2-h-l2-b",
         "from": "m-il2",
         "to": "h-l2",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e14-h-l2-body-f-a",
+        "id": "e17-h-l2-body-f-a",
         "from": "h-l2",
         "to": "body-f",
         "target": "a",
         "amount": 1.0
       },
       {
-        "id": "e15-m-k-body-f-b",
+        "id": "e18-m-k-body-f-b",
         "from": "m-k",
         "to": "body-f",
         "target": "b",
         "amount": 1.0
       },
       {
-        "id": "e16-in-thickness-m-ring1-in",
+        "id": "e19-in-thickness-m-ring1-in",
         "from": "in-thickness",
         "to": "m-ring1",
         "target": "in",
         "amount": 1.0
       },
       {
-        "id": "e17-body-f-body-frequency",
+        "id": "e20-body-f-body-frequency",
         "from": "body-f",
         "to": "body",
         "target": "frequency",
         "amount": 1800
       },
       {
-        "id": "e18-m-ring1-body-decay",
+        "id": "e21-m-ring1-body-decay",
         "from": "m-ring1",
         "to": "body",
         "target": "decay",
         "amount": 1.0
       },
       {
-        "id": "e19-in-shape-body-shape",
+        "id": "e22-in-shape-body-shape",
         "from": "in-shape",
         "to": "body",
         "target": "shape",
         "amount": 1.0
       },
       {
-        "id": "e20-slip-body-audio",
+        "id": "e23-slip-body-audio",
         "from": "slip",
         "to": "body",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e21-m-level-body-level",
-        "from": "m-level",
+        "id": "e24-lv-size-body-level",
+        "from": "lv-size",
         "to": "body",
         "target": "level",
         "amount": 2.0
       },
       {
-        "id": "e22-slip-direct-audio",
+        "id": "e25-slip-direct-audio",
         "from": "slip",
         "to": "direct",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e23-m-level-direct-gain",
-        "from": "m-level",
+        "id": "e26-lv-size-direct-gain",
+        "from": "lv-size",
         "to": "direct",
         "target": "gain",
         "amount": 0.1
       },
       {
-        "id": "e24-body-out-audio",
+        "id": "e27-body-out-audio",
         "from": "body",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e25-direct-out-audio",
+        "id": "e28-direct-out-audio",
         "from": "direct",
         "to": "out",
         "target": "audio",
