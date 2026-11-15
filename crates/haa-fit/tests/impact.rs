@@ -64,6 +64,23 @@ fn scene_preset_level_follows_energy_linearly() {
     assert!((db + 12.04).abs() < 0.5, "energy 0.25 is 12 dB under energy 1: {db}");
 }
 
+#[test]
+fn scene_preset_reaches_a_level_above_the_output_gain_limit() {
+    let (text, _) = template(&knock(), RATE, "knock");
+    let render = |level: f64| {
+        let preset = sfx_preset(&text, "knock-sfx", "Knock", level).expect("wraps");
+        let o = haa_core::render::RenderOptions {
+            sample_rate: RATE as u32,
+            inputs: vec![("energy".to_string(), haa_core::render::InputValue::Number(0.5))],
+            ..Default::default()
+        };
+        loudest(&haa_core::render::render(&preset, &o).expect("renders").left)
+    };
+    // The template's output gain is 0.5: level 3 asks for 1.5, over the output's limit of 1.
+    let db = 10.0 * (render(3.0) / render(1.0)).log10();
+    assert!((db - 9.54).abs() < 0.5, "level 3 is 9.5 dB over level 1: {db}");
+}
+
 /// A drag stroke: noise swelling in and out over 1 s, through a 300 Hz resonance.
 fn stroke() -> Vec<f32> {
     let n = RATE as usize;

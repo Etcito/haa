@@ -376,10 +376,19 @@ pub fn sfx_preset(patch_json: &str, id: &str, title: &str, level: f64) -> Result
     let nodes = graph.get_mut("nodes").and_then(Value::as_array_mut).ok_or("no nodes")?;
     let out = nodes.iter_mut().find(|n| n["type"] == "output").ok_or("no output node")?;
     let out_id = out["id"].clone();
-    let gain = out["params"]["gain"].as_f64().unwrap_or(0.75) * level;
+    let mut gain = out["params"]["gain"].as_f64().unwrap_or(0.75) * level;
     out["params"]["gain"] = Value::from(0);
     nodes.push(json!({"id": "in-energy", "type": "input", "label": "Energy", "x": 20, "y": 20, "params": {"name": "energy"}}));
     let conns = graph.get_mut("connections").and_then(Value::as_array_mut).ok_or("no connections")?;
+    // The output gain stops at 1: a level above it goes into the audio wires that feed the output (a
+    // wire's amount is a plain factor), or the preset would stay under the level it was asked for.
+    if gain > 1.0 {
+        for c in conns.iter_mut().filter(|c| c["to"] == out_id && c["target"] == "audio") {
+            let amount = c["amount"].as_f64().unwrap_or(1.0);
+            c["amount"] = Value::from(round_sig(amount * gain));
+        }
+        gain = 1.0;
+    }
     conns.push(json!({"id": "c-energy-level", "from": "in-energy", "to": out_id, "target": "gain", "amount": round_sig(gain)}));
     serde_json::to_string_pretty(&p).map(|s| s + "\n").map_err(|e| e.to_string())
 }

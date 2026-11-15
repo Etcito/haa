@@ -362,10 +362,33 @@ fn fit(args: &[String]) -> i32 {
             (None, _) => 1.0,
         };
         let wrap = if stroke { haa_fit::impact::slide_preset } else { haa_fit::impact::sfx_preset };
-        match wrap(text, id, title.as_deref().unwrap_or(id), level) {
-            Ok(p) => best = Some(p),
-            Err(e) => return fail(e),
+        // The fit was judged at the target's level (peakDb); at --loudness the voice limiter can engage
+        // (a sub-millisecond strike spike ducks the attack for its 60 ms release), and a limited preset
+        // is no longer linear in energy. Lower the preset 1 dB at a time until energy 1 is unlimited;
+        // the scene's slot gain (after the voice) gives the cut back.
+        let mut renderer = haa_fit::eval::Renderer::new(rate as f64, pcm.len());
+        let mut cut_db = 0.0;
+        let preset = loop {
+            let p = match wrap(text, id, title.as_deref().unwrap_or(id), level * 10f64.powf(-cut_db / 20.0)) {
+                Ok(p) => p,
+                Err(e) => return fail(e),
+            };
+            let limited = match haa_core::load_patch(&p) {
+                Ok((patch, _)) => match renderer.render(&patch) {
+                    Some(_) => renderer.limited_db(),
+                    None => 0.0,
+                },
+                Err(e) => return fail(format!("{e:?}")),
+            };
+            if limited <= 0.1 || cut_db >= 40.0 {
+                break p;
+            }
+            cut_db += 1.0;
+        };
+        if cut_db > 0.0 {
+            println!("[haa] sfx: preset {cut_db} dB under --loudness (the voice limiter engaged above): give its scene slot +{cut_db} dB");
         }
+        best = Some(preset);
     }
     if let (Some(path), Some(text)) = (&patch_out, &best) {
         if let Err(e) = std::fs::write(path, text) {
