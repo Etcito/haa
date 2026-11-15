@@ -198,6 +198,24 @@ function logUnit(v: number, [lo, hi]: readonly [number, number]): number {
 
 export const energyFromJoules = (joules: number): number => logUnit(joules, ENERGY_JOULES);
 export const sizeFromMass = (kg: number): number => logUnit(kg, SIZE_KG);
+/** The mass `size` stands for (kg): the inverse of `sizeFromMass`. */
+export const massFromSize = (size: number): number => 10 ** (Math.log10(SIZE_KG[0]) + clamp01(size) * (Math.log10(SIZE_KG[1]) - Math.log10(SIZE_KG[0])));
+
+/** Striker mass (kg) from which the surface of an impact rings at its full level (a person, a barrel). */
+export const GROUND_FULL_KG = 100;
+/** Under this level (-40 dB) the surface's voice of an impact is left out. */
+export const GROUND_AUDIBLE = 0.01;
+
+/**
+ * Level of the surface's voice in an impact of a striker of `size`: a floor rings from the share of the blow
+ * a body of that mass can drive into it. The striker's own voice carries its energy; the floor's amplitude
+ * follows the square root of the mass ratio, sqrt(kg / GROUND_FULL_KG), capped at 1: a 20 kg crate -7 dB,
+ * a 0.4 kg grenade -24 dB, a 10 g shard -40 dB (left out). A light object no longer plays the full ground
+ * slam (solid-impact) on every bounce.
+ */
+export function groundCoupling(size: number): number {
+  return Math.min(1, Math.sqrt(massFromSize(size) / GROUND_FULL_KG));
+}
 export const speedFromVelocity = (mps: number): number => clamp01(mps / SPEED_FULL);
 export const depthFromMetres = (m: number): number => clamp01(m / DEPTH_FULL);
 export const areaFromSquareMetres = (m2: number): number => logUnit(m2, AREA_M2);
@@ -248,7 +266,8 @@ export interface ResolvedSound {
 
 /**
  * The presets an interaction plays. `striker` is the moving object, `surface` the one it hits.
- * - impact: both sides ring; each receives the other's hardness; one preset once (−3 dB each when two play).
+ * - impact: both sides ring; each receives the other's hardness; one preset once (−3 dB each when two play);
+ *   the surface's voice is scaled by the striker's mass (groundCoupling) and left out under GROUND_AUDIBLE.
  * - slide: the surface's slot (scraping on gravel), else the striker's.
  * - roll: the striker's slot (a rolling barrel), else the surface's.
  * - step: the ground's slot only.
@@ -274,8 +293,12 @@ export function resolveInteraction(
   switch (kind) {
     case 'impact': {
       const a = pick(striker, surface);
-      const b = pick(surface, striker);
+      let b = pick(surface, striker);
       if (a && b && a.slot.preset === b.slot.preset) return [a];
+      if (b && b.material !== striker) {
+        b.gain *= groundCoupling(base.size);
+        if (b.gain < GROUND_AUDIBLE) b = null;
+      }
       const both = [a, b].filter((x): x is ResolvedSound => x !== null);
       if (both.length === 2) for (const s of both) s.gain *= Math.SQRT1_2;
       return both;

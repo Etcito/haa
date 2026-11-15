@@ -3,6 +3,7 @@
 
 use haa_fit::eval::Renderer;
 use haa_fit::impact::{STROKE_SPEED, analyze, sfx_preset, slide_preset, stroke_template, template};
+use haa_fit::params::enumerate;
 
 const RATE: f64 = 24_000.0;
 
@@ -140,4 +141,15 @@ fn renderer_reports_the_voice_limiter() {
     let (quiet, _) = haa_core::load_patch(&noise(0.05)).unwrap();
     r.render(&quiet).unwrap();
     assert_eq!(r.limited_db(), 0.0);
+}
+
+#[test]
+fn the_measured_modes_keep_their_pitch_the_body_size_is_no_fit_dimension() {
+    // Free, `size` divided every measured mode by up to 2: the round-15 grenade fit landed an octave low.
+    for text in [template(&knock(), RATE, "knock").0, stroke_template(&stroke(), RATE, "stroke").0] {
+        let (patch, _) = haa_core::patch::load_patch(&text).expect("template parses");
+        let dims = enumerate(&patch, &[]);
+        assert!(dims.iter().any(|d| d.node == "body" && d.key == "decay"), "the body's decay is fitted");
+        assert!(!dims.iter().any(|d| d.node == "body" && d.key == "size"), "the body's size stays 1");
+    }
 }

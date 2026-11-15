@@ -139,10 +139,12 @@ pub fn enumerate(patch: &Patch, prefer: &[String]) -> Vec<FitParam> {
             continue;
         }
         let Some(def) = catalog::find(&node.kind) else { continue };
+        // A node's `fitFixed` keys hold a measured value (the impact template's body size): never a dimension.
+        let fixed: Vec<&str> = node.extra.get("fitFixed").and_then(Value::as_array).map_or(Vec::new(), |a| a.iter().filter_map(Value::as_str).collect());
         let mut list = Vec::new();
         for p in def.params {
             let ParamKind::Number { min, max, default, scale, .. } = p.kind else { continue };
-            if SKIP_KEYS.contains(&p.key) || !(max > min) || (scale == Scale::Lin && max - min > 1.0e4) {
+            if SKIP_KEYS.contains(&p.key) || fixed.contains(&p.key) || !(max > min) || (scale == Scale::Lin && max - min > 1.0e4) {
                 continue;
             }
             let value = node.params.get(p.key).and_then(Value::as_f64).unwrap_or(default);

@@ -259,7 +259,9 @@ fn patch_json(id: &str, a: &Analysis, l: &Levels, seconds: f64) -> String {
                     "duration": round_sig(contact), "negative": 0.2, "noise": 0.5,
                     "noiseDecay": round_sig((a.early_t60 * 0.25).clamp(0.002, 1.0)), "tone": round_sig(tone), "delay": 0,
                     "level": round_sig(l.strike.clamp(0.0, 4.0))}},
-                {"id": "body", "type": "body", "x": 300, "y": 40, "label": "Resonances (measured)", "params": {
+                // The modes are measured at their frequencies: `size` (which divides them all) stays 1. Free, the
+                // fit drove it to 2 on the round-15 grenade, an octave under its steel and a giant's thud.
+                {"id": "body", "type": "body", "x": 300, "y": 40, "label": "Resonances (measured)", "fitFixed": ["size"], "params": {
                     "modes": modes_text(&l.modes), "size": 1, "decay": 1, "low": 1, "wood": 0.3,
                     "woodFreq": round_sig(a.centroid.clamp(300.0, 10_000.0)), "woodWidth": 3,
                     "woodDecay": round_sig((a.early_t60 * 0.3).clamp(0.003, 0.5)), "direct": 0.1,
@@ -449,7 +451,7 @@ fn stroke_json(id: &str, modes: &[Mode], curve: &[(f64, f64)], centroid: f64, bo
                 {"id": "stroke", "type": "curve", "x": 40, "y": 40, "label": "Stroke level (measured)", "params": {"amount": 1}, "curve": points},
                 {"id": "friction", "type": "bandNoise", "x": 300, "y": 40, "label": "Friction", "params": {
                     "frequency": round_sig(centroid.clamp(20.0, 18_000.0)), "bandwidth": 4, "tilt": 0, "level": 0, "width": 0.3}},
-                {"id": "body", "type": "body", "x": 560, "y": 40, "label": "Resonances (measured)", "params": {
+                {"id": "body", "type": "body", "x": 560, "y": 40, "label": "Resonances (measured)", "fitFixed": ["size"], "params": {
                     "modes": modes_text(modes), "size": 1, "decay": 1, "low": 1, "wood": 0.3,
                     "woodFreq": round_sig(centroid.clamp(300.0, 10_000.0)), "woodWidth": 3, "woodDecay": 0.03,
                     "direct": 0.5, "gain": round_sig(body_gain.clamp(0.0, 4.0)), "woodModes": 48}},
