@@ -13,7 +13,7 @@ owner's failing captures: tools/judge/validate.py):
                     from the slope when the clip ends first.
 - audible_s         how long the output stays above -70 dBFS after the onset (what a listener at full volume hears).
 - clipped / clicks  samples held at the ceiling (|x| >= 0.97 for 3+ samples) and isolated discontinuities per s (reported;
-                    real recordings have many, so "sature" comes from the take's underruns and thinned blocks).
+                    real recordings have many; "sature" comes from the take itself: flags_for).
 flags_for() turns these into the owner's words, scoped to the scenario (APPLIES).
 """
 import argparse
@@ -55,9 +55,11 @@ def flags_for(name, r, meta=None, ref=None):
         f.append("bell")
     if ref and ref.get("decay_s") and r.get("decay_s", 0) > max(1.0, 1.5 * ref["decay_s"]):
         f.append("too long")
-    # The mix's own overload (blocks frozen while a worker was behind, voices silenced) or clipping; audio underruns
-    # describe the capturing machine and make a take invalid instead (run_judge.invalid_take).
-    if meta and (meta.get("thinned", 0) > 0 or meta.get("silenced", 0) > 0) or r.get("clipped", 0) > 0:
+    # In a valid take (a quiet machine: run_judge.invalid_take), every audio underrun is the owner's first "ça sature"
+    # (the audio thread overrunning), as are blocks frozen while a mix worker was behind, silenced voices, clipping and
+    # the master limiter engaging (more than 0.5 dB of gain reduction).
+    if meta and (meta.get("underruns", 0) > 0 or meta.get("thinned", 0) > 0 or meta.get("silenced", 0) > 0
+                 or (meta.get("limiterMinDb") or 0) <= -0.5) or r.get("clipped", 0) > 0:
         f.append("sature")
     return f
 

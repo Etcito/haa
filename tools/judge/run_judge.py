@@ -194,10 +194,14 @@ def main():
 def invalid_take(c):
     """A take captured on a busy machine (audio underruns, a slow scene load) says nothing about the sound: it is
     shown, never scored (the listening model does not hear it)."""
+    busy = max(8.0, 0.4 * (c.get("cpus") or 20))
+    load = max(c.get("loadAvg") or [0])
     if c.get("underruns", 0) >= 10:
-        return f"{c['underruns']} underruns"
-    if (c.get("sceneReadyS") or 0) > 120:
-        return f"scene load {c['sceneReadyS']} s"
+        return f"{c['underruns']} underruns" + (f", load {load}" if load else "")
+    if (c.get("sceneReadyS") or 0) > 120 and (c.get("sceneLoadAvg") or busy) >= busy:
+        return f"scene load {c['sceneReadyS']} s under load {c.get('sceneLoadAvg', '?')}"
+    if load > busy:
+        return f"machine busy during the take (load {load})"
     return None
 
 
