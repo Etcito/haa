@@ -1220,3 +1220,36 @@ underruns; the judge's click detector reads 0 on balls-30 in both cases, so it d
 The studio's overlay keeps the worst since start (underruns, frozen blocks and their worst second,
 silenced voices, late worker blocks, the limiter's deepest reduction, workers / threads) for a
 reproduction on another machine.
+
+### A pistol at hand, 30 balls, the voice cap from measured cost (mix6)
+
+Judged on captures of the scene's output and on Chrome's own HRTF set; not listened to.
+
+**The whole dry path against one HRTF at the true direction.** The mixer's voice (delay, air, the band-split
+panning onto 16 buses) rendered as wasm, each bus through its speaker's Chrome HRTF panner and the
+decode's diffuse-field EQ, against one HRTF panner at the source's direction with the same EQ:
+- Even on a speaker's direction the mixer lost highs: -2.2 dB at 10 kHz, -3.6 at 12.5, -5.7 at 16 for a
+  source 0.79 m away. The direct sound's fractional delay (110.56 samples) was read by linear
+  interpolation, a low-pass that depends on the fraction. Now 6-point Lagrange: -0.4 / -0.8 / -2.0 dB
+  (the taps and the send, low-passed anyway, use a 4-point cubic). Test: `a_fractional_delay_keeps_the_highs`
+  (-5.8 dB at 16 kHz before).
+- A pistol at hand (22 degrees right, 18 down): the high band's gains cubed still left -4.2 / -3.7 dB at
+  3.15 / 4 kHz beyond the HRTF, a source 30 degrees down -6.2 / -7.2. To the 6th power: -2.7 / -2.9 and
+  -2.7 / -3.7 (the 12th: -1.6 / -1.9, but the high band then jumps between speakers as a source moves).
+- What remains of the pistol's lost highs is Chrome's HRTF at that direction: relative to 1 kHz -9 dB at
+  6.3 kHz and -6 at 10 kHz (both ears, with the EQ). Scene capture against the dry render, octaves relative
+  to 1 kHz: 4 kHz -4.5..-4.9 -> -3.7..-4.1 dB, 8 kHz -5.4..-6.9 -> -6.4..-8.0 (the HRTF's notch), 16 kHz
+  -5.1..-6.2 -> -1.8..-3.0.
+
+**30 balls.** Per 0.1 s window the capture's share below 150 Hz during the bounces (30-45 %) is not above
+the dry voices' (40-55 %): the low end is ball-bounce's own (dry, 45 % below 150 Hz, strongest at 90 Hz).
+The take read bass-heavy against the voices because the cap kept 8 of 30 rolls (their mids gone) and the
+highs were lost in the decode. Share below 150 Hz 37.4 -> 34.2 %.
+
+**The voice cap from measured cost.** Each mix worker reports, every quarter second, the most a block asked
+(its reverb and every live voice's measured cost) over the time it has (75 % of the block). Past 1 on the
+busiest worker the cap goes at once to the voices playing divided by that ratio; under 0.7 it rises by 2.
+Counted a second at a time from frozen blocks, the same 30 balls on four threads froze 4 000 to 24 000
+voice-blocks from one run to the next; now 2 140, 3 209 and 3 445 in three runs (machine load 16-44 from
+other jobs), no voice silenced; on this machine 627 -> 32. A preset may now hold 12 slides/rolls at once
+(ball-roll costs 0.16 ms of a block now).

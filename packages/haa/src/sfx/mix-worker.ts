@@ -105,7 +105,7 @@ const NEW_VOICE_COST_MS = 0.15;
 const capped = (sample: number, estimate: number): number => Math.min(sample, estimate * 3 + 0.02);
 /** This second's diagnostics: the worst reverb cost, the lowest ring fill, the thinned blocks whose cause was a
  * low ring (budget cut) or the voices' costs, the largest voice cost estimate. */
-const diag = { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0 };
+const diag = { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0, demand: 0 };
 
 function paramsOf(slot: number): Float32Array | null {
   if (params) return params.subarray(slot * MIX_PARAMS, slot * MIX_PARAMS + MIX_PARAMS);
@@ -142,6 +142,10 @@ function renderBlock(w: number, fill: number): Float32Array {
   // worker then keeps pace by construction instead of falling behind and catching up.
   const blockMs = (Q / sr) * 1000;
   const budget = blockMs * 0.75 * Math.min(1, Math.max(0.25, fill / 0.5)) - mixMs;
+  // What this block asks of the worker against what it has (75 % of the block): the engine's voice cap.
+  let wanted = mixMs;
+  for (const v of live) wanted += v.costMs;
+  diag.demand = Math.max(diag.demand, wanted / (blockMs * 0.75));
   let spent = 0;
   const input = new Float32Array(mx.memory.buffer, mx.mix_input(), Q);
   for (let i = 0; i < live.length; i++) {
@@ -279,9 +283,9 @@ function fill(): void {
   if (ctl) Atomics.store(ctl, ctrlIndex(index, EPOCH), 1);
   busyMs += performance.now() - t0;
   const now = performance.now();
-  if (now - since >= 1000) {
+  if (now - since >= 250) {
     scope.postMessage({ t: 'load', busy: busyMs / (now - since), ...counters, diag: { ...diag } });
-    Object.assign(diag, { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0 });
+    Object.assign(diag, { mixMsMax: 0, fillMin: 1, thinLowRing: 0, thinCost: 0, costMax: 0, blocks: 0, demand: 0 });
     busyMs = 0;
     since = now;
   }

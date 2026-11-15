@@ -424,7 +424,7 @@ const AUDIBLE = 1e-3;
 /** A slide/roll voice (its measured RMS, not a proxy) estimated below −70 dB at the listener is not started. */
 const CONTACT_AUDIBLE = 10 ** (-70 / 20);
 /** Slides and rolls of one preset playing at once (the loudest), see `handle`. */
-const MAX_SAME_CONTACT = 8;
+const MAX_SAME_CONTACT = 12;
 /** A running slide/roll voice estimated 6 dB under `CONTACT_AUDIBLE` for this long (s) is stopped. */
 const QUIET_STOP_S = 0.25;
 /** Speeds (0..1) at which a looping `speed` preset's level is measured. */
@@ -877,26 +877,23 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
   let reverbBands: [number, number] = [1, 1];
 
   /**
-   * The voices the mix workers can carry. Off the audio thread nothing capped the voices but the slots:
-   * past what the workers render in a block they froze the quietest ones, mid-sound (30 balls on a
-   * 4-thread machine, one worker: 21 900 frozen voice-blocks in 9 s, 88 voices cut). Each second: more
-   * than 2 % of the voice-blocks frozen lowers the cap under the voices playing, so the next quiet ones
-   * are not started (or take a quieter one's slot); a second with none frozen raises it by 2.
+   * The voices the mix workers can carry, from what their blocks ask. Each worker reports, every quarter
+   * second, the most a block asked (its reverb and every live voice's measured cost) over the time it has.
+   * Past 1 on the busiest worker the cap goes at once to the voices playing divided by that ratio, so the
+   * next quiet ones are not started (or take a quieter one's slot); under 0.7 it rises by 2. Counted from
+   * frozen blocks a second at a time, the cap wandered: the same 30 balls on four threads froze 4 000 to
+   * 24 000 voice-blocks from one run to the next (40 to 50 voices let in).
    */
   let mixCap = Infinity;
-  let mixSeen = { at: -1, thinned: 0, rendered: 0 };
+  let mixSeen = { at: -1 };
   function mixGovernor(now: number): void {
     if (!mixPool) return;
-    if (mixSeen.at >= 0 && now - mixSeen.at < 1) return;
-    const st = mixPool.mixStats();
-    if (mixSeen.at >= 0) {
-      const thinned = st.thinned - mixSeen.thinned;
-      const rendered = st.rendered - mixSeen.rendered;
-      const playing = slots.filter((x) => x.busy && !x.stopping).length;
-      if (thinned > 0.02 * (thinned + rendered)) mixCap = Math.max(4, Math.min(mixCap, playing) - Math.max(2, Math.round(0.2 * playing)));
-      else if (thinned === 0 && Number.isFinite(mixCap)) mixCap = mixCap + 2 >= slots.length ? Infinity : mixCap + 2;
-    }
-    mixSeen = { at: now, thinned: st.thinned, rendered: st.rendered };
+    if (mixSeen.at >= 0 && now - mixSeen.at < 0.25) return;
+    mixSeen = { at: now };
+    const ratio = Math.max(0, ...(mixPool.mixStats().workers ?? []).map((d) => d?.demand ?? 0));
+    const playing = slots.filter((x) => x.busy && !x.stopping).length;
+    if (ratio > 1) mixCap = Math.max(4, Math.floor(Math.min(mixCap, playing) / ratio));
+    else if (ratio < 0.7 && Number.isFinite(mixCap)) mixCap = mixCap + 2 >= slots.length ? Infinity : mixCap + 2;
   }
   function mixBands(): void {
     let w = 0;

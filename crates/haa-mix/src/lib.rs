@@ -76,13 +76,16 @@ fn low_gains(g: &[f32; SPEAKERS]) -> [f32; SPEAKERS] {
     out
 }
 
-/// Unit-energy gains cubed, back to unit energy: the nearest speaker leads where the speakers' HRTFs
-/// interfere (above 2.5 kHz).
+/// Unit-energy gains to the 6th power, back to unit energy: the nearest speaker leads where the speakers'
+/// HRTFs interfere (above 2.5 kHz). Cubed, a pistol at hand (22 degrees right, 18 down) still lost 4.2 /
+/// 3.7 dB at 3.15 / 4 kHz beyond its own HRTF and a source 30 degrees down 6.2 / 7.2; now 2.7 / 2.9 and
+/// 2.7 / 3.7 (the 12th power: 1.6 / 1.9, but the high band then jumps between speakers as a source moves).
 fn high_gains(g: &[f32; SPEAKERS]) -> [f32; SPEAKERS] {
     let mut out = [0.0f32; SPEAKERS];
     let mut e = 0.0;
     for (o, &x) in out.iter_mut().zip(g.iter()) {
-        *o = x * x * x;
+        let x2 = x * x;
+        *o = x2 * x2 * x2;
         e += *o * *o;
     }
     if e > 1e-12 {
@@ -220,15 +223,42 @@ impl Voice {
     }
     /// The line read `d` samples behind the last write (linear interpolation).
     #[inline]
-    fn read(&self, d: f32) -> f32 {
+    /// The direct sound, `d` samples back, between samples by 6-point (5th-order) Lagrange interpolation.
+    /// Linear interpolation low-passed every voice by its fractional delay: a pistol 0.79 m away (110.56
+    /// samples) lost 2.2 dB at 10 kHz, 3.6 at 12.5 kHz and 5.7 at 16 kHz on top of its HRTF.
+    fn read_direct(&self, d: f32) -> f32 {
         let n = self.line.len();
-        let d = d.clamp(1.0, (n - 3) as f32);
+        let d = d.clamp(3.0, (n - 6) as f32);
         let pos = self.w as f32 - d + n as f32;
         let i = pos as usize;
         let f = pos - i as f32;
-        let a = self.line[i % n];
-        let b = self.line[(i + 1) % n];
-        a + (b - a) * f
+        // Nodes at -2..3 around i; weight k = prod over j != k of (f - j) / (k - j).
+        let mut y = 0.0;
+        for k in -2i32..=3 {
+            let mut w = 1.0f32;
+            for j in -2i32..=3 {
+                if j != k {
+                    w *= (f - j as f32) / (k - j) as f32;
+                }
+            }
+            y += w * self.line[(i + n).wrapping_add_signed(k as isize) % n];
+        }
+        y
+    }
+
+    /// The line `d` samples back, between samples by a 4-point cubic (Catmull-Rom): the taps and the
+    /// reverb send (low-passed below the cubic's own loss).
+    fn read(&self, d: f32) -> f32 {
+        let n = self.line.len();
+        let d = d.clamp(2.0, (n - 4) as f32);
+        let pos = self.w as f32 - d + n as f32;
+        let i = pos as usize;
+        let f = pos - i as f32;
+        let xm = self.line[(i + n - 1) % n];
+        let x0 = self.line[i % n];
+        let x1 = self.line[(i + 1) % n];
+        let x2 = self.line[(i + 2) % n];
+        x0 + 0.5 * f * (x1 - xm + f * (2.0 * xm - 5.0 * x0 + 4.0 * x1 - x2 + f * (3.0 * (x0 - x1) + x2 - xm)))
     }
 }
 
@@ -899,8 +929,8 @@ impl Mixer {
         //   below the horizon: the front speaker and two lower ones). Unit sum there.
         // - 600 Hz-2.5 kHz: unit energy.
         // - Above 2.5 kHz the shared speakers' HRTFs (their delays differ) interfere: -14 dB at 3.15 kHz
-        //   and -11 at 4 kHz for a source 30 degrees down, where a real ear has -3. The gains cubed then
-        //   unit energy: the nearest speaker leads (-4 dB there).
+        //   and -11 at 4 kHz for a source 30 degrees down, where a real ear has -3. The gains to the 6th
+        //   power then unit energy: the nearest speaker leads (`high_gains`).
         let (l0, l1) = (low_gains(&g0), low_gains(&g1));
         let (h0, h1) = (high_gains(&g0), high_gains(&g1));
         let mut t0 = [[0.0f32; SPEAKERS]; 4];
@@ -947,7 +977,7 @@ impl Mixer {
             vo.level += kl * (level_tgt - vo.level);
             let level = if vo.fade_out { vo.level * (1.0 - t) } else { vo.level };
             let delay = lerp(cur[p::DELAY], tgt[p::DELAY], t) * sr;
-            let y = vo.read(delay);
+            let y = vo.read_direct(delay);
             vo.air += ka * (y - vo.air);
             let y2 = vo.air + lerp(cur[p::AIR], tgt[p::AIR], t) * (y - vo.air);
             vo.b1 += k1 * (y2 - vo.b1);
@@ -1153,6 +1183,45 @@ mod tests {
             assert!((10.0 * e.log10()).abs() < 1.0, "rt {rt}: {e}");
             assert!((t20 / rt - 1.0).abs() < 0.08, "rt {rt}: T20 {t20}");
         }
+    }
+
+    /// The direct sound's fractional delay keeps the highs: a 16 kHz tone through a voice 0.79 m away
+    /// (110.56 samples, a pistol at hand) on a speaker's direction. Linear interpolation lost 5.7 dB there.
+    #[test]
+    fn a_fractional_delay_keeps_the_highs() {
+        let sr = 48000.0f32;
+        let mut m = Mixer::new(sr, 1);
+        {
+            let q = m.params_mut(0);
+            q[p::LEVEL] = 1.0;
+            q[p::DIR..p::DIR + 3].copy_from_slice(&[0.0, 0.0, -1.0]);
+            q[p::DELAY] = 110.56 / sr;
+            q[p::AIR] = 1.0;
+            q[p::LOW] = 1.0;
+            q[p::MID] = 1.0;
+            q[p::HIGH] = 1.0;
+            q[p::FOCUS] = 1.0;
+            q[p::SEND_HZ] = 16000.0;
+            q[p::TAP_HZ] = 16000.0;
+        }
+        m.reset_voice(0, false);
+        let (mut out, mut inp) = (0.0f64, 0.0f64);
+        for b in 0..40 {
+            for i in 0..BLOCK {
+                m.input[i] = (2.0 * PI * 16000.0 * (b * BLOCK + i) as f32 / sr).sin();
+            }
+            m.voice(0, BLOCK);
+            m.finish(BLOCK);
+            if b >= 10 {
+                for i in 0..BLOCK {
+                    out += (0..SPEAKERS).map(|c| f64::from(m.bus[c * BLOCK + i]).powi(2)).sum::<f64>();
+                    inp += f64::from(m.input[i] * m.input[i]);
+                }
+            }
+            m.clear();
+        }
+        let db = 10.0 * (out / inp).log10();
+        assert!(db > -2.5, "16 kHz through a 110.56-sample delay: {db:.1} dB");
     }
 
     /// A source shared by several virtual speakers keeps its low end. Below 600 Hz their HRTFs are nearly
