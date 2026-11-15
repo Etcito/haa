@@ -4,6 +4,16 @@
   "title": "Slide scrape",
   "inputs": [
     {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.88,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
       "name": "speed",
       "kind": "continuous",
       "unit": "",
@@ -91,6 +101,16 @@
     "mode": "timeline",
     "nodes": [
       {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
         "id": "in-speed",
         "type": "input",
         "label": "Speed",
@@ -133,7 +153,7 @@
       {
         "id": "m-level",
         "type": "map",
-        "label": "Speed -> level",
+        "label": "Energy (friction power) -> level (48 dB)",
         "x": 280,
         "y": 20,
         "params": {
@@ -147,23 +167,47 @@
         "curve": [
           [
             0,
-            0
+            0.00398
           ],
           [
-            0.05,
-            0.12
+            0.1,
+            0.00692
           ],
           [
             0.2,
-            0.4
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
           ],
           [
             0.5,
-            0.75
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
           ],
           [
             1,
-            1
+            1.0
           ]
         ]
       },
@@ -266,8 +310,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 3160.0,
-          "outMax": 260.0
+          "outMin": 948.0,
+          "outMax": 78.0
         },
         "curve": [
           [
@@ -789,7 +833,7 @@
       {
         "id": "m-il2",
         "type": "map",
-        "label": "1 / dim\u00b2 (1/m\u00b2, capped at 1.0 m)",
+        "label": "1 / dim² (1/m², capped at 1.0 m)",
         "x": 280,
         "y": 860,
         "params": {
@@ -983,7 +1027,7 @@
       {
         "id": "h-l2",
         "type": "math",
-        "label": "thickness / dim\u00b2",
+        "label": "thickness / dim²",
         "x": 280,
         "y": 1100,
         "params": {
@@ -1174,14 +1218,76 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.0278
+          "gain": 0.006762867999999999
+        }
+      },
+      {
+        "id": "m-judder",
+        "type": "map",
+        "label": "Speed -> stick-slip judders per second",
+        "x": 280,
+        "y": 620,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 40.0
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.02,
+            0.3
+          ],
+          [
+            0.1,
+            0.55
+          ],
+          [
+            0.3,
+            0.8
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "judder",
+        "type": "crackle",
+        "label": "Stick-slip judder (the groan of a heavy drag)",
+        "x": 540,
+        "y": 620,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 140.0,
+          "spread": 0.6,
+          "sizePitch": 0.5,
+          "decay": 0.012,
+          "contact": 0.002,
+          "range": 10,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0.2,
+          "clump": 0.0,
+          "delay": 0.0,
+          "level": 0
         }
       }
     ],
     "connections": [
       {
-        "id": "e1-in-speed-m-level-in",
-        "from": "in-speed",
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
         "to": "m-level",
         "target": "in",
         "amount": 1.0
@@ -1359,7 +1465,7 @@
         "from": "lv-size",
         "to": "direct",
         "target": "gain",
-        "amount": 0.1
+        "amount": 0.05
       },
       {
         "id": "e27-body-out-audio",
@@ -1372,6 +1478,41 @@
         "id": "e28-direct-out-audio",
         "from": "direct",
         "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "j-in-speed-m-judder-in",
+        "from": "in-speed",
+        "to": "m-judder",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "j-m-judder-judder-rate",
+        "from": "m-judder",
+        "to": "judder",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "j-lv-size-judder-level",
+        "from": "lv-size",
+        "to": "judder",
+        "target": "level",
+        "amount": 3.5
+      },
+      {
+        "id": "j-judder-body-audio",
+        "from": "judder",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "j-judder-direct-audio",
+        "from": "judder",
+        "to": "direct",
         "target": "audio",
         "amount": 1.0
       }
