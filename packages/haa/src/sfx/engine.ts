@@ -958,8 +958,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     // Direct sound: the source, or the edge it bends around, at the length of that path.
     const toS = sub(s.position, L);
     const d = Math.max(1e-3, length(toS));
-    const shift = s.nearest ? 0 : 0.8 * s.extent;
-    const dEff = Math.max(0.3, d - shift);
+    // A source with an extent (an explosion's 2 m) placed at its centre follows 1/r from that centre outside
+    // it, and keeps its surface's level inside it. (Brought 0.8 x extent closer, it was 10.4 dB louder at
+    // 4.9 m than at 12.6 m where 1/r gives 8.2.) A face source is placed at its nearest point already.
+    const dEff = Math.max(0.3, s.nearest ? d : Math.max(d, s.extent));
     const dirS = scale(toS, 1 / d);
     const hidden = Math.min(1, Math.max(0, 1 - ac.visible));
     let dir = dirS;
@@ -970,7 +972,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       if (lv > 1e-3) {
         dir = normalize(add(scale(dirS, 1 - hidden), scale(toV, hidden / lv)));
         if (length(dir) < 1e-3) dir = dirS;
-        const around = lv + length(sub(s.position, ac.via)) - shift;
+        const around = lv + length(sub(s.position, ac.via));
         len = dEff + (Math.max(dEff, around) - dEff) * hidden;
       }
     }

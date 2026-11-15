@@ -1253,3 +1253,31 @@ Counted a second at a time from frozen blocks, the same 30 balls on four threads
 voice-blocks from one run to the next; now 2 140, 3 209 and 3 445 in three runs (machine load 16-44 from
 other jobs), no voice silenced; on this machine 627 -> 32. A preset may now hold 12 slides/rolls at once
 (ball-roll costs 0.16 ms of a block now).
+
+### Wide sources as a diffuse field, the distance law of an extended source (mix7)
+
+Judged on captures of the scene's output and on Chrome's own HRTF set; not listened to.
+
+**Rain under a roof, "an engine idling".** A source larger than its distance (a roof face 0.8 m overhead:
+extent 1.7 m) is all wide: the same signal went into the 16 speakers at 1/4 each. Through their HRTFs
+it added in phase below a few hundred hertz (16 x 1/4: up to +12 dB) and into combs above. The whole
+dry path (wasm voice, 16 HRTF panners, the decode's EQ) against a diffuse field: 125-250 Hz +6.3 dB,
+4-5 kHz -11 dB re 1 kHz. Now the voices' wide parts are summed and decoded once per block: below about
+350 Hz at 1/16 per speaker (sum 1), above it through 16 different short allpass decorrelators (two
+Schroeder sections of 1-6 ms) at 1/4 (energy 1); the high band is a second-order high-pass and the low
+band its exact complement (with a one-pole split the decorrelated copies cancelled the low band, -6.5 dB
+at 100 Hz). Within -2.3..+2.2 dB of the diffuse field from 63 Hz to 16 kHz. Test:
+`a_wide_source_adds_as_a_diffuse_field` (the 100 Hz pressure over the speakers was +12 dB).
+The shelters' captures: the loudest band between 125 and 250 Hz sits 8.6 / 9.0 dB under the loudest
+band of the take (wood / tile roof), 4.4 / 4.1 before (the six faces rendered dry and summed: 12-13);
+4-10 kHz 3-5 dB higher. The reverb send (the roof face's estimate +0.1 dB re its direct sound at 2 m)
+holds 0.6 dB of the rest (the same take with the reverb at -60 dB); the floor reflection of a source
+0.8 m overhead (a 9 ms comb, first peak near 110 Hz) is the likely remainder.
+
+**The distance law of an extended source.** A source with an extent, placed at its centre, was brought
+0.8 x extent closer: an explosion (2 m) was 10.4 dB louder at 4.9 m than at 12.6 m where 1/r gives 8.2.
+Now it follows 1/r from its centre outside its extent and keeps its surface's level inside it; a face
+source (placed at its nearest point) is unchanged. The grenade's explosion at 12.6 m: peak -12.5 ->
+-13.6 dBFS (1.2 dB predicted); at 4.9 m it is 3.4 dB quieter than before. Every source's level follows
+1/r down to 1 m and stays there nearer (`NEAR_MIN_DISTANCE`): a pistol at hand (0.79 m, no extent) gets
+the level of 1 m, 2.0 dB under 1/r at 0.79 m.

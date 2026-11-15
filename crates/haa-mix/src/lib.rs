@@ -863,8 +863,46 @@ impl Fdn {
     }
 }
 
+/// One speaker's decorrelator for the wide part: two Schroeder allpasses (gain 0.5) of a few ms, other
+/// lengths on every speaker. Flat in level; the speakers' feeds no longer add in phase.
+struct Decor {
+    a: Vec<f32>,
+    b: Vec<f32>,
+    ia: usize,
+    ib: usize,
+}
+
+impl Decor {
+    fn new(da: usize, db: usize) -> Decor {
+        Decor { a: vec![0.0; da], b: vec![0.0; db], ia: 0, ib: 0 }
+    }
+
+    fn run(&mut self, x: f32) -> f32 {
+        let g = 0.5;
+        let da = self.a[self.ia];
+        let ya = -g * x + da;
+        self.a[self.ia] = x + g * ya;
+        self.ia = if self.ia + 1 == self.a.len() { 0 } else { self.ia + 1 };
+        let db = self.b[self.ib];
+        let yb = -g * ya + db;
+        self.b[self.ib] = ya + g * yb;
+        self.ib = if self.ib + 1 == self.b.len() { 0 } else { self.ib + 1 };
+        yb
+    }
+}
+
+const DECOR_A: [usize; SPEAKERS] = [131, 137, 149, 157, 167, 173, 181, 191, 199, 211, 223, 229, 239, 251, 263, 271];
+const DECOR_B: [usize; SPEAKERS] = [43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109];
+
 pub struct Mixer {
     sr: f32,
+    /// The voices' unpanned (wide) part of the block, decoded in `finish`.
+    wide: [f32; BLOCK],
+    wide_lo: f32,
+    wide_lo2: f32,
+    /// Samples the decorrelators still ring after the last wide input.
+    wide_alive: usize,
+    decor: Vec<Decor>,
     spk: [[f32; 3]; SPEAKERS],
     voices: Vec<Voice>,
     params: Vec<[f32; p::LEN]>,
@@ -883,6 +921,11 @@ impl Mixer {
             fdn: STEPS.iter().map(|&rt| Fdn::new(rt, sr)).collect(),
             input: [0.0; BLOCK],
             bus: vec![0.0; SPEAKERS * BLOCK],
+            wide: [0.0; BLOCK],
+            wide_lo: 0.0,
+            wide_lo2: 0.0,
+            wide_alive: 0,
+            decor: (0..SPEAKERS).map(|k| Decor::new(DECOR_A[k], DECOR_B[k])).collect(),
         }
     }
 
@@ -957,7 +1000,6 @@ impl Mixer {
         let (ka, k1, k2) = (coef(4000.0, sr), coef(600.0, sr), coef(2500.0, sr));
         let ks = coef(tgt[p::SEND_HZ].max(200.0), sr);
         let kt = coef(tgt[p::TAP_HZ].max(200.0), sr);
-        let omni = 1.0 / (SPEAKERS as f32).sqrt();
         let lerp = |a: f32, b: f32, t: f32| a + (b - a) * t;
         let fed_steps: Vec<(usize, f32, f32)> = (0..STEPS.len())
             .filter_map(|k| {
@@ -969,6 +1011,7 @@ impl Mixer {
             self.fdn[k].fed = true;
         }
         let bus = &mut self.bus;
+        let wide_in = &mut self.wide;
         for i in 0..n {
             let t = (i + 1) as f32 / n as f32;
             let len = vo.line.len();
@@ -985,9 +1028,9 @@ impl Mixer {
             let zl = lerp(cur[p::LOW], tgt[p::LOW], t) * vo.b1 * level;
             let zm = lerp(cur[p::MID], tgt[p::MID], t) * (vo.b2 - vo.b1) * level;
             let zh = lerp(cur[p::HIGH], tgt[p::HIGH], t) * (y2 - vo.b2) * level;
-            let wide = y2 * lerp(cur[p::WIDE], tgt[p::WIDE], t) * level * omni;
+            wide_in[i] += y2 * lerp(cur[p::WIDE], tgt[p::WIDE], t) * level;
             for s in 0..SPEAKERS {
-                bus[s * BLOCK + i] += zl * lerp(l0[s], l1[s], t) + zm * lerp(g0[s], g1[s], t) + zh * lerp(h0[s], h1[s], t) + wide;
+                bus[s * BLOCK + i] += zl * lerp(l0[s], l1[s], t) + zm * lerp(g0[s], g1[s], t) + zh * lerp(h0[s], h1[s], t);
             }
             for k in 0..4 {
                 let b = p::TAPS + k * 5;
@@ -1029,6 +1072,33 @@ impl Mixer {
     /// `BLOCK`). The host reads it, then calls `clear`.
     pub fn finish(&mut self, n: usize) {
         let sr = self.sr;
+        // The wide part: the same signal into all 16 speakers added in phase through their HRTFs, below
+        // 600 Hz as pressure (16 x 1/4: +12 dB) and above it into combs: a rain face overhead read 125-250 Hz
+        // +6 dB and 4-5 kHz -11 dB against a diffuse field ("an engine idling"). Below about 350 Hz now 1/16
+        // per speaker (sum 1), above it decorrelated per speaker at 1/4 (energy 1): within -2.3..+2.2 dB of a
+        // diffuse field from 63 Hz to 16 kHz (split at 700 Hz, 125-250 Hz still read +2.8 dB). The high band
+        // is a second-order high-pass and the low band its exact complement: a one-pole split left enough low
+        // end in the high band for the decorrelated copies to cancel the low band (-6.5 dB at 100 Hz).
+        let k_lo = coef(350.0, sr);
+        let (inv, omni) = (1.0 / SPEAKERS as f32, 1.0 / (SPEAKERS as f32).sqrt());
+        if self.wide[..n].iter().any(|&x| x != 0.0) {
+            self.wide_alive = (0.05 * sr) as usize;
+        }
+        if self.wide_alive > 0 {
+            for i in 0..n {
+                let x = self.wide[i];
+                self.wide_lo += k_lo * (x - self.wide_lo);
+                let h1 = x - self.wide_lo;
+                self.wide_lo2 += k_lo * (h1 - self.wide_lo2);
+                let high = h1 - self.wide_lo2;
+                let (lo, hi) = ((x - high) * inv, high * omni);
+                for (k, d) in self.decor.iter_mut().enumerate() {
+                    self.bus[k * BLOCK + i] += lo + d.run(hi);
+                }
+            }
+            self.wide_alive = self.wide_alive.saturating_sub(n);
+        }
+        self.wide = [0.0; BLOCK];
         for f in self.fdn.iter_mut() {
             if f.fed {
                 f.alive = ((f.rt * 1.5 + 0.2) * sr) as usize;
@@ -1183,6 +1253,50 @@ mod tests {
             assert!((10.0 * e.log10()).abs() < 1.0, "rt {rt}: {e}");
             assert!((t20 / rt - 1.0).abs() < 0.08, "rt {rt}: T20 {t20}");
         }
+    }
+
+    /// A wide (unpanned) source adds as a diffuse field: its 100 Hz pressure summed over the 16 speakers
+    /// stays at its level (the same signal at 1/4 into each added to +12 dB, the rain's "engine idling"),
+    /// and its 4 kHz energy stays at its level.
+    #[test]
+    fn a_wide_source_adds_as_a_diffuse_field() {
+        let sr = 48000.0f32;
+        let mut m = Mixer::new(sr, 1);
+        let mut run = |hz: f32| -> (f64, f64) {
+            {
+                let q = m.params_mut(0);
+                q[p::LEVEL] = 1.0;
+                q[p::DIR..p::DIR + 3].copy_from_slice(&[0.0, 1.0, 0.0]);
+                q[p::AIR] = 1.0;
+                q[p::WIDE] = 1.0;
+                q[p::FOCUS] = 1.0;
+                q[p::SEND_HZ] = 16000.0;
+                q[p::TAP_HZ] = 16000.0;
+            }
+            m.reset_voice(0, false);
+            let (mut sum, mut energy, mut inp) = (0.0f64, 0.0f64, 0.0f64);
+            for b in 0..80 {
+                for i in 0..BLOCK {
+                    m.input[i] = (2.0 * PI * hz * (b * BLOCK + i) as f32 / sr).sin();
+                }
+                m.voice(0, BLOCK);
+                m.finish(BLOCK);
+                if b >= 30 {
+                    for i in 0..BLOCK {
+                        let s: f32 = (0..SPEAKERS).map(|c| m.bus[c * BLOCK + i]).sum();
+                        sum += f64::from(s * s);
+                        energy += (0..SPEAKERS).map(|c| f64::from(m.bus[c * BLOCK + i]).powi(2)).sum::<f64>();
+                        inp += f64::from(m.input[i] * m.input[i]);
+                    }
+                }
+                m.clear();
+            }
+            (10.0 * (sum / inp).log10(), 10.0 * (energy / inp).log10())
+        };
+        let (lf_sum, _) = run(100.0);
+        let (_, hf_energy) = run(4000.0);
+        assert!(lf_sum.abs() < 1.5, "100 Hz pressure over the speakers: {lf_sum:.1} dB");
+        assert!(hf_energy.abs() < 1.0, "4 kHz energy over the speakers: {hf_energy:.1} dB");
     }
 
     /// The direct sound's fractional delay keeps the highs: a 16 kHz tone through a voice 0.79 m away
