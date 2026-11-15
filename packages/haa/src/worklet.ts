@@ -7,6 +7,8 @@ import './sfx/pool-worklet.ts';
 import './sfx/ring-worklet.ts';
 // ... and the mix thread's bus summer (`haa-sfx-mixbus`).
 import './sfx/mix-worklet.ts';
+// ... and the sfx master limiter (`haa-sfx-master`).
+import './sfx/master-worklet.ts';
 import type { HaaVoice } from './engine.ts';
 import { BLOCK, PLAYER_PROCESSOR, TRACE_HZ } from './types.ts';
 import type { PatchIssue, PlayerInMsg, PlayerOutMsg, PlayerProcessorOptions, VoiceInfo } from './types.ts';

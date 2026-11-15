@@ -489,7 +489,18 @@ impl Voice {
         mixed_r *= plan.master;
         let l = self.dc_l.process(mixed_l);
         let r = self.dc_r.process(mixed_r);
-        let peak = l.abs().max(r.abs());
+        let start = self.start_frames as f64 / (sr * START_FADE_S);
+        let fade = if mode == GraphMode::Live || (perf_live && plan.r#loop) {
+            clamp(start, 0.0, 1.0)
+        } else {
+            let from_start = self.frame as f64 / (sr * TIMELINE_START_FADE_S);
+            let to_end = (self.duration_frames as f64 - self.frame as f64) / (sr * END_FADE_S);
+            clamp(start.min(from_start).min(to_end), 0.0, 1.0)
+        };
+        // The limiter reads what will play, after the fades: a strike inside the start fade is mostly
+        // faded out, and limiting its unfaded peak ducked the attack after it for the whole release
+        // (round 15: the shotgun fit lost 4 dB at full energy to a spike nobody heard).
+        let peak = (l * fade).abs().max((r * fade).abs());
         let target = if peak > LIMIT_PEAK {
             LIMIT_PEAK / peak
         } else {
@@ -501,14 +512,6 @@ impl Voice {
             self.limiter + (target - self.limiter) * self.limiter_release
         };
         self.limiter_floor = self.limiter_floor.min(self.limiter);
-        let start = self.start_frames as f64 / (sr * START_FADE_S);
-        let fade = if mode == GraphMode::Live || (perf_live && plan.r#loop) {
-            clamp(start, 0.0, 1.0)
-        } else {
-            let from_start = self.frame as f64 / (sr * TIMELINE_START_FADE_S);
-            let to_end = (self.duration_frames as f64 - self.frame as f64) / (sr * END_FADE_S);
-            clamp(start.min(from_start).min(to_end), 0.0, 1.0)
-        };
         let gain = self.limiter * fade;
         let looping = plan.r#loop;
 

@@ -22,6 +22,8 @@ import type { SwarmOptions } from './swarm.ts';
 import type { OrchestratorStats, SfxOrchestrator } from './orchestrator.ts';
 import type { MixChain, MixPool, MixStats } from './mix-pool.ts';
 import { SwarmTracker } from './swarm.ts';
+import { MASTER_PROCESSOR } from './master-protocol.ts';
+import type { MasterProcessorOptions, MasterStatsMsg } from './master-protocol.ts';
 
 export interface SfxEngineOptions {
   /** An AudioContext, or an OfflineAudioContext for renders and benchmarks. */
@@ -186,8 +188,19 @@ export interface SfxStats {
   voiceCap: number;
   /** Mix thread: voice-blocks rendered, thinned (frozen while a worker was behind), voices silenced. */
   mix: MixStats | null;
-  /** The master limiter's gain reduction now (dB, <= 0): 0 while the mix stays under its -3 dBFS threshold. */
+  /** The master limiter's lowest gain over its last report (dB, <= 0): 0 while the mix stays under its ceiling. */
   limiterDb: number;
+  /**
+   * Overruns: the mix's samples whose true peak passed the master ceiling (-1 dBFS) before the limiter,
+   * since the engine started, the loudest of them (dBFS) and the voice that was loudest at the listener
+   * when the last one happened (its preset). The limiter catches them all; a count above 0 names a
+   * level to fix at its source.
+   */
+  overruns: number;
+  overrunPeakDb: number;
+  overrunVoice: string;
+  /** The master stage running: haa.wasm's limiter worklet, or the native compressor and ceiling (no worklet bundle). */
+  masterStage: 'wasm' | 'native';
   /** The reverb's low and high bands' decay relative to its mid (mix thread; 1, 1 before any voice). */
   reverbBands: [number, number];
 }
@@ -530,27 +543,72 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     }
     : new ReverbBank(ctx, haa, mix, BANK_RT60, orch ? (rt, a) => orch.ir(rt, a) : undefined);
   if (o.reverbAmount !== undefined) reverb.setAmount(o.reverbAmount);
-  const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -3;
-  limiter.knee.value = 0;
-  limiter.ratio.value = 20;
-  limiter.attack.value = 0.002;
-  limiter.release.value = 0.12;
   const master = ctx.createGain();
   // Headroom: the whole mix sits `MIX_HEADROOM_DB` under the voices' own calibration, so the loudest
   // events (an SMG burst in the hall, a grenade 5 m away) stay under the limiter.
   const headroom = ctx.createGain();
   headroom.gain.value = 10 ** (MIX_HEADROOM_DB / 20);
   mix.connect(headroom);
-  headroom.connect(limiter);
-  // A ceiling after the compressor: its 2 ms attack let an explosion's transient through at +0.7 dBFS
-  // (production build, 3.6 m away). Linear up to -3 dBFS, then a smooth knee that never reaches full
-  // scale; native (WaveShaperNode, 2x oversampled), a fixed cost.
-  const ceiling = ctx.createWaveShaper();
-  ceiling.curve = ceilingCurve();
-  ceiling.oversample = '2x';
-  limiter.connect(ceiling);
-  ceiling.connect(master);
+  // The master limiter (round 16): haa.wasm's look-ahead true-peak limiter in its own worklet (ceiling
+  // -1 dBFS, 3 ms look-ahead, peaks between samples measured 4x oversampled). The compressor and tanh
+  // ceiling it replaces let peaks under 2 ms and inter-sample peaks through, heard as saturation. A
+  // context without the worklet bundle (an offline test) keeps that old chain.
+  const overrun = { total: 0, peakDb: -Infinity, voice: '', gainDb: 0 };
+  let limiter: { reduction: number } = { get reduction() { return overrun.gainDb; } };
+  let masterNode: AudioWorkletNode | null = null;
+  if (typeof AudioWorkletNode !== 'undefined') {
+    try {
+      const options: MasterProcessorOptions = { module: o.module };
+      masterNode = new AudioWorkletNode(ctx, MASTER_PROCESSOR, {
+        numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit',
+        channelInterpretation: 'speakers', processorOptions: options,
+      });
+    } catch {
+      masterNode = null;
+    }
+  }
+  if (masterNode) {
+    headroom.connect(masterNode);
+    masterNode.connect(master);
+    masterNode.port.onmessage = (e: MessageEvent<MasterStatsMsg>) => {
+      const m = e.data;
+      if (m?.t !== 'stats') return;
+      overrun.gainDb = Math.min(0, m.gainDb);
+      if (m.over > 0) {
+        overrun.total += m.over;
+        overrun.peakDb = Math.max(overrun.peakDb, m.peakDb);
+        overrun.voice = loudestVoice();
+      }
+    };
+  } else {
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -3;
+    comp.knee.value = 0;
+    comp.ratio.value = 20;
+    comp.attack.value = 0.002;
+    comp.release.value = 0.12;
+    headroom.connect(comp);
+    const ceiling = ctx.createWaveShaper();
+    ceiling.curve = ceilingCurve();
+    ceiling.oversample = '2x';
+    comp.connect(ceiling);
+    ceiling.connect(master);
+    limiter = comp;
+  }
+  /** The busy voice loudest at the listener now (its preset): the likeliest source of an overrun. */
+  function loudestVoice(): string {
+    let best = '';
+    let top = 0;
+    for (const s of slots) {
+      if (!s.busy) continue;
+      const l = s.level / Math.max(NEAR_MIN_DISTANCE, dist(s.position));
+      if (l > top) {
+        top = l;
+        best = s.preset;
+      }
+    }
+    return best;
+  }
   master.connect(o.output ?? ctx.destination);
   const splitter = ctx.createChannelSplitter(2);
   master.connect(splitter);
@@ -1622,6 +1680,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         convolvers: reverb.running,
         mix: mixPool ? mixPool.mixStats() : null,
         limiterDb: limiter.reduction,
+        overruns: overrun.total,
+        overrunPeakDb: overrun.peakDb,
+        overrunVoice: overrun.voice,
+        masterStage: masterNode ? 'wasm' : 'native',
         reverbBands,
         allowedConvolvers: reverb.allowedMask.filter(Boolean).length,
         orchestrator: orch ? orch.stats() : null,
@@ -1647,6 +1709,7 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       pool.dispose();
       for (const s of slots) s.chain.detach();
       master.disconnect();
+      masterNode?.disconnect();
     },
   };
 }
