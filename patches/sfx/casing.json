@@ -188,8 +188,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 2167.5,
-          "outMax": 917.5
+          "outMin": 1555.0,
+          "outMax": 655.0
         },
         "curve": [
           [
@@ -486,7 +486,7 @@
           "material": "metal",
           "frequency": 20,
           "modes": 8,
-          "decay": 0.25,
+          "decay": 0.1,
           "damping": 1.0,
           "contact": 2e-05,
           "force": 1.0,
@@ -609,7 +609,7 @@
         "from": "lv",
         "to": "tick",
         "target": "level",
-        "amount": 0.1
+        "amount": 0.8
       },
       {
         "id": "e11-tube-out-audio",

@@ -1,0 +1,586 @@
+{
+  "haa": 1,
+  "id": "steel-clack",
+  "title": "Small dense steel object landing",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.7,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "size",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.45,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "hardness",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.9,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "duration": 0.8,
+    "loop": false,
+    "mode": "timeline",
+    "nodes": [
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      },
+      {
+        "id": "in-size",
+        "type": "input",
+        "label": "Size",
+        "x": 20,
+        "y": 140,
+        "params": {
+          "name": "size"
+        }
+      },
+      {
+        "id": "in-hardness",
+        "type": "input",
+        "label": "Hardness",
+        "x": 20,
+        "y": 260,
+        "params": {
+          "name": "hardness"
+        }
+      },
+      {
+        "id": "m-level",
+        "type": "map",
+        "label": "Energy -> level (48 dB)",
+        "x": 280,
+        "y": 20,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.00398
+          ],
+          [
+            0.1,
+            0.00692
+          ],
+          [
+            0.2,
+            0.01202
+          ],
+          [
+            0.3,
+            0.02089
+          ],
+          [
+            0.4,
+            0.03631
+          ],
+          [
+            0.5,
+            0.0631
+          ],
+          [
+            0.6,
+            0.1096
+          ],
+          [
+            0.7,
+            0.1905
+          ],
+          [
+            0.8,
+            0.331
+          ],
+          [
+            0.9,
+            0.5754
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-floor",
+        "type": "map",
+        "label": "Floor hardness -> clack level",
+        "x": 280,
+        "y": 140,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.05,
+          "outMax": 1.0
+        },
+        "curve": [
+          [
+            0,
+            0.0
+          ],
+          [
+            0.3,
+            0.4737
+          ],
+          [
+            0.7,
+            0.9474
+          ],
+          [
+            1,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "lv",
+        "type": "math",
+        "label": "Energy x floor -> clack level",
+        "x": 280,
+        "y": 260,
+        "params": {
+          "a": 0,
+          "b": 0,
+          "operation": "multiply",
+          "edge0": 0,
+          "edge1": 1
+        }
+      },
+      {
+        "id": "m-contact",
+        "type": "map",
+        "label": "Floor hardness -> contact time (s)",
+        "x": 280,
+        "y": 380,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.00498,
+          "outMax": 0.00023
+        },
+        "curve": [
+          [
+            0.0,
+            -0.0
+          ],
+          [
+            0.0312,
+            0.09407
+          ],
+          [
+            0.0625,
+            0.17974
+          ],
+          [
+            0.0938,
+            0.25775
+          ],
+          [
+            0.125,
+            0.32878
+          ],
+          [
+            0.1562,
+            0.39347
+          ],
+          [
+            0.1875,
+            0.45238
+          ],
+          [
+            0.2188,
+            0.50602
+          ],
+          [
+            0.25,
+            0.55487
+          ],
+          [
+            0.2812,
+            0.59936
+          ],
+          [
+            0.3125,
+            0.63987
+          ],
+          [
+            0.3438,
+            0.67675
+          ],
+          [
+            0.375,
+            0.71034
+          ],
+          [
+            0.4062,
+            0.74093
+          ],
+          [
+            0.4375,
+            0.76879
+          ],
+          [
+            0.4688,
+            0.79416
+          ],
+          [
+            0.5,
+            0.81726
+          ],
+          [
+            0.5312,
+            0.83829
+          ],
+          [
+            0.5625,
+            0.85745
+          ],
+          [
+            0.5938,
+            0.87489
+          ],
+          [
+            0.625,
+            0.89077
+          ],
+          [
+            0.6562,
+            0.90524
+          ],
+          [
+            0.6875,
+            0.91841
+          ],
+          [
+            0.7188,
+            0.93041
+          ],
+          [
+            0.75,
+            0.94133
+          ],
+          [
+            0.7812,
+            0.95128
+          ],
+          [
+            0.8125,
+            0.96033
+          ],
+          [
+            0.8438,
+            0.96858
+          ],
+          [
+            0.875,
+            0.97609
+          ],
+          [
+            0.9062,
+            0.98293
+          ],
+          [
+            0.9375,
+            0.98916
+          ],
+          [
+            0.9688,
+            0.99483
+          ],
+          [
+            1.0,
+            1.0
+          ]
+        ]
+      },
+      {
+        "id": "m-force",
+        "type": "map",
+        "label": "Energy -> force",
+        "x": 280,
+        "y": 500,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0.2,
+          "outMax": 1.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "modal",
+        "label": "Filled steel body (damped)",
+        "x": 540,
+        "y": 20,
+        "params": {
+          "shape": "block",
+          "material": "metal",
+          "frequency": 1125.0,
+          "modes": 12,
+          "decay": 0.08,
+          "damping": 4.0,
+          "contact": 2e-05,
+          "force": 0,
+          "position": 0.3,
+          "vary": 1.0,
+          "click": 0.9,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 1,
+          "bounceTime": 0.02,
+          "restitution": 0.2,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "tick",
+        "type": "crackle",
+        "label": "Contact tick",
+        "x": 540,
+        "y": 140,
+        "params": {
+          "kind": "crack",
+          "rate": 6000,
+          "rise": 0,
+          "fall": 0.003,
+          "frequency": 6000,
+          "spread": 1.5,
+          "sizePitch": 0.2,
+          "decay": 0.001,
+          "contact": 0.0002,
+          "range": 10,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "thud",
+        "type": "modal",
+        "label": "Weight on the floor (thud)",
+        "x": 540,
+        "y": 260,
+        "params": {
+          "shape": "block",
+          "material": "wood",
+          "frequency": 180.0,
+          "modes": 6,
+          "decay": 0.08,
+          "damping": 4.0,
+          "contact": 0.004,
+          "force": 0,
+          "position": 0.3,
+          "vary": 1.0,
+          "click": 0,
+          "rattle": 0,
+          "glide": 0,
+          "bounces": 0,
+          "bounceTime": 0.03,
+          "restitution": 0.5,
+          "input": 0,
+          "strike": true,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "knock",
+        "type": "crackle",
+        "label": "Clack (noise burst)",
+        "x": 540,
+        "y": 380,
+        "params": {
+          "kind": "crack",
+          "rate": 9000,
+          "rise": 0,
+          "fall": 0.008,
+          "frequency": 1500,
+          "spread": 2.0,
+          "sizePitch": 0.3,
+          "decay": 0.002,
+          "contact": 0.0002,
+          "range": 12,
+          "exponent": 1.0,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0,
+          "delay": 0.006,
+          "level": 0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Output",
+        "x": 1060,
+        "y": 20,
+        "params": {
+          "gain": 0.27
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "e1-in-energy-m-level-in",
+        "from": "in-energy",
+        "to": "m-level",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e2-in-hardness-m-floor-in",
+        "from": "in-hardness",
+        "to": "m-floor",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e3-m-level-lv-a",
+        "from": "m-level",
+        "to": "lv",
+        "target": "a",
+        "amount": 1.0
+      },
+      {
+        "id": "e4-m-floor-lv-b",
+        "from": "m-floor",
+        "to": "lv",
+        "target": "b",
+        "amount": 1.0
+      },
+      {
+        "id": "e5-in-hardness-m-contact-in",
+        "from": "in-hardness",
+        "to": "m-contact",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e6-in-energy-m-force-in",
+        "from": "in-energy",
+        "to": "m-force",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e7-m-contact-body-contact",
+        "from": "m-contact",
+        "to": "body",
+        "target": "contact",
+        "amount": 1.0
+      },
+      {
+        "id": "e8-m-force-body-force",
+        "from": "m-force",
+        "to": "body",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e9-lv-body-level",
+        "from": "lv",
+        "to": "body",
+        "target": "level",
+        "amount": 0.2
+      },
+      {
+        "id": "e10-lv-tick-level",
+        "from": "lv",
+        "to": "tick",
+        "target": "level",
+        "amount": 0.4
+      },
+      {
+        "id": "e11-m-force-thud-force",
+        "from": "m-force",
+        "to": "thud",
+        "target": "force",
+        "amount": 1.0
+      },
+      {
+        "id": "e12-m-level-thud-level",
+        "from": "m-level",
+        "to": "thud",
+        "target": "level",
+        "amount": 1.2
+      },
+      {
+        "id": "e13-lv-knock-level",
+        "from": "lv",
+        "to": "knock",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "e14-body-out-audio",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e15-tick-out-audio",
+        "from": "tick",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e16-thud-out-audio",
+        "from": "thud",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e17-knock-out-audio",
+        "from": "knock",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      }
+    ]
+  },
+  "master": 1
+}
