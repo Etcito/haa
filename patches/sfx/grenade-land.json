@@ -1,0 +1,273 @@
+{
+  "haa": 1,
+  "id": "grenade-land",
+  "title": "Grenade landing",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "mode": "timeline",
+    "duration": 0.655,
+    "loop": false,
+    "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.000220937,
+          "level": 3.27498,
+          "negative": 0.288296,
+          "noise": 0.783308,
+          "noiseDecay": 0.42827,
+          "tone": 1361.57
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 0.662888,
+          "direct": 0.1,
+          "gain": 4.0,
+          "low": 0.0320111,
+          "modes": "[[794.554,0.0084096,-30.1943],[1057.01,0.026214,-11.473],[1122.16,0.0517745,-34.5629],[1574.87,0.0843516,-67.3127],[2368.06,0.0650389,-39.8838],[2615.4,0.311674,-36.8431],[3015.98,4.0,-30.7227],[3909.25,0.600665,-14.2749],[4105.08,0.364698,-19.9585],[4401.48,1.87024,-14.8432],[4966.36,0.638913,-17.5129],[5732.8,0.818109,-9.21936],[5992.83,1.07354,-5.09969],[6596.46,0.964793,-8.63907],[6785.13,1.86892,-17.3754],[6839.5,0.429761,-2.79921],[7150.28,2.06282,10.7956],[7968.02,1.59917,0.5231],[9081.96,0.549599,1.99285],[9264.87,0.568407,-13.9528],[9326.63,0.49133,-3.55953],[9864.17,0.866669,-13.7674],[10353.8,0.764998,-18.5973],[10830.8,0.885159,-22.9633]]",
+          "size": 1.95439,
+          "wood": 0.228312,
+          "woodDecay": 0.311419,
+          "woodFreq": 1399.85,
+          "woodModes": 48,
+          "woodWidth": 3
+        }
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 0.996327
+        },
+        "curve": [
+          [
+            0.0,
+            0.183348
+          ],
+          [
+            0.132316,
+            0.430907
+          ],
+          [
+            0.151028,
+            0.166148
+          ],
+          [
+            0.189041,
+            0.238317
+          ],
+          [
+            0.24084,
+            0.283214
+          ],
+          [
+            0.304276,
+            0.309824
+          ],
+          [
+            0.378061,
+            0.22698
+          ],
+          [
+            0.4613,
+            0.0514718
+          ],
+          [
+            0.553324,
+            0.127779
+          ],
+          [
+            0.653603,
+            0.0698668
+          ],
+          [
+            0.761708,
+            0.0172352
+          ],
+          [
+            0.877277,
+            0.0263357
+          ],
+          [
+            1.0,
+            0.00530285
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 5.14117,
+          "frequency": 156.081,
+          "level": 0.0,
+          "tilt": -9.25009,
+          "width": 0.0
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-noise-1",
+        "type": "noise",
+        "label": "Noise",
+        "x": 80.0,
+        "y": 240.0,
+        "params": {
+          "color": "pink",
+          "level": 0.0469426,
+          "width": 0.143447
+        }
+      },
+      {
+        "id": "fit-gain-1",
+        "type": "gain",
+        "label": "Gain / mixer",
+        "x": 240.0,
+        "y": 240.0,
+        "params": {
+          "gain": 0.0
+        }
+      },
+      {
+        "id": "fit-curve-1",
+        "type": "curve",
+        "label": "Automation curve",
+        "x": 240.0,
+        "y": 360.0,
+        "params": {
+          "amount": 0.115996,
+          "clock": "patch",
+          "retrigger": 0.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.00931967
+          ],
+          [
+            0.00258811,
+            0.807758
+          ],
+          [
+            0.0327425,
+            0.335624
+          ],
+          [
+            0.0604979,
+            0.0430692
+          ],
+          [
+            1.0,
+            0.020897
+          ]
+        ]
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "tail-env",
+        "to": "tail",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c4",
+        "from": "tail",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c1",
+        "from": "fit-noise-1",
+        "to": "fit-gain-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c2",
+        "from": "fit-curve-1",
+        "to": "fit-gain-1",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c3",
+        "from": "fit-gain-1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.160174
+      }
+    ]
+  },
+  "master": 1
+}
