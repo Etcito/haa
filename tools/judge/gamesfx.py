@@ -1,8 +1,12 @@
 """Designed game sound effects as references: index the Sonniss GDC Game Audio bundles and fetch single files.
 
-    gamesfx.py index <urls.txt> <index.json>          read each zip part's directory over HTTP ranges (a few MB each)
-    gamesfx.py find <index.json> <regex> [--max 40]   list matching entries
-    gamesfx.py fetch <index.json> <out dir> <entry>... fetch only those files (one range request each)
+    gamesfx.py index [urls.txt] [index.json]          read each zip part's directory over HTTP ranges (a few MB each)
+    gamesfx.py find [index.json] <regex> [--max 40]   list matching entries
+    gamesfx.py fetch [index.json] [out dir] <entry>... fetch only those files (one range request each)
+
+Home: $JUDGE_REFS/gamesfx (default /root/work/haa/refs/gamesfx) holds index.json and the fetched files, which
+refs.json names as gamesfx/<file>. gamesfx_urls.txt (next to this script) lists every bundle part: the index is
+rebuilt from it, and only the files the references name are fetched.
 
 The bundles are royalty-free game audio from professional libraries (licence: media use; no redistribution as
 sound effects; no AI/ML training - judging against them is inference, not training). Local only: nothing fetched
@@ -17,6 +21,10 @@ import time
 os.nice(15)
 from remotezip import RemoteZip  # noqa: E402
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+HOME = os.path.join(os.environ.get("JUDGE_REFS", "/root/work/haa/refs"), "gamesfx")
+URLS = os.path.join(HERE, "gamesfx_urls.txt")
+INDEX = os.path.join(HOME, "index.json")
 HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)", "Referer": "https://sonniss.com/gameaudiogdc"}
 
 
@@ -69,11 +77,21 @@ def fetch(idx, out, entries):
 
 
 if __name__ == "__main__":
-    cmd = sys.argv[1]
+    cmd, args = sys.argv[1], sys.argv[2:]
     if cmd == "index":
-        index(sys.argv[2], sys.argv[3])
+        index(args[0] if args else URLS, args[1] if len(args) > 1 else INDEX)
     elif cmd == "find":
-        mx = int(sys.argv[sys.argv.index("--max") + 1]) if "--max" in sys.argv else 40
-        find(sys.argv[2], sys.argv[3], mx)
+        mx = 40
+        if "--max" in args:
+            k = args.index("--max")
+            mx, args = int(args[k + 1]), args[:k] + args[k + 2:]
+        find(args[0] if len(args) > 1 else INDEX, args[-1], mx)
     elif cmd == "fetch":
-        fetch(sys.argv[2], sys.argv[3], sys.argv[4:])
+        if args and args[0].endswith(".json"):
+            idx, args = args[0], args[1:]
+        else:
+            idx = INDEX
+        out = HOME
+        if args and os.path.isdir(args[0]):
+            out, args = args[0], args[1:]
+        fetch(idx, out, args)

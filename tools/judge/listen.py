@@ -9,7 +9,7 @@ jobs.json: [{"id": ..., "mode": "blind" | "rate" | "ab", "wav": path, "intent": 
 Each job runs `runs` times with sampling (temperature 0.7, seeds 0..runs-1); the answers are kept verbatim.
 
 The model loads once, 4-bit (bitsandbytes) on the GPU (about 6 GB), or bf16 on the CPU with --cpu.
-One listen job runs on the machine at a time ($JUDGE_LOCK_DIR/listen.lock, default /root/nmc/temp/judge; it waits),
+One listen job runs on the machine at a time ($JUDGE_LOCK_DIR/listen.lock, default /root/work/haa/run/judge; it waits),
 niced, with 4 CPU threads.
 Audio goes in as the model expects it: mono, 16 kHz, peak-normalised to -3 dBFS (the scene's levels are
 reported by the detectors, not by the model).
@@ -106,7 +106,7 @@ def main():
     a = ap.parse_args()
     jobs = json.load(open(a.jobs))
     # One listening job on the machine at a time (the GPU and the CPU are shared): wait for the lock.
-    lock_dir = os.environ.get("JUDGE_LOCK_DIR", "/root/nmc/temp/judge")
+    lock_dir = os.environ.get("JUDGE_LOCK_DIR", "/root/work/haa/run/judge")
     os.makedirs(lock_dir, exist_ok=True)
     lock = open(os.path.join(lock_dir, "listen.lock"), "w")
     print(f"[listen] waiting for {lock.name}", file=sys.stderr, flush=True)

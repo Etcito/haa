@@ -254,56 +254,56 @@
  },
  "picks": {
   "ball-outdoor": {
-   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "ref": "sfx-targets/fs/bigball/514640.wav",
    "from": "page 1 real 3"
   },
   "ball-metal": {
-   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "ref": "sfx-targets/fs/bigball/514640.wav",
    "from": "page 1 real 1"
   },
   "balls-30": {
-   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "ref": "sfx-targets/fs/bigball/514640.wav",
    "from": "his ball pick, compared bounce by bounce (no recording of 30 balls exists)"
   },
   "crate-drop": {
-   "ref": "sfx-quality/ref/fs/wood-crate/443958.wav",
+   "ref": "sfx-targets/fs/wood-crate/443958.wav",
    "from": "page 1 real 3, single hit",
    "seconds": 1.6
   },
   "crate-slide-concrete": {
-   "ref": "sfx-quality/ref/fs/slide/690010.wav",
+   "ref": "sfx-targets/fs/slide/690010.wav",
    "from": "page 1 real 1, one stroke",
    "seconds": 1.85
   },
   "crate-slide-metal": {
-   "ref": "sfx-quality/ref/fs/slide/690010.wav",
+   "ref": "sfx-targets/fs/slide/690010.wav",
    "from": "page 1 real 1 (on concrete: no steel recording)",
    "seconds": 1.85
   },
   "rain-wood-shelter": {
-   "ref": "sfx-quality/ref/fs/rain-wood/752031.wav",
+   "ref": "sfx-targets/fs/rain-wood/752031.wav",
    "from": "page 2 real 2",
    "seconds": 7
   },
   "shotgun": {
-   "ref": "judge/gamesfx/files/Shotgun_Fire_Slug_01.wav",
+   "ref": "gamesfx/Shotgun_Fire_Slug_01.wav",
    "from": "page 2 game real 2"
   },
   "walk-metal": {
-   "ref": "judge/gamesfx/files/S23_SFX_Footsteps_Metal_Boots_Loop_Jogging.wav",
+   "ref": "gamesfx/S23_SFX_Footsteps_Metal_Boots_Loop_Jogging.wav",
    "from": "page 2 real 3",
    "seconds": 4
   },
   "walk-wood": {
-   "ref": "judge/gamesfx/files/wooden floor 1 loop.wav",
+   "ref": "gamesfx/wooden floor 1 loop.wav",
    "from": "page 2 real 1",
    "seconds": 4
   },
   "walk-snow": {
-   "ref": "judge/gamesfx/files/Bluezone_BC0264_snow_footsteps_walk_013.wav",
+   "ref": "gamesfx/Bluezone_BC0264_snow_footsteps_walk_013.wav",
    "from": "page 2 real 1 = deep snow",
    "also": {
-    "ref": "judge/gamesfx/files/snow_foley_walking_on_snow_02.wav",
+    "ref": "gamesfx/snow_foley_walking_on_snow_02.wav",
     "from": "page 2 real 2 = about 3 cm of snow",
     "seconds": 6
    }
@@ -311,14 +311,14 @@
  },
  "rejected_refs": {
   "grenade-land-outdoor": [
-   "judge/gamesfx/files/pipe_drop_2.WAV",
-   "judge/gamesfx/files/Metal,Rebar,Drop,Concrete,Low Height,3,Medium Distant.wav"
+   "gamesfx/pipe_drop_2.WAV",
+   "gamesfx/Metal,Rebar,Drop,Concrete,Low Height,3,Medium Distant.wav"
   ],
   "pebbles-hall": [
-   "judge/gamesfx/files/props stones small multiple dropped on the concrete floor mono 8040.wav"
+   "gamesfx/props stones small multiple dropped on the concrete floor mono 8040.wav"
   ],
   "walk-concrete-hall": [
-   "judge/gamesfx/files/015_Foley_Footsteps_Asphalt_Boot_Walk_Fast_Run_Jog_Close.wav"
+   "gamesfx/015_Foley_Footsteps_Asphalt_Boot_Walk_Fast_Run_Jog_Close.wav"
   ],
   "balls-30": [
    "the 30-ball overlap"

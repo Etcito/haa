@@ -16,7 +16,7 @@ HAA="$(cd "$HERE/../.." && pwd)"
 STUDIO="$(cd "$HAA/../haa-studio" 2>/dev/null && pwd || true)"
 PY="${JUDGE_PY:-/root/nmc/venvs/judge/bin/python}"
 OUT_ROOT="${JUDGE_OUT:-/mnt/q/temp_nomorechat/haa/judge}"
-WT_ROOT="${JUDGE_WT:-/root/nmc/temp/judge/wt}"
+WT_ROOT="${JUDGE_WT:-/root/work/haa/worktrees/judge}"
 export PATH="${NMC_ENGINES:-/root/nmc/engines}/bin:$PATH"
 # Gentle on a shared machine: niced, builds and numeric libraries on 4 threads; the capture and the listening
 # step each take a machine-wide lock (scripts/scene-judge.ts, listen.py), so judges run one after the other.

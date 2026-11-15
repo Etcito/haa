@@ -1,7 +1,7 @@
 """Validate the detectors: real recordings must not be flagged, the owner's named defects (the nogo-* real
 recordings of thunder, organ, bell...) must fire their own detector, and so must his failing captures.
 
-    validate.py --refs <sfx-quality/ref/fs> [--irs <dir with real IR tails>] [--failing name=wav ...] --json out.json
+    validate.py --refs </root/work/haa/refs/sfx-targets/fs> [--irs <dir with real IR tails>] [--failing name=wav ...] --json out.json
 
 Prints, per detector, the distribution on real recordings (median, 95th percentile, max, share flagged) and
 what it says of each control.

@@ -221,7 +221,9 @@ def main():
         caps = [c for c in caps if c["name"] in keep]
     wav = {c["name"]: os.path.join(a.captures, c["name"] + ".wav") for c in all_caps}
     refs_spec = json.load(open(os.path.join(HERE, "refs.json")))
-    root = os.environ.get("JUDGE_REFS", "/root/nmc/temp")
+    # The references live outside every checkout (never committed): $JUDGE_REFS/gamesfx/ (game SFX, gamesfx.py),
+    # sfx-targets/ (recordings fitted or compared against), irs/ (measured room responses).
+    root = os.environ.get("JUDGE_REFS", "/root/work/haa/refs")
     # Several real references per scenario (refs.json): refs/<name>-<k>.wav, each built once.
     ref = {}
     for c in all_caps:
