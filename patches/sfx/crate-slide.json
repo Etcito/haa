@@ -39,7 +39,7 @@
           "in": 0,
           "inMax": 0.16,
           "inMin": 0,
-          "outMax": 0.202641,
+          "outMax": 1.5,
           "outMin": 0,
           "scale": "lin"
         },
@@ -65,11 +65,11 @@
         "x": 300.0,
         "y": 40.0,
         "params": {
-          "bandwidth": 6.59936,
-          "frequency": 751.821,
-          "level": 0.0586756,
-          "tilt": -7.97976,
-          "width": 0.0924563
+          "bandwidth": 7.89757,
+          "frequency": 363.103,
+          "level": 0.011827,
+          "tilt": -3.02289,
+          "width": 0.273826
         }
       },
       {
@@ -79,18 +79,21 @@
         "x": 560.0,
         "y": 40.0,
         "params": {
-          "decay": 0.957411,
-          "direct": 0.464794,
-          "gain": 3.68474,
-          "low": 1.19036,
-          "modes": "[[3902.0,0.0938667,6.0]]",
-          "size": 0.799386,
-          "wood": 0.0,
-          "woodDecay": 0.014118,
-          "woodFreq": 387.072,
-          "woodModes": 48,
-          "woodWidth": 4.84646
-        }
+          "decay": 1.25111,
+          "direct": 0.464211,
+          "gain": 0.132357,
+          "low": 1.38275,
+          "modes": "[]",
+          "size": 1,
+          "wood": 0.471143,
+          "woodDecay": 0.045312,
+          "woodFreq": 590.894,
+          "woodModes": 46.1818,
+          "woodWidth": 4.10667
+        },
+        "fitFixed": [
+          "size"
+        ]
       },
       {
         "id": "out",
@@ -157,7 +160,7 @@
         "from": "in-energy",
         "to": "out",
         "target": "gain",
-        "amount": 0.423627
+        "amount": 1.0
       }
     ]
   },

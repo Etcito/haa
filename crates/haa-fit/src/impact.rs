@@ -151,10 +151,13 @@ fn t60_of(levels: &[f64], hop_s: f64, floor_db: f64, fallback: f64) -> f64 {
 }
 
 /// The modes (bins, frequencies, levels) standing over their local floor.
-fn pick_modes(spec: &[f64], bin_hz: f64, sample_rate: f64) -> Vec<(usize, f64, f64)> {
+fn pick_modes(spec: &[f64], bin_hz: f64, sample_rate: f64, max_hz: f64) -> Vec<(usize, f64, f64)> {
     let bins = spec.len();
     let lo = (40.0 / bin_hz).ceil() as usize;
-    let hi = ((0.4 * sample_rate) / bin_hz).floor().min(bins as f64 - 3.0) as usize;
+    let hi = ((0.4 * sample_rate).min(max_hz) / bin_hz).floor().min(bins as f64 - 3.0) as usize;
+    if hi <= lo.max(2) {
+        return Vec::new();
+    }
     // Local floor: the median over a third of an octave each side (at least 4 bins).
     let floor: Vec<f64> = (0..bins)
         .map(|k| {
@@ -205,7 +208,7 @@ pub fn analyze(pcm: &[f32], sample_rate: f64) -> Analysis {
     let s = stft(pcm, sample_rate);
     let w = (MODE_WINDOW / s.hop_s).round().max(2.0) as usize;
     let spec = mean_db(&s, s.peak, s.peak + w);
-    let picked = pick_modes(&spec, s.bin_hz, sample_rate);
+    let picked = pick_modes(&spec, s.bin_hz, sample_rate, f64::INFINITY);
     let bins: Vec<usize> = picked.iter().map(|p| p.0).collect();
     let measured = measure(&s, &bins);
     let top = picked.iter().map(|p| p.2).fold(f64::MIN, f64::max);
@@ -472,10 +475,17 @@ fn stroke_json(id: &str, modes: &[Mode], curve: &[(f64, f64)], centroid: f64, bo
 /// measured envelope (a `curve` node, the part the scene drives by `speed`), shaped by the measured
 /// resonances of the dragged object. Corrected by analysis by synthesis like `template`.
 pub fn stroke_template(pcm: &[f32], sample_rate: f64, id: &str) -> (String, Value) {
+    stroke_template_below(pcm, sample_rate, id, f64::INFINITY)
+}
+
+/// `stroke_template` with the body modes measured only under `max_mode_hz`: what the caller knows of the
+/// body (a wooden crate rings under ~2 kHz) keeps a faint line of the recording (a squeak, the floor) out of
+/// its resonator, where the fit would raise it into a metallic ring.
+pub fn stroke_template_below(pcm: &[f32], sample_rate: f64, id: &str, max_mode_hz: f64) -> (String, Value) {
     let seconds = pcm.len() as f64 / sample_rate;
     let s = stft(pcm, sample_rate);
     let spec = mean_db(&s, 0, s.db.len());
-    let picked = pick_modes(&spec, s.bin_hz, sample_rate);
+    let picked = pick_modes(&spec, s.bin_hz, sample_rate, max_mode_hz);
     let bins: Vec<usize> = picked.iter().map(|p| p.0).collect();
     let top = picked.iter().map(|p| p.2).fold(f64::MIN, f64::max);
     // A resonance under steady excitation shows its decay as its width: T60 = 2.2 / bandwidth, at

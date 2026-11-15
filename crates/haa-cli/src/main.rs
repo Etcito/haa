@@ -244,7 +244,7 @@ fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
 // fit: haa-fit (the Decompose fitter) natively, one thread, on a target WAV.
 // ---------------------------------------------------------------------------
 const FIT_USAGE: &str =
-    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact [--keep-room]] [--stroke] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
+    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact [--keep-room]] [--stroke [--modes-below <Hz>]] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
 
 fn fit(args: &[String]) -> i32 {
     let mut target: Option<String> = None;
@@ -252,6 +252,7 @@ fn fit(args: &[String]) -> i32 {
     let mut options = String::from("{}");
     let (mut impact, mut stroke, mut keep_room) = (false, false, false);
     let (mut sfx_id, mut title, mut loudness): (Option<String>, Option<String>, Option<f64>) = (None, None, None);
+    let mut modes_below = f64::INFINITY;
     let (mut out, mut patch_out, mut render_out): (Option<String>, Option<String>, Option<String>) = (None, None, None);
     let mut i = 0;
     while i < args.len() {
@@ -283,6 +284,11 @@ fn fit(args: &[String]) -> i32 {
                 "--title" => title = Some(value),
                 "--loudness" => match parse_f64(flag, &value) {
                     Ok(v) => loudness = Some(v),
+                    Err(e) => return fail(e),
+                },
+                "--modes-below" => match parse_f64(flag, &value) {
+                    Ok(v) if v > 0.0 => modes_below = v,
+                    Ok(_) => return fail(format!("{flag} must be > 0")),
                     Err(e) => return fail(e),
                 },
                 _ => return fail(format!("unknown option: {flag}")),
@@ -349,7 +355,7 @@ fn fit(args: &[String]) -> i32 {
             texts.insert(0, text);
         }
         if stroke {
-            let (text, report) = haa_fit::impact::stroke_template(&scaled, rate as f64, "stroke");
+            let (text, report) = haa_fit::impact::stroke_template_below(&scaled, rate as f64, "stroke", modes_below);
             eprintln!("[haa] stroke template {report}");
             texts.insert(0, text);
         }

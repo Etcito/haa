@@ -2,7 +2,7 @@
 //! from a fit, and the voice-limiter reading the fitter penalises.
 
 use haa_fit::eval::Renderer;
-use haa_fit::impact::{STROKE_SPEED, analyze, sfx_preset, slide_preset, stroke_template, template};
+use haa_fit::impact::{STROKE_SPEED, analyze, sfx_preset, slide_preset, stroke_template, stroke_template_below, template};
 use haa_fit::params::enumerate;
 
 const RATE: f64 = 24_000.0;
@@ -152,4 +152,44 @@ fn the_measured_modes_keep_their_pitch_the_body_size_is_no_fit_dimension() {
         assert!(dims.iter().any(|d| d.node == "body" && d.key == "decay"), "the body's decay is fitted");
         assert!(!dims.iter().any(|d| d.node == "body" && d.key == "size"), "the body's size stays 1");
     }
+}
+
+/// A drag through two ringing lines, 300 Hz and 3 kHz (T60 0.5 s each).
+fn stroke_two_lines() -> Vec<f32> {
+    let n = RATE as usize;
+    let mut seed = 5u32;
+    let line = |hz: f64| {
+        let r = (-6.9f64 / (0.5 * RATE)).exp();
+        (2.0 * r * (std::f64::consts::TAU * hz / RATE).cos(), r * r)
+    };
+    let (a, b) = (line(300.0), line(3000.0));
+    let (mut a1, mut a2, mut b1, mut b2) = (0.0f64, 0.0f64, 0.0f64, 0.0f64);
+    (0..n)
+        .map(|i| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            let x = (seed >> 8) as f64 / 8_388_608.0 - 1.0;
+            let ya = 0.01 * x + a.0 * a1 - a.1 * a2;
+            (a2, a1) = (a1, ya);
+            let yb = 0.01 * x + b.0 * b1 - b.1 * b2;
+            (b2, b1) = (b1, yb);
+            let env = (std::f64::consts::PI * i as f64 / n as f64).sin();
+            (0.05 * env * (0.02 * x + ya + yb)) as f32
+        })
+        .collect()
+}
+
+#[test]
+fn a_stroke_template_measures_body_modes_only_under_the_bound_given() {
+    // A wooden crate rings under ~2 kHz: crate-slide's fit raised a faint 3.9 kHz line into a metallic ring.
+    let modes = |max_hz: f64| -> Vec<f64> {
+        let (_, report) = stroke_template_below(&stroke_two_lines(), RATE, "stroke", max_hz);
+        let text = report["corrected"].as_str().expect("modes text").to_string();
+        let list: Vec<Vec<f64>> = serde_json::from_str(&text).expect("modes parse");
+        list.iter().map(|m| m[0]).collect()
+    };
+    let near = |list: &[f64], hz: f64| list.iter().any(|m| (m - hz).abs() < 0.05 * hz);
+    let all = modes(f64::INFINITY);
+    assert!(near(&all, 300.0) && near(&all, 3000.0), "both lines are measured: {all:?}");
+    let below = modes(2000.0);
+    assert!(near(&below, 300.0) && below.iter().all(|hz| *hz < 2000.0), "only the 300 Hz line under 2 kHz: {below:?}");
 }
