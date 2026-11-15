@@ -1,249 +1,156 @@
 {
- "_": "Designed game sound effects (Sonniss GDC game audio bundles: royalty-free, media use, no redistribution, no AI/ML training) and the owner's picks as targets (`target`), under $JUDGE_REFS (default /root/nmc/temp). Local only, never committed or deployed. Built 2026-11-15 after the owner's by-ear verdicts: his bad references dropped (casings, the sand for pebbles, the reverberant shot convolutions), his picks first.",
- "ball-outdoor": [
+ "_": "Under the owner's page rules (human_page.py): his picks fixed (owner_verdicts.json `picks`), his rejected references out, every reference one event (`one_event`) except continuous textures. Local only, never committed or deployed.",
+ "ball-big-empty": [
   {
    "dry": "sfx-quality/ref/fs/bigball/514640.wav",
-   "source": "owner's pick (ball-outdoor real 3)",
-   "target": true
-  },
-  {
-   "dry": "judge/gamesfx/files/SB011.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/KB005.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "source": "your ball pick",
+   "target": true,
+   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav",
+   "one_event": true
   }
  ],
  "ball-hall": [
   {
    "dry": "sfx-quality/ref/fs/bigball/514640.wav",
-   "source": "owner's pick (ball-outdoor real 3)",
+   "source": "your ball pick",
    "target": true,
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
-  },
-  {
-   "dry": "judge/gamesfx/files/SB011.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
-  }
- ],
- "ball-big-empty": [
-  {
-   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
-   "source": "owner's pick (ball-outdoor real 3)",
-   "target": true,
-   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
-  },
-  {
-   "dry": "judge/gamesfx/files/SB011.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
+   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav",
+   "one_event": true
   }
  ],
  "ball-metal": [
   {
    "dry": "sfx-quality/ref/fs/bigball/514640.wav",
-   "source": "owner's pick (ball-metal real 1)",
+   "source": "your pick (page 1 real 1)",
    "target": true,
-   "note": "surface differs: on hard ground, not steel"
-  },
+   "one_event": true
+  }
+ ],
+ "ball-outdoor": [
   {
-   "dry": "judge/gamesfx/files/SB011.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
+   "source": "your pick (page 1 real 3)",
+   "target": true,
+   "one_event": true
   }
  ],
  "balls-30": [
   {
-   "mix": [
-    "sfx-quality/ref/fs/bigball/514640.wav",
-    "judge/gamesfx/files/SB011.wav",
-    "judge/gamesfx/files/KB005.wav",
-    "judge/gamesfx/files/YB012.wav"
-   ],
-   "count": 30,
-   "start": 0.6,
-   "spacing": 0.1,
-   "clip": 2.0,
-   "seconds": 9,
-   "seed": 7,
-   "source": "30 game-SFX and target ball bounces overlapped"
-  },
-  {
-   "dry": "judge/gamesfx/files/Basketball street game - Multiple middle paced dribbles on cement, shoe scraps 08.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 8
-  }
- ],
- "grenade-land-outdoor": [
-  {
-   "dry": "sfx-quality/ref/fs/steeldrop/693582.wav",
-   "source": "owner's pick (grenade real 3)",
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
+   "source": "your pick (his ball pick, compared bounce by bounce (no recording of 30 balls exists))",
    "target": true,
-   "note": "his pick, but he hears it on wood"
-  },
-  {
-   "dry": "judge/gamesfx/files/Metal,Rebar,Drop,Concrete,Low Height,3,Medium Distant.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/pipe_drop_2.WAV",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "one_event": true
   }
  ],
- "grenade-land-big": [
+ "bottle-concrete": [
   {
-   "dry": "judge/gamesfx/files/Metal,Rebar,Drop,Concrete,Low Height,3,Medium Distant.wav",
+   "dry": "judge/gamesfx/files/glass_bottle_smash_005.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
+   "one_event": true
   },
   {
-   "dry": "judge/gamesfx/files/pipe_drop_2.WAV",
+   "dry": "judge/gamesfx/files/Bluezone_BC0274_glass_impact_break_002.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
+   "one_event": true
   }
  ],
- "grenade-explode-outdoor": [
+ "casings": [
   {
-   "dry": "judge/gamesfx/files/EXPLReal_Medium Realistic Explosion 15_DDUMAIS_NONE.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "judge/gamesfx/files/ShotgunShell_Land_Concrete_02.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
   },
   {
-   "dry": "judge/gamesfx/files/BigExplosion02.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "judge/gamesfx/files/9 mm x 21  - Casings Shell & Cartdridges - Roll on Concrete Floor - Outdoor.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  },
+  {
+   "dry": "judge/gamesfx/files/bullet_shell_bounce_wood2_05.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "casings-only": [
+  {
+   "dry": "judge/gamesfx/files/ShotgunShell_Land_Concrete_02.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  },
+  {
+   "dry": "judge/gamesfx/files/9 mm x 21  - Casings Shell & Cartdridges - Roll on Concrete Floor - Outdoor.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  },
+  {
+   "dry": "judge/gamesfx/files/bullet_shell_bounce_wood2_05.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "crate-drop": [
+  {
+   "dry": "sfx-quality/ref/fs/wood-crate/443958.wav",
+   "source": "your pick (page 1 real 3, single hit)",
+   "target": true,
+   "seconds": 1.6,
+   "one_event": true
+  }
+ ],
+ "crate-slide-concrete": [
+  {
+   "dry": "sfx-quality/ref/fs/slide/690010.wav",
+   "source": "your pick (page 1 real 1, one stroke)",
+   "target": true,
+   "seconds": 1.85
+  }
+ ],
+ "crate-slide-metal": [
+  {
+   "dry": "sfx-quality/ref/fs/slide/690010.wav",
+   "source": "your pick (page 1 real 1 (on concrete: no steel recording))",
+   "target": true,
+   "seconds": 1.85
   }
  ],
  "grenade-explode-big": [
   {
    "dry": "judge/gamesfx/files/EXPLReal_Medium Realistic Explosion 15_DDUMAIS_NONE.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
+   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav",
+   "one_event": true
   }
  ],
- "shot-outdoor": [
+ "grenade-explode-outdoor": [
   {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "dry": "judge/gamesfx/files/EXPLReal_Medium Realistic Explosion 15_DDUMAIS_NONE.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
-  }
- ],
- "shot-hall": [
-  {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
+   "one_event": true
   },
   {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "dry": "judge/gamesfx/files/BigExplosion02.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2,
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
+   "one_event": true
   }
  ],
- "shot-big-empty": [
+ "grenade-land-big": [
   {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
+   "dry": "sfx-quality/ref/fs/steeldrop/693582.wav",
+   "source": "your pick (grenade, page 1 real 3)",
+   "target": true,
+   "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav",
+   "one_event": true
   }
  ],
- "shot-big-cluttered": [
+ "grenade-land-outdoor": [
   {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
-  }
- ],
- "shot-vault": [
-  {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
-  }
- ],
- "shot-shed": [
-  {
-   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 1.2
-  }
- ],
- "casings": [
-  {
-   "dry": "judge/gamesfx/files/ShotgunShell_Land_Concrete_02.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/9 mm x 21  - Casings Shell & Cartdridges - Roll on Concrete Floor - Outdoor.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4
-  },
-  {
-   "dry": "judge/gamesfx/files/bullet_shell_bounce_wood2_05.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  }
- ],
- "walk-concrete-hall": [
-  {
-   "dry": "judge/gamesfx/files/015_Foley_Footsteps_Asphalt_Boot_Walk_Fast_Run_Jog_Close.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 6,
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
-  },
-  {
-   "dry": "judge/gamesfx/files/FS Concrete Soldier Crouch N02.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
-  }
- ],
- "walk-snow": [
-  {
-   "dry": "judge/gamesfx/files/Bluezone_BC0264_snow_footsteps_walk_013.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/snow_foley_walking_on_snow_02.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 6
-  },
-  {
-   "dry": "judge/gamesfx/files/Snow Footstep Light Slow.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 6
-  }
- ],
- "walk-metal": [
-  {
-   "dry": "judge/gamesfx/files/FS Metal Soldier Walk N01.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/FS Metal Soldier Walk N05.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/S23_SFX_Footsteps_Metal_Boots_Loop_Jogging.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4
-  }
- ],
- "walk-wood": [
-  {
-   "dry": "judge/gamesfx/files/wooden floor 1 loop.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4
-  },
-  {
-   "dry": "judge/gamesfx/files/FS Wood Civilian Crouch N03.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "sfx-quality/ref/fs/steeldrop/693582.wav",
+   "source": "your pick (page 1 real 3; you hear it on wood)",
+   "target": true,
+   "one_event": true
   }
  ],
  "pebbles": [
-  {
-   "dry": "judge/gamesfx/files/props stones small multiple dropped on the concrete floor mono 8040.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 5
-  },
   {
    "dry": "judge/gamesfx/files/0228_Single_Small_Rocks_Tumble_Cliff_004.wav",
    "source": "game SFX (Sonniss GDC bundle)"
@@ -255,113 +162,35 @@
  ],
  "pebbles-close": [
   {
-   "dry": "judge/gamesfx/files/props stones small multiple dropped on the concrete floor mono 8040.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 5
-  },
-  {
    "dry": "judge/gamesfx/files/0228_Single_Small_Rocks_Tumble_Cliff_004.wav",
    "source": "game SFX (Sonniss GDC bundle)"
   }
  ],
  "pebbles-hall": [
   {
-   "dry": "judge/gamesfx/files/props stones small multiple dropped on the concrete floor mono 8040.wav",
+   "dry": "judge/gamesfx/files/0242_Single_Small_Rocks_Tumble_Cliff_018.wav",
    "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 5,
    "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
   }
  ],
- "smg-burst": [
+ "rain-hall": [
   {
-   "dry": "judge/gamesfx/files/Mini_Uzi_9mm_1m_left_off_axis_MKH416_clean_Four_shots_x_1.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "sfx-quality/ref/fs/rain-concrete/398738.wav",
+   "seconds": 7
   },
   {
-   "dry": "judge/gamesfx/files/Steyr_TMP_9mm_1m_right_CS3_clean_Double_shots_x_1.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/gun_submachine_auto_shot_00_automatic_preview_01.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
+   "dry": "sfx-quality/ref/fs/rain-concrete/119500.wav",
+   "seconds": 7
   }
  ],
- "shotgun": [
+ "rain-shed": [
   {
-   "dry": "judge/gamesfx/files/SPAS-12_12g_solid_slug_1m_right_MKH8040_1_clean_Double_shots_x_1.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 2
+   "dry": "sfx-quality/ref/fs/rain-metal/509113.wav",
+   "seconds": 7
   },
   {
-   "dry": "judge/gamesfx/files/Shotgun_Fire_Slug_01.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/0003_Shotgun_Fire_3.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  }
- ],
- "bottle-concrete": [
-  {
-   "dry": "judge/gamesfx/files/glass_bottle_smash_005.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/Bluezone_BC0274_glass_impact_break_002.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/GLASBrk_Glass Break Hit_04_MWSFX_GL.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4
-  }
- ],
- "crate-drop": [
-  {
-   "dry": "sfx-quality/ref/fs/wood-crate/443958.wav",
-   "source": "owner's pick (crate-drop real 3, single hit)",
-   "target": true,
-   "seconds": 1.6
-  },
-  {
-   "dry": "judge/gamesfx/files/WOODImpt_Drops20_InMotionAudio_Wood.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  },
-  {
-   "dry": "judge/gamesfx/files/Dropping_WoodPanel_Multi_6.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  }
- ],
- "crate-slide-concrete": [
-  {
-   "dry": "sfx-quality/ref/fs/slide/690010.wav",
-   "source": "owner's pick (crate-slide-concrete real 1, one stroke)",
-   "target": true,
-   "seconds": 1.85
-  },
-  {
-   "dry": "judge/gamesfx/files/LargeWoodenObject_Sliding_01_04.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4
-  },
-  {
-   "dry": "judge/gamesfx/files/OBJPack_Big Cardboard Box Slide_ 04_MWSFX_CDAP.wav",
-   "source": "game SFX (Sonniss GDC bundle)"
-  }
- ],
- "crate-slide-metal": [
-  {
-   "dry": "sfx-quality/ref/fs/slide/690010.wav",
-   "source": "owner's pick (crate-slide-concrete real 1, one stroke)",
-   "target": true,
-   "seconds": 1.85,
-   "note": "surface differs: on concrete, not steel"
-  },
-  {
-   "dry": "judge/gamesfx/files/LargeWoodenObject_Sliding_01_04.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "seconds": 4,
-   "note": "surface differs"
+   "dry": "sfx-quality/ref/fs/rain-metal/509116.wav",
+   "seconds": 7
   }
  ],
  "rain-tile-shelter": [
@@ -376,32 +205,129 @@
  ],
  "rain-wood-shelter": [
   {
-   "dry": "sfx-quality/ref/fs/rain-wood/592992.wav",
-   "seconds": 7
-  },
-  {
    "dry": "sfx-quality/ref/fs/rain-wood/752031.wav",
+   "source": "your pick (page 2 real 2)",
+   "target": true,
    "seconds": 7
   }
  ],
- "rain-shed": [
+ "shot-big-cluttered": [
   {
-   "dry": "sfx-quality/ref/fs/rain-metal/509113.wav",
-   "seconds": 7
-  },
-  {
-   "dry": "sfx-quality/ref/fs/rain-metal/509116.wav",
-   "seconds": 7
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
   }
  ],
- "rain-hall": [
+ "shot-big-empty": [
   {
-   "dry": "sfx-quality/ref/fs/rain-concrete/398738.wav",
-   "seconds": 7
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "shot-hall": [
+  {
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
   },
   {
-   "dry": "sfx-quality/ref/fs/rain-concrete/119500.wav",
-   "seconds": 7
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav",
+   "one_event": true
+  }
+ ],
+ "shot-outdoor": [
+  {
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "shot-shed": [
+  {
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "shot-vault": [
+  {
+   "dry": "judge/gamesfx/files/SIG_P229_9mm_1m_left_on_ground_DPA4062_clean_Triple_shots_x_2.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
+  }
+ ],
+ "shotgun": [
+  {
+   "dry": "judge/gamesfx/files/Shotgun_Fire_Slug_01.wav",
+   "source": "your pick (page 2 game real 2)",
+   "target": true,
+   "one_event": true
+  }
+ ],
+ "shotgun-pump": [
+  {
+   "dry": "judge/gamesfx/files/SPAS-12 - VAR SFX - Pump Action Fast - Close - MS - MKH418s.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "seconds": 1.5
+  },
+  {
+   "dry": "judge/gamesfx/files/0019_Shotgun_Pump_Action_1.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "seconds": 1.5
+  },
+  {
+   "dry": "judge/gamesfx/files/Shotgun_Quick Pump_01.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "seconds": 1.5
+  }
+ ],
+ "smg-burst": [
+  {
+   "dry": "judge/gamesfx/files/Mini_Uzi_9mm_1m_left_off_axis_MKH416_clean_Four_shots_x_1.wav",
+   "source": "game SFX (Sonniss GDC bundle)"
+  },
+  {
+   "dry": "judge/gamesfx/files/Steyr_TMP_9mm_1m_right_CS3_clean_Double_shots_x_1.wav",
+   "source": "game SFX (Sonniss GDC bundle)"
+  }
+ ],
+ "walk-concrete-hall": [
+  {
+   "dry": "judge/gamesfx/files/FS Concrete Soldier Crouch N02.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
+  }
+ ],
+ "walk-metal": [
+  {
+   "dry": "judge/gamesfx/files/S23_SFX_Footsteps_Metal_Boots_Loop_Jogging.wav",
+   "source": "your pick (page 2 real 3)",
+   "target": true,
+   "seconds": 4
+  }
+ ],
+ "walk-snow": [
+  {
+   "dry": "judge/gamesfx/files/Bluezone_BC0264_snow_footsteps_walk_013.wav",
+   "source": "your pick (page 2 real 1 = deep snow)",
+   "target": true
+  },
+  {
+   "dry": "judge/gamesfx/files/snow_foley_walking_on_snow_02.wav",
+   "source": "your pick (page 2 real 2 = about 3 cm of snow)",
+   "target": true,
+   "seconds": 6
+  }
+ ],
+ "walk-wood": [
+  {
+   "dry": "judge/gamesfx/files/wooden floor 1 loop.wav",
+   "source": "your pick (page 2 real 1)",
+   "target": true,
+   "seconds": 4
   }
  ]
 }

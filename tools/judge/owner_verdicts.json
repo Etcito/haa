@@ -1,28 +1,342 @@
 {
-  "_": "The owner's verdicts by ear on the judge's by-ear page (his words verbatim). verdict: as real | worse | - (no mark, a defect named). defects: the classes his words name. pick: the real reference he named as the target.",
-  "build": "haa-46ad65f_studio-5f3575e",
-  "verdicts": {
-    "ball-metal": {"verdict": "worse", "words": "it sounds like a pie. real 1 is way better, forget the others", "defects": ["wrong material"], "pick": 1},
-    "ball-outdoor": {"verdict": "-", "words": "it saturate, it should sound like real 3", "defects": ["sature"], "pick": 3},
-    "balls-30": {"verdict": "worse", "words": "it sound like they are thrown on wood and it saturate. real 1 is not matching the description", "defects": ["sature", "wrong surface"], "bad_refs": [1]},
-    "casings": {"verdict": "worse", "words": "separate the shot and the case, the references are all bads", "defects": ["mixed events"], "bad_refs": "all"},
-    "crate-drop": {"verdict": "worse", "words": "sounds like rubber band, best is real3 but it has the sound twice", "defects": ["rubber band"], "pick": 3, "pick_note": "single hit"},
-    "crate-slide-concrete": {"verdict": "worse", "words": "it sounds like a gun shot. real1 is super nice but it's 2 move", "defects": ["gunshot"], "pick": 1, "pick_note": "one stroke"},
-    "crate-slide-metal": {"verdict": "worse", "words": "sound like bell", "defects": ["bell"]},
-    "grenade-land-outdoor": {"verdict": "-", "words": "it's mostly saturation, best is real3 but it sound like on wook, not concrete", "defects": ["sature"], "pick": 3, "pick_note": "but on wood"},
-    "pebbles-hall": {"verdict": "-", "words": "the echo is louder than the real impact, all example are sand not pebble", "defects": ["echo too loud"], "bad_refs": "all"},
-    "rain-hall": {"verdict": "as real", "words": ""},
-    "rain-wood-shelter": {"verdict": "as real", "words": "ours more like heavy rain"},
-    "shot-big-cluttered": {"verdict": "worse", "words": "can't make the difference with cluttered. references have way too much echo", "defects": ["rooms alike"], "bad_refs": "all"},
-    "shot-big-empty": {"verdict": "worse", "words": "can't make the difference with cluttered. references have way too much echo", "defects": ["rooms alike"], "bad_refs": "all"},
-    "shot-hall": {"verdict": "as real", "words": "ricochet too much, too systematic"},
-    "shot-outdoor": {"verdict": "worse", "words": "echo before the actual shot", "defects": ["echo before shot"]},
-    "shot-shed": {"verdict": "worse", "words": "distant petard, not a gun", "defects": ["distant", "toy"]},
-    "shotgun": {"verdict": "-", "words": "reloading should be a different sound, both sound distant", "defects": ["distant"]},
-    "walk-concrete-hall": {"verdict": "as real", "words": ""},
-    "walk-snow": {"verdict": "as real", "words": ""},
-    "walk-wood": {"verdict": "as real", "words": ""},
-    "walk-metal": {"verdict": "-", "words": "sounds like wood not metal", "defects": ["wrong material"]}
+ "_": "The owner's verdicts by ear on the judge's by-ear page (his words verbatim). verdict: as real | worse | - (no mark, a defect named). defects: the classes his words name. pick: the real reference he named as the target.",
+ "build": "haa-46ad65f_studio-5f3575e",
+ "verdicts": {
+  "ball-metal": {
+   "verdict": "worse",
+   "words": "it sounds like a pie. real 1 is way better, forget the others",
+   "defects": [
+    "wrong material"
+   ],
+   "pick": 1
   },
-  "general": "I think the samples should be taken from existing video game, not random banks."
+  "ball-outdoor": {
+   "verdict": "-",
+   "words": "it saturate, it should sound like real 3",
+   "defects": [
+    "sature"
+   ],
+   "pick": 3
+  },
+  "balls-30": {
+   "verdict": "worse",
+   "words": "it sound like they are thrown on wood and it saturate. real 1 is not matching the description",
+   "defects": [
+    "sature",
+    "wrong surface"
+   ],
+   "bad_refs": [
+    1
+   ]
+  },
+  "casings": {
+   "verdict": "worse",
+   "words": "separate the shot and the case, the references are all bads",
+   "defects": [
+    "mixed events"
+   ],
+   "bad_refs": "all"
+  },
+  "crate-drop": {
+   "verdict": "worse",
+   "words": "sounds like rubber band, best is real3 but it has the sound twice",
+   "defects": [
+    "rubber band"
+   ],
+   "pick": 3,
+   "pick_note": "single hit"
+  },
+  "crate-slide-concrete": {
+   "verdict": "worse",
+   "words": "it sounds like a gun shot. real1 is super nice but it's 2 move",
+   "defects": [
+    "gunshot"
+   ],
+   "pick": 1,
+   "pick_note": "one stroke"
+  },
+  "crate-slide-metal": {
+   "verdict": "worse",
+   "words": "sound like bell",
+   "defects": [
+    "bell"
+   ]
+  },
+  "grenade-land-outdoor": {
+   "verdict": "-",
+   "words": "it's mostly saturation, best is real3 but it sound like on wook, not concrete",
+   "defects": [
+    "sature"
+   ],
+   "pick": 3,
+   "pick_note": "but on wood"
+  },
+  "pebbles-hall": {
+   "verdict": "-",
+   "words": "the echo is louder than the real impact, all example are sand not pebble",
+   "defects": [
+    "echo too loud"
+   ],
+   "bad_refs": "all"
+  },
+  "rain-hall": {
+   "verdict": "as real",
+   "words": ""
+  },
+  "rain-wood-shelter": {
+   "verdict": "as real",
+   "words": "ours more like heavy rain"
+  },
+  "shot-big-cluttered": {
+   "verdict": "worse",
+   "words": "can't make the difference with cluttered. references have way too much echo",
+   "defects": [
+    "rooms alike"
+   ],
+   "bad_refs": "all"
+  },
+  "shot-big-empty": {
+   "verdict": "worse",
+   "words": "can't make the difference with cluttered. references have way too much echo",
+   "defects": [
+    "rooms alike"
+   ],
+   "bad_refs": "all"
+  },
+  "shot-hall": {
+   "verdict": "as real",
+   "words": "ricochet too much, too systematic"
+  },
+  "shot-outdoor": {
+   "verdict": "worse",
+   "words": "echo before the actual shot",
+   "defects": [
+    "echo before shot"
+   ]
+  },
+  "shot-shed": {
+   "verdict": "worse",
+   "words": "distant petard, not a gun",
+   "defects": [
+    "distant",
+    "toy"
+   ]
+  },
+  "shotgun": {
+   "verdict": "-",
+   "words": "reloading should be a different sound, both sound distant",
+   "defects": [
+    "distant"
+   ]
+  },
+  "walk-concrete-hall": {
+   "verdict": "as real",
+   "words": ""
+  },
+  "walk-snow": {
+   "verdict": "as real",
+   "words": ""
+  },
+  "walk-wood": {
+   "verdict": "as real",
+   "words": ""
+  },
+  "walk-metal": {
+   "verdict": "-",
+   "words": "sounds like wood not metal",
+   "defects": [
+    "wrong material"
+   ]
+  }
+ },
+ "general": "I think the samples should be taken from existing video game, not random banks.",
+ "page2": {
+  "build": "haa-46ad65f_studio-5f3575e (captures) against the game-SFX references",
+  "verdicts": {
+   "ball-metal": {
+    "verdict": "as real",
+    "words": "sounds like thrown, not dropped but it's mostly ok"
+   },
+   "balls-30": {
+    "verdict": "-",
+    "words": "why would we used something different because their is 30 balls ?"
+   },
+   "ball-outdoor": {
+    "verdict": "as real",
+    "words": ""
+   },
+   "casings": {
+    "verdict": "as real",
+    "words": "sound like plastic shotgun case, not metal",
+    "defects": [
+     "plastic, must be metal brass"
+    ]
+   },
+   "crate-drop": {
+    "verdict": "-",
+    "words": "I didn't changed my mind keep first"
+   },
+   "crate-slide-concrete": {
+    "verdict": "-",
+    "words": "I didn't changed my mind keep first"
+   },
+   "crate-slide-metal": {
+    "verdict": "-",
+    "words": "1 still better"
+   },
+   "grenade-land-outdoor": {
+    "verdict": "-",
+    "words": "game fx sound like long bars not 'spherical' grenade."
+   },
+   "pebbles-hall": {
+    "verdict": "-",
+    "words": "sound like thrown on metal"
+   },
+   "rain-hall": {
+    "verdict": "-",
+    "words": "nice"
+   },
+   "rain-shed": {
+    "verdict": "-",
+    "words": "definitly sound like metal shed"
+   },
+   "rain-wood-shelter": {
+    "verdict": "-",
+    "words": "real 2 best"
+   },
+   "shot-big-cluttered": {
+    "verdict": "-",
+    "words": "there is 3 shots, cluttered means way less echo than big room/hall, but it's not the open"
+   },
+   "shot-big-empty": {
+    "verdict": "-",
+    "words": "there is 3 shot"
+   },
+   "shot-hall": {
+    "verdict": "-",
+    "words": "3 shots ... again the same, I wonder why I need to comment the same clip 3 times"
+   },
+   "shot-outdoor": {
+    "verdict": "-",
+    "words": "4 times ...."
+   },
+   "shot-shed": {
+    "verdict": "-",
+    "words": "5 times .. boy! seriously ?"
+   },
+   "shotgun": {
+    "verdict": "-",
+    "words": "real 2 SFX is super nice but echo still there",
+    "defects": [
+     "echo still there"
+    ]
+   },
+   "walk-concrete-hall": {
+    "verdict": "-",
+    "words": "both are way to loud and the first one is running",
+    "defects": [
+     "too loud"
+    ]
+   },
+   "walk-metal": {
+    "verdict": "-",
+    "words": "real 3 is better"
+   },
+   "walk-snow": {
+    "verdict": "-",
+    "words": "real 1 is when there is a LOT of snow, real2 is when there is like 3 cm of snow"
+   },
+   "walk-wood": {
+    "verdict": "-",
+    "words": "real1 better"
+   }
+  }
+ },
+ "picks": {
+  "ball-outdoor": {
+   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "from": "page 1 real 3"
+  },
+  "ball-metal": {
+   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "from": "page 1 real 1"
+  },
+  "balls-30": {
+   "ref": "sfx-quality/ref/fs/bigball/514640.wav",
+   "from": "his ball pick, compared bounce by bounce (no recording of 30 balls exists)"
+  },
+  "crate-drop": {
+   "ref": "sfx-quality/ref/fs/wood-crate/443958.wav",
+   "from": "page 1 real 3, single hit",
+   "seconds": 1.6
+  },
+  "crate-slide-concrete": {
+   "ref": "sfx-quality/ref/fs/slide/690010.wav",
+   "from": "page 1 real 1, one stroke",
+   "seconds": 1.85
+  },
+  "crate-slide-metal": {
+   "ref": "sfx-quality/ref/fs/slide/690010.wav",
+   "from": "page 1 real 1 (on concrete: no steel recording)",
+   "seconds": 1.85
+  },
+  "rain-wood-shelter": {
+   "ref": "sfx-quality/ref/fs/rain-wood/752031.wav",
+   "from": "page 2 real 2",
+   "seconds": 7
+  },
+  "shotgun": {
+   "ref": "judge/gamesfx/files/Shotgun_Fire_Slug_01.wav",
+   "from": "page 2 game real 2"
+  },
+  "walk-metal": {
+   "ref": "judge/gamesfx/files/S23_SFX_Footsteps_Metal_Boots_Loop_Jogging.wav",
+   "from": "page 2 real 3",
+   "seconds": 4
+  },
+  "walk-wood": {
+   "ref": "judge/gamesfx/files/wooden floor 1 loop.wav",
+   "from": "page 2 real 1",
+   "seconds": 4
+  },
+  "walk-snow": {
+   "ref": "judge/gamesfx/files/Bluezone_BC0264_snow_footsteps_walk_013.wav",
+   "from": "page 2 real 1 = deep snow",
+   "also": {
+    "ref": "judge/gamesfx/files/snow_foley_walking_on_snow_02.wav",
+    "from": "page 2 real 2 = about 3 cm of snow",
+    "seconds": 6
+   }
+  }
+ },
+ "rejected_refs": {
+  "grenade-land-outdoor": [
+   "judge/gamesfx/files/pipe_drop_2.WAV",
+   "judge/gamesfx/files/Metal,Rebar,Drop,Concrete,Low Height,3,Medium Distant.wav"
+  ],
+  "pebbles-hall": [
+   "judge/gamesfx/files/props stones small multiple dropped on the concrete floor mono 8040.wav"
+  ],
+  "walk-concrete-hall": [
+   "judge/gamesfx/files/015_Foley_Footsteps_Asphalt_Boot_Walk_Fast_Run_Jog_Close.wav"
+  ],
+  "balls-30": [
+   "the 30-ball overlap"
+  ]
+ },
+ "closed": {
+  "ball-metal": "as real (page 2)",
+  "ball-outdoor": "as real (page 2)",
+  "rain-hall": "as real (page 1), nice (page 2)",
+  "rain-shed": "definitely sounds like a metal shed (page 2)",
+  "rain-wood-shelter": "as real (page 1)",
+  "walk-snow": "as real (page 1)",
+  "walk-wood": "as real (page 1)"
+ },
+ "open_defects": {
+  "casings": "as real but plastic, must sound like metal brass",
+  "casings-only": "the same casings, alone",
+  "shotgun": "echo still there",
+  "walk-concrete-hall": "too loud"
+ }
 }

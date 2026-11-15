@@ -59,7 +59,7 @@ EXPECT = [
     ("balls-", r"\bballs?\b|bounc"), ("ball-", r"\bballs?\b|bounc|rubber"), ("grenade-explode", r"explo|blast|bomb|boom"),
     ("grenade-land", r"metal|steel|clank|clang|drop|thud|object|can\b|tool"), ("shot-", r"gun|shot|firearm|pistol|rifle|bullet"),
     ("casings", r"casing|shell|brass|metal|gun|shot"), ("walk-", r"step|walk|foot"), ("pebbles", r"pebble|stone|gravel|rock|grit"),
-    ("smg", r"gun|shot|fire|machine"), ("shotgun", r"gun|shot|blast"), ("bottle-", r"glass|bottle|shatter|break"),
+    ("smg", r"gun|shot|fire|machine"), ("shotgun-pump", r"pump|rack|reload|cock|slide|bolt|shotgun"), ("shotgun", r"gun|shot|blast"), ("bottle-", r"glass|bottle|shatter|break"),
     ("crate-drop", r"crate|box|wood|thud|drop|fall"), ("crate-slide", r"drag|slid|scrap|push|furniture"), ("rain", r"rain|drizzl|downpour|storm"),
 ]
 
@@ -115,6 +115,55 @@ def build_mix(spec, root):
     return out
 
 
+# Scenarios whose reference is a continuous texture, not one event (the one-event cut and its check skip them).
+CONTINUOUS = ("walk-", "rain-", "smg-burst", "pebbles", "crate-slide")
+
+
+def onsets(y, sr=48000):
+    """Event onsets (frame indices of 10 ms): the first frame within 25 dB of the loudest, then every frame where the
+    level rises 12 dB within 30 ms after having fallen 20 dB under the running event's peak, 0.3 s after the last onset
+    at least (a drop and its bounces are one event)."""
+    hop = sr // 100
+    n = len(y) // hop
+    if n < 3:
+        return [], np.array([-120.0]), hop
+    e = 10 * np.log10((y[: n * hop].reshape(n, hop) ** 2).mean(1) + 1e-12)
+    top = e.max()
+    start = int(np.argmax(e > top - 25))
+    out = [start]
+    peak = e[start]
+    fell = False
+    for i in range(start + 1, n):
+        if e[i] > peak and not fell:
+            peak = e[i]
+        if e[i] < peak - 20:
+            fell = True
+        # A new event: 0.3 s after the last one at least (a drop and its bounces are one event).
+        if fell and i - out[-1] >= 30 and e[i] > top - 35 and e[i] - e[max(start, i - 3):i].min() >= 12:
+            out.append(i)
+            peak, fell = e[i], False
+    return out, e, hop
+
+
+def first_event(y, sr=48000):
+    """The first event only (one shot, one drop, one stroke): from 5 ms before its onset to the next onset, or to
+    50 dB under its peak, at most 2.5 s; a 20 ms fade at the cut."""
+    on, e, hop = onsets(y, sr)
+    if not on:
+        return y
+    a = max(0, on[0] * hop - sr // 200)
+    end = on[1] * hop - 3 * hop if len(on) > 1 else len(y)  # 30 ms before the next attack
+    pk = e[on[0]:on[1] if len(on) > 1 else len(e)].max()
+    below = np.where(e[on[0]:end // hop] < pk - 50)[0]
+    if len(below):
+        end = min(end, (on[0] + below[0]) * hop)
+    end = min(end, a + int(2.5 * sr))
+    z = y[a:end].copy()
+    f = min(len(z), sr // 50)
+    z[-f:] *= np.linspace(1, 0, f)
+    return z
+
+
 def build_ref(spec, root, seconds):
     if "mix" in spec:
         y = build_mix(spec, root)
@@ -125,6 +174,11 @@ def build_ref(spec, root, seconds):
         dry = dry[int(spec["start"] * 48000):]
     if "seconds" in spec:
         dry = dry[: int(spec["seconds"] * 48000)]
+    if spec.get("one_event"):
+        for _ in range(3):  # a cut can still hold a second attack: cut again
+            dry = first_event(dry)
+            if len(onsets(dry)[0]) <= 1:
+                break
     y = dry
     if "ir" in spec:
         hits = glob.glob(os.path.join(root, spec["ir"]), recursive=True)
@@ -135,7 +189,8 @@ def build_ref(spec, root, seconds):
         ir = ir[np.argmax(np.abs(ir)) - 48:] if np.argmax(np.abs(ir)) > 48 else ir
         ir = ir / (np.sqrt((ir ** 2).sum()) + 1e-12)
         y = fftconvolve(dry, ir)[: len(dry) + len(ir)]
-    y = y[: int(max(seconds, len(dry) / 48000) * 48000) + 48000]
+    if not spec.get("one_event"):
+        y = y[: int(max(seconds, len(dry) / 48000) * 48000) + 48000]
     y = y / (np.abs(y).max() + 1e-9) * 10 ** (-3 / 20)
     return np.stack([y, y], 1)
 
@@ -251,7 +306,8 @@ def main():
             ref_listen = [x for x in ref_listen if x["wav"] not in fresh] + new
             os.replace(rl + ".new", rl + ".last")
             json.dump(ref_listen, open(rl, "w"), indent=1)
-    rows = summarize(all_caps, wav, ref, det, clap, listen, ref_listen)
+    vp = voice_peaks(a.out)
+    rows = summarize(all_caps, wav, ref, det, clap, listen, ref_listen, vp)
     json.dump({"index": index, "rows": rows}, open(os.path.join(a.out, "judge.json"), "w"), indent=1)
     write_table(rows, os.path.join(a.out, "table.md"), index)
     write_page(rows, a.out, a.captures, index)
@@ -278,7 +334,30 @@ REF_NOTES = {k: "; ".join(sorted({x["note"] for x in v if isinstance(x, dict) an
              for k, v in _SPECS.items() if isinstance(v, list)}
 
 
-def summarize(caps, wav, ref, det, clap, listen, ref_listen=()):
+def voice_peaks(out):
+    """tools/judge/voice_peaks.mjs (each preset rendered dry: reaches its voice limiter, flat top, crest lost at
+    full energy), run once with this checkout's build: {preset: reasons}. Cached in <out>/voice_peaks.json."""
+    path = os.path.join(out, "voice_peaks.json")
+    if os.path.exists(path):
+        return json.load(open(path))
+    haa = os.path.normpath(os.path.join(HERE, "..", ".."))
+    node = os.path.join(os.environ.get("NMC_ENGINES", "/root/nmc/engines"), "bin", "node")
+    try:
+        r = subprocess.run([node if os.path.exists(node) else "node", os.path.join(HERE, "voice_peaks.mjs")], cwd=haa,
+                           capture_output=True, text=True, timeout=1800)
+    except Exception as e:  # no build or no node: the check is left out, said in the table
+        print(f"[judge] voice_peaks: {e}", file=sys.stderr)
+        return {}
+    flags = {}
+    for line in r.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in ("FLAG", "ok"):
+            flags[parts[1]] = line.split("<- ", 1)[1].strip() if parts[0] == "FLAG" and "<- " in line else ""
+    json.dump(flags, open(path, "w"), indent=1)
+    return flags
+
+
+def summarize(caps, wav, ref, det, clap, listen, ref_listen=(), vp=None):
     by = {}
     for r in listen:
         by.setdefault(r["id"], {})[r["mode"]] = r
@@ -300,6 +379,11 @@ def summarize(caps, wav, ref, det, clap, listen, ref_listen=()):
         refs = ref.get(n, [])
         d = dict(det.get(wav[n], {}))
         d["flags"] = D.flags_for(n, d, c, det.get(refs[0], {}) if refs else {})
+        # The presets that played in this take whose dry render saturates (voice_peaks.mjs).
+        played = sorted({v["preset"] for v in c.get("voices", []) if v.get("result") == "started" or str(v.get("result", "")).startswith("stole")})
+        bad = [f"{p} ({vp[p]})" for p in played if vp and vp.get(p)]
+        if bad:
+            d["flags"].append("voice saturates: " + "; ".join(bad))
         # Are the real references recognised for what they are? By the model (blind) and by CLAP (intent in its top 3).
         rt = [t for p in refs for t in ref_texts.get(p, [])]
         rm = recognised(rt, n)
