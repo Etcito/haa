@@ -1,0 +1,276 @@
+{
+  "haa": 1,
+  "id": "bullet-impact-wood",
+  "title": "Bullet impact, wood",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "mode": "timeline",
+    "duration": 0.27229166666666665,
+    "loop": false,
+    "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.000384424,
+          "level": 3.53596,
+          "negative": 0.20307,
+          "noise": 0.199783,
+          "noiseDecay": 0.328796,
+          "tone": 1213.96
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 0.698906,
+          "direct": 0.1,
+          "gain": 1.24453,
+          "low": 0.657843,
+          "modes": "[[608.562,0.394417,3.88666],[1223.06,0.355535,2.63486],[1268.69,0.262128,4.59526],[1873.7,0.344531,-2.88414],[2675.07,0.338588,5.39109],[2779.27,0.934657,-2.03304],[2866.65,0.542969,-0.75704],[3917.7,0.431384,-0.33874],[3985.49,0.771161,1.26556],[5642.09,0.340988,-6.38214],[5717.95,0.449478,-1.60594],[5763.82,0.461361,-6.72024],[5819.51,0.437274,-2.78704],[7789.84,0.487726,6.0],[12059.9,0.37085,-13.2732],[12115.5,0.53075,-4.88694],[12289.5,0.464382,-12.7165]]",
+          "size": 1,
+          "wood": 0.387786,
+          "woodDecay": 0.104335,
+          "woodFreq": 984.858,
+          "woodModes": 48,
+          "woodWidth": 3.51042
+        },
+        "fitFixed": [
+          "size"
+        ]
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 0.993942
+        },
+        "curve": [
+          [
+            0.0,
+            0.22424
+          ],
+          [
+            0.295758,
+            0.0
+          ],
+          [
+            0.310945,
+            0.0
+          ],
+          [
+            0.341798,
+            0.276485
+          ],
+          [
+            0.38384,
+            0.169533
+          ],
+          [
+            0.435327,
+            0.00624225
+          ],
+          [
+            0.495213,
+            0.00350603
+          ],
+          [
+            0.562773,
+            0.00421502
+          ],
+          [
+            0.637462,
+            0.00268843
+          ],
+          [
+            0.718853,
+            0.000284842
+          ],
+          [
+            0.806594,
+            7.66681e-05
+          ],
+          [
+            0.900393,
+            7.55447e-06
+          ],
+          [
+            1.0,
+            1.05654e-07
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 3.52785,
+          "frequency": 1763.67,
+          "level": 0.0,
+          "tilt": -1.47939,
+          "width": 0.0121711
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-noise-1",
+        "type": "noise",
+        "label": "Noise",
+        "x": 80.0,
+        "y": 240.0,
+        "params": {
+          "color": "pink",
+          "level": 0.112453,
+          "width": 0.0866383
+        }
+      },
+      {
+        "id": "fit-gain-1",
+        "type": "gain",
+        "label": "Gain / mixer",
+        "x": 240.0,
+        "y": 240.0,
+        "params": {
+          "gain": 0.0
+        }
+      },
+      {
+        "id": "fit-curve-1",
+        "type": "curve",
+        "label": "Automation curve",
+        "x": 240.0,
+        "y": 360.0,
+        "params": {
+          "amount": 0.521308,
+          "clock": "patch",
+          "retrigger": 0.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0356597
+          ],
+          [
+            0.00432003,
+            0.906503
+          ],
+          [
+            0.314455,
+            0.205228
+          ],
+          [
+            0.904872,
+            0.0546574
+          ],
+          [
+            1.0,
+            0.00160331
+          ]
+        ]
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "tail-env",
+        "to": "tail",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c4",
+        "from": "tail",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c1",
+        "from": "fit-noise-1",
+        "to": "fit-gain-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c2",
+        "from": "fit-curve-1",
+        "to": "fit-gain-1",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c3",
+        "from": "fit-gain-1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.875709
+      }
+    ]
+  },
+  "master": 1
+}

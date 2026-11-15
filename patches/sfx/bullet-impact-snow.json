@@ -1,0 +1,219 @@
+{
+  "haa": 1,
+  "id": "bullet-impact-snow",
+  "title": "Bullet impact, snow",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "mode": "timeline",
+    "duration": 0.56,
+    "loop": false,
+    "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.000314185,
+          "level": 1.73532,
+          "negative": 0.410143,
+          "noise": 0.0,
+          "noiseDecay": 0.344587,
+          "tone": 1406.67
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 0.512357,
+          "direct": 0.1,
+          "gain": 3.14714,
+          "low": 0.0187545,
+          "modes": "[[54.7223,0.0465025,6.96159],[5939.34,0.0706415,-69.9897],[6130.57,0.126536,-59.8359],[7637.52,0.194815,-63.4611],[9983.16,0.25,-51.2305]]",
+          "size": 1,
+          "wood": 0.00929205,
+          "woodDecay": 0.330235,
+          "woodFreq": 2186.92,
+          "woodModes": 48,
+          "woodWidth": 2.11157
+        },
+        "fitFixed": [
+          "size"
+        ]
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 0.938593
+        },
+        "curve": [
+          [
+            0.0,
+            0.037886
+          ],
+          [
+            0.269048,
+            0.715084
+          ],
+          [
+            0.284811,
+            0.0670905
+          ],
+          [
+            0.316835,
+            0.599956
+          ],
+          [
+            0.36047,
+            0.192067
+          ],
+          [
+            0.41391,
+            0.119751
+          ],
+          [
+            0.476068,
+            0.212149
+          ],
+          [
+            0.54619,
+            0.264531
+          ],
+          [
+            0.623712,
+            0.0341199
+          ],
+          [
+            0.708189,
+            0.0408677
+          ],
+          [
+            0.799259,
+            0.0414871
+          ],
+          [
+            0.896616,
+            0.0622984
+          ],
+          [
+            1.0,
+            0.000337702
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 8.05313,
+          "frequency": 707.887,
+          "level": 0.0339805,
+          "tilt": -0.388467,
+          "width": 0.0821184
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-equalizer-1",
+        "type": "equalizer",
+        "label": "3-band equalizer",
+        "x": 400.0,
+        "y": 130.0,
+        "params": {
+          "frequency": 1558.21,
+          "high": -6.14399,
+          "low": 5.52146,
+          "mid": 2.98814
+        }
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "fit-equalizer-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "tail-env",
+        "to": "tail",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c4",
+        "from": "tail",
+        "to": "fit-equalizer-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c1",
+        "from": "fit-equalizer-1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.21437
+      }
+    ]
+  },
+  "master": 1
+}

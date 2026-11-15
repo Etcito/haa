@@ -286,6 +286,8 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
       joules,
       normalSpeed: vn,
       tangentSpeed: vt,
+      strikerCollider: sc.handle,
+      surfaceCollider: fc.handle,
     };
     pair.lastImpact = time;
     lastByCollider.set(c1.handle, time);

@@ -1,7 +1,7 @@
 {
   "haa": 1,
   "id": "casing",
-  "title": "Brass casing landing",
+  "title": "Brass casing landing (9 mm)",
   "inputs": [
     {
       "name": "energy",
@@ -9,36 +9,199 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.35,
-      "smooth": 0,
-      "curve": "lin"
-    },
-    {
-      "name": "size",
-      "kind": "continuous",
-      "unit": "",
-      "min": 0,
-      "max": 1,
-      "default": 0.1,
-      "smooth": 0,
-      "curve": "lin"
-    },
-    {
-      "name": "hardness",
-      "kind": "continuous",
-      "unit": "",
-      "min": 0,
-      "max": 1,
-      "default": 0.9,
+      "default": 1,
       "smooth": 0,
       "curve": "lin"
     }
   ],
   "graph": {
-    "duration": 0.8,
-    "loop": false,
     "mode": "timeline",
+    "duration": 0.24441666666666667,
+    "loop": false,
     "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.000285055,
+          "level": 1.06228,
+          "negative": 0.0,
+          "noise": 0.370325,
+          "noiseDecay": 0.0731244,
+          "tone": 20000.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 1.18155,
+          "direct": 0.1,
+          "gain": 2.89849,
+          "low": 0.898963,
+          "modes": "[[749.425,0.335058,2.62596],[1359.77,0.205879,0.00374966],[2554.69,0.173447,9.36138],[2596.96,0.201327,-4.84834],[2738.16,0.325241,-12.8748],[3549.31,0.0110204,-5.75603],[7137.36,0.00721706,-12.9804],[9994.94,0.319365,-18.7672],[10029.3,0.759226,-13.7195],[10075.2,0.303775,3.93151],[10114.2,0.277421,12.1046],[10170.6,0.257066,11.2027],[10246.2,0.0605841,-2.45425],[10293.5,0.218824,-4.42548],[10397.2,0.202651,15.9153],[10453.7,0.265414,9.0464],[15177.2,0.005,-20.057],[15378.4,0.20021,11.1141],[15437.1,0.205971,4.68977],[15510.2,0.148246,14.2065],[15597.7,0.175796,10.3249],[15659.3,0.005,-22.272],[15739.2,0.005,-14.7998],[15815.4,0.005,-34.8743]]",
+          "size": 1,
+          "wood": 0.0,
+          "woodDecay": 0.0710206,
+          "woodFreq": 5229.4,
+          "woodModes": 48,
+          "woodWidth": 4.27229
+        },
+        "fitFixed": [
+          "size"
+        ]
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 0.531916
+        },
+        "curve": [
+          [
+            0.0,
+            0.129597
+          ],
+          [
+            0.318954,
+            0.0
+          ],
+          [
+            0.333642,
+            0.04548
+          ],
+          [
+            0.363478,
+            0.0
+          ],
+          [
+            0.404135,
+            0.00983305
+          ],
+          [
+            0.453926,
+            0.00610472
+          ],
+          [
+            0.51184,
+            0.00638433
+          ],
+          [
+            0.577174,
+            0.00460845
+          ],
+          [
+            0.649404,
+            0.00276795
+          ],
+          [
+            0.728113,
+            0.00177953
+          ],
+          [
+            0.812965,
+            0.00147945
+          ],
+          [
+            0.903674,
+            0.000861972
+          ],
+          [
+            1.0,
+            6.59697e-05
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 3.44376,
+          "frequency": 4079.5,
+          "level": 0.0,
+          "tilt": -0.712135,
+          "width": 0.327753
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-noise-1",
+        "type": "noise",
+        "label": "Noise",
+        "x": 80.0,
+        "y": 240.0,
+        "params": {
+          "color": "pink",
+          "level": 0.133745,
+          "width": 0.0
+        }
+      },
+      {
+        "id": "fit-gain-1",
+        "type": "gain",
+        "label": "Gain / mixer",
+        "x": 240.0,
+        "y": 240.0,
+        "params": {
+          "gain": 0.0
+        }
+      },
+      {
+        "id": "fit-curve-1",
+        "type": "curve",
+        "label": "Automation curve",
+        "x": 240.0,
+        "y": 360.0,
+        "params": {
+          "amount": 0.447458,
+          "clock": "patch",
+          "retrigger": 0.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0123603
+          ],
+          [
+            0.00222444,
+            0.896607
+          ],
+          [
+            0.362374,
+            0.306909
+          ],
+          [
+            0.82922,
+            0.0
+          ],
+          [
+            1.0,
+            0.0
+          ]
+        ]
+      },
       {
         "id": "in-energy",
         "type": "input",
@@ -48,582 +211,64 @@
         "params": {
           "name": "energy"
         }
-      },
-      {
-        "id": "in-size",
-        "type": "input",
-        "label": "Size",
-        "x": 20,
-        "y": 140,
-        "params": {
-          "name": "size"
-        }
-      },
-      {
-        "id": "in-hardness",
-        "type": "input",
-        "label": "Hardness",
-        "x": 20,
-        "y": 260,
-        "params": {
-          "name": "hardness"
-        }
-      },
-      {
-        "id": "m-level",
-        "type": "map",
-        "label": "Energy -> level (48 dB)",
-        "x": 280,
-        "y": 20,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0,
-          "outMax": 1.0
-        },
-        "curve": [
-          [
-            0,
-            0.00398
-          ],
-          [
-            0.1,
-            0.00692
-          ],
-          [
-            0.2,
-            0.01202
-          ],
-          [
-            0.3,
-            0.02089
-          ],
-          [
-            0.4,
-            0.03631
-          ],
-          [
-            0.5,
-            0.0631
-          ],
-          [
-            0.6,
-            0.1096
-          ],
-          [
-            0.7,
-            0.1905
-          ],
-          [
-            0.8,
-            0.331
-          ],
-          [
-            0.9,
-            0.5754
-          ],
-          [
-            1,
-            1.0
-          ]
-        ]
-      },
-      {
-        "id": "m-floor",
-        "type": "map",
-        "label": "Floor hardness -> level",
-        "x": 280,
-        "y": 140,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0.05,
-          "outMax": 1.0
-        },
-        "curve": [
-          [
-            0,
-            0
-          ],
-          [
-            0.3,
-            0.4
-          ],
-          [
-            0.7,
-            0.9
-          ],
-          [
-            1,
-            1
-          ]
-        ]
-      },
-      {
-        "id": "lv",
-        "type": "math",
-        "label": "Energy x floor -> level",
-        "x": 280,
-        "y": 260,
-        "params": {
-          "a": 0,
-          "b": 0,
-          "operation": "multiply",
-          "edge0": 0,
-          "edge1": 1
-        }
-      },
-      {
-        "id": "m-f",
-        "type": "map",
-        "label": "Size -> ring pitch (Hz): a bigger case rings lower",
-        "x": 280,
-        "y": 380,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 4665.0,
-          "outMax": 1965.0
-        },
-        "curve": [
-          [
-            0.0,
-            -0.0
-          ],
-          [
-            0.0312,
-            0.04573
-          ],
-          [
-            0.0625,
-            0.09026
-          ],
-          [
-            0.0938,
-            0.13363
-          ],
-          [
-            0.125,
-            0.17587
-          ],
-          [
-            0.1562,
-            0.217
-          ],
-          [
-            0.1875,
-            0.25706
-          ],
-          [
-            0.2188,
-            0.29607
-          ],
-          [
-            0.25,
-            0.33406
-          ],
-          [
-            0.2812,
-            0.37106
-          ],
-          [
-            0.3125,
-            0.40709
-          ],
-          [
-            0.3438,
-            0.44219
-          ],
-          [
-            0.375,
-            0.47636
-          ],
-          [
-            0.4062,
-            0.50964
-          ],
-          [
-            0.4375,
-            0.54205
-          ],
-          [
-            0.4688,
-            0.57362
-          ],
-          [
-            0.5,
-            0.60436
-          ],
-          [
-            0.5312,
-            0.63429
-          ],
-          [
-            0.5625,
-            0.66345
-          ],
-          [
-            0.5938,
-            0.69184
-          ],
-          [
-            0.625,
-            0.71949
-          ],
-          [
-            0.6562,
-            0.74642
-          ],
-          [
-            0.6875,
-            0.77264
-          ],
-          [
-            0.7188,
-            0.79818
-          ],
-          [
-            0.75,
-            0.82305
-          ],
-          [
-            0.7812,
-            0.84727
-          ],
-          [
-            0.8125,
-            0.87086
-          ],
-          [
-            0.8438,
-            0.89383
-          ],
-          [
-            0.875,
-            0.91621
-          ],
-          [
-            0.9062,
-            0.93799
-          ],
-          [
-            0.9375,
-            0.95921
-          ],
-          [
-            0.9688,
-            0.97988
-          ],
-          [
-            1.0,
-            1.0
-          ]
-        ]
-      },
-      {
-        "id": "m-contact",
-        "type": "map",
-        "label": "Floor hardness -> contact time (s)",
-        "x": 280,
-        "y": 500,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0.00131333,
-          "outMax": 4.667e-05
-        },
-        "curve": [
-          [
-            0.0,
-            -0.0
-          ],
-          [
-            0.0312,
-            0.09407
-          ],
-          [
-            0.0625,
-            0.17974
-          ],
-          [
-            0.0938,
-            0.25775
-          ],
-          [
-            0.125,
-            0.32878
-          ],
-          [
-            0.1562,
-            0.39347
-          ],
-          [
-            0.1875,
-            0.45238
-          ],
-          [
-            0.2188,
-            0.50602
-          ],
-          [
-            0.25,
-            0.55487
-          ],
-          [
-            0.2812,
-            0.59936
-          ],
-          [
-            0.3125,
-            0.63987
-          ],
-          [
-            0.3438,
-            0.67675
-          ],
-          [
-            0.375,
-            0.71034
-          ],
-          [
-            0.4062,
-            0.74093
-          ],
-          [
-            0.4375,
-            0.76879
-          ],
-          [
-            0.4688,
-            0.79416
-          ],
-          [
-            0.5,
-            0.81726
-          ],
-          [
-            0.5312,
-            0.83829
-          ],
-          [
-            0.5625,
-            0.85745
-          ],
-          [
-            0.5938,
-            0.87489
-          ],
-          [
-            0.625,
-            0.89077
-          ],
-          [
-            0.6562,
-            0.90524
-          ],
-          [
-            0.6875,
-            0.91841
-          ],
-          [
-            0.7188,
-            0.93041
-          ],
-          [
-            0.75,
-            0.94133
-          ],
-          [
-            0.7812,
-            0.95128
-          ],
-          [
-            0.8125,
-            0.96033
-          ],
-          [
-            0.8438,
-            0.96858
-          ],
-          [
-            0.875,
-            0.97609
-          ],
-          [
-            0.9062,
-            0.98293
-          ],
-          [
-            0.9375,
-            0.98916
-          ],
-          [
-            0.9688,
-            0.99483
-          ],
-          [
-            1.0,
-            1.0
-          ]
-        ]
-      },
-      {
-        "id": "tube",
-        "type": "modal",
-        "label": "Brass tube (ring)",
-        "x": 540,
-        "y": 20,
-        "params": {
-          "shape": "shell",
-          "material": "metal",
-          "frequency": 20,
-          "modes": 8,
-          "decay": 0.25,
-          "damping": 0.5,
-          "contact": 2e-05,
-          "force": 1.0,
-          "position": 0.3,
-          "vary": 1.0,
-          "click": 0.7,
-          "rattle": 0,
-          "glide": 0,
-          "bounces": 4,
-          "bounceTime": 0.07,
-          "restitution": 0.7,
-          "input": 0,
-          "strike": true,
-          "delay": 0.006,
-          "level": 0
-        }
-      },
-      {
-        "id": "tick",
-        "type": "crackle",
-        "label": "Contact ticks",
-        "x": 540,
-        "y": 140,
-        "params": {
-          "kind": "click",
-          "rate": 60,
-          "rise": 0,
-          "fall": 0.21000000000000002,
-          "frequency": 7000,
-          "spread": 1.0,
-          "sizePitch": 0.3,
-          "decay": 0.001,
-          "contact": 0.0002,
-          "range": 12,
-          "exponent": 1.0,
-          "modes": 2,
-          "regularity": 0,
-          "clump": 0,
-          "delay": 0.006,
-          "level": 0
-        }
-      },
-      {
-        "id": "out",
-        "type": "output",
-        "label": "Output",
-        "x": 1060,
-        "y": 20,
-        "params": {
-          "gain": 0.358344
-        }
       }
     ],
     "connections": [
       {
-        "id": "e1-in-energy-m-level-in",
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "tail-env",
+        "to": "tail",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c4",
+        "from": "tail",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c1",
+        "from": "fit-noise-1",
+        "to": "fit-gain-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c2",
+        "from": "fit-curve-1",
+        "to": "fit-gain-1",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c3",
+        "from": "fit-gain-1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
         "from": "in-energy",
-        "to": "m-level",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e2-in-hardness-m-floor-in",
-        "from": "in-hardness",
-        "to": "m-floor",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e3-m-level-lv-a",
-        "from": "m-level",
-        "to": "lv",
-        "target": "a",
-        "amount": 1.0
-      },
-      {
-        "id": "e4-m-floor-lv-b",
-        "from": "m-floor",
-        "to": "lv",
-        "target": "b",
-        "amount": 1.0
-      },
-      {
-        "id": "e5-in-size-m-f-in",
-        "from": "in-size",
-        "to": "m-f",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e6-in-hardness-m-contact-in",
-        "from": "in-hardness",
-        "to": "m-contact",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e7-m-f-tube-frequency",
-        "from": "m-f",
-        "to": "tube",
-        "target": "frequency",
-        "amount": 1.0
-      },
-      {
-        "id": "e8-m-contact-tube-contact",
-        "from": "m-contact",
-        "to": "tube",
-        "target": "contact",
-        "amount": 1.0
-      },
-      {
-        "id": "e9-lv-tube-level",
-        "from": "lv",
-        "to": "tube",
-        "target": "level",
-        "amount": 1.2
-      },
-      {
-        "id": "e10-lv-tick-level",
-        "from": "lv",
-        "to": "tick",
-        "target": "level",
-        "amount": 0.8
-      },
-      {
-        "id": "e11-tube-out-audio",
-        "from": "tube",
         "to": "out",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e12-tick-out-audio",
-        "from": "tick",
-        "to": "out",
-        "target": "audio",
-        "amount": 1.0
+        "target": "gain",
+        "amount": 0.0627136
       }
     ]
   },

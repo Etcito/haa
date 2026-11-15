@@ -344,4 +344,7 @@ export interface SfxEvent {
   joules?: number;
   normalSpeed?: number;
   tangentSpeed?: number;
+  /** The colliders behind an impact (physics adapters): the game can act on the bodies it names (stop a bullet). */
+  strikerCollider?: number;
+  surfaceCollider?: number;
 }

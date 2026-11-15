@@ -9,26 +9,199 @@
       "unit": "",
       "min": 0,
       "max": 1,
-      "default": 0.9,
-      "smooth": 0,
-      "curve": "lin"
-    },
-    {
-      "name": "size",
-      "kind": "continuous",
-      "unit": "",
-      "min": 0,
-      "max": 1,
-      "default": 0.3,
+      "default": 1,
       "smooth": 0,
       "curve": "lin"
     }
   ],
   "graph": {
-    "duration": 0.8,
-    "loop": false,
     "mode": "timeline",
+    "duration": 0.325,
+    "loop": false,
     "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.000136398,
+          "level": 2.98849,
+          "negative": 0.0850689,
+          "noise": 0.615021,
+          "noiseDecay": 0.113563,
+          "tone": 2601.8
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 1.54795,
+          "direct": 0.1,
+          "gain": 2.06114,
+          "low": 0.323041,
+          "modes": "[[1295.46,0.477508,6.0],[7058.77,0.445229,1.61256],[8331.72,0.297948,-0.40144],[9245.82,0.285682,-8.09064],[9851.1,0.327432,-0.43954],[12116.9,0.236149,-3.43604],[12860.7,0.154002,-9.18224],[13535.9,0.0178382,-3.49834],[13730.4,0.160837,-12.7422],[14266.3,0.211625,-14.8661],[18403.3,0.104936,-2.43814],[18462.4,0.100458,-14.2275]]",
+          "size": 1,
+          "wood": 0.0810672,
+          "woodDecay": 0.140378,
+          "woodFreq": 1040.27,
+          "woodModes": 48,
+          "woodWidth": 3.74582
+        },
+        "fitFixed": [
+          "size"
+        ]
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 0.676388
+        },
+        "curve": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            0.217436,
+            0.140024
+          ],
+          [
+            0.234313,
+            0.189344
+          ],
+          [
+            0.268597,
+            0.330727
+          ],
+          [
+            0.315314,
+            0.142389
+          ],
+          [
+            0.372527,
+            0.128569
+          ],
+          [
+            0.439074,
+            0.0607695
+          ],
+          [
+            0.514147,
+            0.0356564
+          ],
+          [
+            0.597143,
+            0.0183415
+          ],
+          [
+            0.687585,
+            0.0142499
+          ],
+          [
+            0.785085,
+            0.0115099
+          ],
+          [
+            0.889316,
+            0.00809383
+          ],
+          [
+            1.0,
+            0.00123689
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 5.43266,
+          "frequency": 600.985,
+          "level": 0.0,
+          "tilt": 0.574417,
+          "width": 0.112965
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-noise-1",
+        "type": "noise",
+        "label": "Noise",
+        "x": 80.0,
+        "y": 240.0,
+        "params": {
+          "color": "pink",
+          "level": 0.143759,
+          "width": 0.0
+        }
+      },
+      {
+        "id": "fit-gain-1",
+        "type": "gain",
+        "label": "Gain / mixer",
+        "x": 240.0,
+        "y": 240.0,
+        "params": {
+          "gain": 0.0
+        }
+      },
+      {
+        "id": "fit-curve-1",
+        "type": "curve",
+        "label": "Automation curve",
+        "x": 240.0,
+        "y": 360.0,
+        "params": {
+          "amount": 0.453825,
+          "clock": "patch",
+          "retrigger": 0.0
+        },
+        "curve": [
+          [
+            0,
+            0.0366235
+          ],
+          [
+            0.004,
+            1.0
+          ],
+          [
+            0.3,
+            0.171123
+          ],
+          [
+            0.8999999999999999,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
       {
         "id": "in-energy",
         "type": "input",
@@ -38,334 +211,64 @@
         "params": {
           "name": "energy"
         }
-      },
-      {
-        "id": "in-size",
-        "type": "input",
-        "label": "Size",
-        "x": 20,
-        "y": 140,
-        "params": {
-          "name": "size"
-        }
-      },
-      {
-        "id": "m-level",
-        "type": "map",
-        "label": "Energy -> level (48 dB)",
-        "x": 280,
-        "y": 20,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0,
-          "outMax": 1.0
-        },
-        "curve": [
-          [
-            0,
-            0.00398
-          ],
-          [
-            0.1,
-            0.00692
-          ],
-          [
-            0.2,
-            0.01202
-          ],
-          [
-            0.3,
-            0.02089
-          ],
-          [
-            0.4,
-            0.03631
-          ],
-          [
-            0.5,
-            0.0631
-          ],
-          [
-            0.6,
-            0.1096
-          ],
-          [
-            0.7,
-            0.1905
-          ],
-          [
-            0.8,
-            0.331
-          ],
-          [
-            0.9,
-            0.5754
-          ],
-          [
-            1,
-            1.0
-          ]
-        ]
-      },
-      {
-        "id": "crack",
-        "type": "blast",
-        "label": "Muzzle crack (N-wave)",
-        "x": 540,
-        "y": 20,
-        "params": {
-          "duration": 0.0004,
-          "negative": 0.3,
-          "noise": 0.3,
-          "noiseDecay": 0.004,
-          "tone": 6000,
-          "delay": 0.006,
-          "level": 0.0
-        }
-      },
-      {
-        "id": "gas",
-        "type": "blast",
-        "label": "Blast (gas wave and turbulence)",
-        "x": 540,
-        "y": 140,
-        "params": {
-          "duration": 0.0012,
-          "negative": 0.5,
-          "noise": 1.0,
-          "noiseDecay": 0.04,
-          "tone": 3000,
-          "delay": 0.006,
-          "level": 0.0
-        }
-      },
-      {
-        "id": "gas-hp",
-        "type": "filter",
-        "label": "Blast high-pass",
-        "x": 800,
-        "y": 20,
-        "params": {
-          "cutoff": 350,
-          "resonance": 0.6,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "gas-lp",
-        "type": "filter",
-        "label": "Blast low-pass",
-        "x": 800,
-        "y": 140,
-        "params": {
-          "cutoff": 6000.0,
-          "resonance": 0.6,
-          "mode": "lowpass"
-        }
-      },
-      {
-        "id": "tail",
-        "type": "blast",
-        "label": "Near-field turbulence",
-        "x": 540,
-        "y": 260,
-        "params": {
-          "duration": 0.0001,
-          "negative": 0,
-          "noise": 1.0,
-          "noiseDecay": 0.05,
-          "tone": 700,
-          "delay": 0.008,
-          "level": 0.0
-        }
-      },
-      {
-        "id": "tail-hp",
-        "type": "filter",
-        "label": "Turbulence high-pass",
-        "x": 800,
-        "y": 260,
-        "params": {
-          "cutoff": 80,
-          "resonance": 0.6,
-          "mode": "highpass"
-        }
-      },
-      {
-        "id": "punch",
-        "type": "blast",
-        "label": "Low punch (pressure)",
-        "x": 540,
-        "y": 380,
-        "params": {
-          "duration": 0.025,
-          "negative": 0.7,
-          "noise": 0,
-          "noiseDecay": 0.03,
-          "tone": 9000,
-          "delay": 0.006,
-          "level": 0.0
-        }
-      },
-      {
-        "id": "action",
-        "type": "modal",
-        "label": "Action (metal click)",
-        "x": 540,
-        "y": 500,
-        "params": {
-          "shape": "bar",
-          "material": "metal",
-          "frequency": 2187.5,
-          "modes": 16,
-          "decay": 0.05,
-          "damping": 1.0,
-          "contact": 8.333e-05,
-          "force": 1.0,
-          "position": 0.3,
-          "vary": 0.9,
-          "click": 0.8,
-          "rattle": 0,
-          "glide": 0,
-          "bounces": 0,
-          "bounceTime": 0.03,
-          "restitution": 0.5,
-          "input": 0,
-          "strike": true,
-          "delay": 0.012,
-          "level": 0
-        }
-      },
-      {
-        "id": "drive",
-        "type": "drive",
-        "label": "Saturation (the microphone at a muzzle)",
-        "x": 800,
-        "y": 380,
-        "params": {
-          "amount": 0.1,
-          "mix": 1.0
-        }
-      },
-      {
-        "id": "out",
-        "type": "output",
-        "label": "Output",
-        "x": 1060,
-        "y": 20,
-        "params": {
-          "gain": 0.33
-        }
       }
     ],
     "connections": [
       {
-        "id": "e1-in-energy-m-level-in",
-        "from": "in-energy",
-        "to": "m-level",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e2-m-level-crack-level",
-        "from": "m-level",
-        "to": "crack",
-        "target": "level",
-        "amount": 1.6
-      },
-      {
-        "id": "e3-m-level-gas-level",
-        "from": "m-level",
-        "to": "gas",
-        "target": "level",
-        "amount": 1.0
-      },
-      {
-        "id": "e4-gas-gas-hp-audio",
-        "from": "gas",
-        "to": "gas-hp",
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e5-gas-hp-gas-lp-audio",
-        "from": "gas-hp",
-        "to": "gas-lp",
+        "id": "c2",
+        "from": "body",
+        "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e6-m-level-tail-level",
-        "from": "m-level",
+        "id": "c3",
+        "from": "tail-env",
         "to": "tail",
         "target": "level",
-        "amount": 0.3
+        "amount": 1.0
       },
       {
-        "id": "e7-tail-tail-hp-audio",
+        "id": "c4",
         "from": "tail",
-        "to": "tail-hp",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e8-m-level-punch-level",
-        "from": "m-level",
-        "to": "punch",
-        "target": "level",
-        "amount": 0.18
-      },
-      {
-        "id": "e9-m-level-action-level",
-        "from": "m-level",
-        "to": "action",
-        "target": "level",
-        "amount": 0.045
-      },
-      {
-        "id": "e10-crack-drive-audio",
-        "from": "crack",
-        "to": "drive",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e11-gas-lp-drive-audio",
-        "from": "gas-lp",
-        "to": "drive",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e12-punch-drive-audio",
-        "from": "punch",
-        "to": "drive",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e13-tail-hp-drive-audio",
-        "from": "tail-hp",
-        "to": "drive",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e14-drive-out-audio",
-        "from": "drive",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e15-action-out-audio",
-        "from": "action",
+        "id": "fit-c1",
+        "from": "fit-noise-1",
+        "to": "fit-gain-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c2",
+        "from": "fit-curve-1",
+        "to": "fit-gain-1",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c3",
+        "from": "fit-gain-1",
         "to": "out",
         "target": "audio",
         "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.645873
       }
     ]
   },

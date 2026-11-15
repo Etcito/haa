@@ -56,34 +56,24 @@
  ],
  "casings": [
   {
-   "dry": "gamesfx/ShotgunShell_Land_Concrete_02.wav",
+   "dry": "gamesfx/7 62 x 39 PPU  - Casings Shell & Cartdridges  - Impact and Roll on Tile Floor - Inside.wav",
    "source": "game SFX (Sonniss GDC bundle)",
    "one_event": true
   },
   {
-   "dry": "gamesfx/9 mm x 21  - Casings Shell & Cartdridges - Roll on Concrete Floor - Outdoor.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "one_event": true
-  },
-  {
-   "dry": "gamesfx/bullet_shell_bounce_wood2_05.wav",
+   "dry": "gamesfx/6 35 GFL - Casings Shell & Cartridges - Drop bounce and roll on Wooden Floor - Outdoor.wav",
    "source": "game SFX (Sonniss GDC bundle)",
    "one_event": true
   }
  ],
  "casings-only": [
   {
-   "dry": "gamesfx/ShotgunShell_Land_Concrete_02.wav",
+   "dry": "gamesfx/7 62 x 39 PPU  - Casings Shell & Cartdridges  - Impact and Roll on Tile Floor - Inside.wav",
    "source": "game SFX (Sonniss GDC bundle)",
    "one_event": true
   },
   {
-   "dry": "gamesfx/9 mm x 21  - Casings Shell & Cartdridges - Roll on Concrete Floor - Outdoor.wav",
-   "source": "game SFX (Sonniss GDC bundle)",
-   "one_event": true
-  },
-  {
-   "dry": "gamesfx/bullet_shell_bounce_wood2_05.wav",
+   "dry": "gamesfx/6 35 GFL - Casings Shell & Cartridges - Drop bounce and roll on Wooden Floor - Outdoor.wav",
    "source": "game SFX (Sonniss GDC bundle)",
    "one_event": true
   }
@@ -328,6 +318,13 @@
    "source": "your pick (page 2 real 1)",
    "target": true,
    "seconds": 4
+  }
+ ],
+ "shotgun-shell": [
+  {
+   "dry": "gamesfx/ShotgunShell_Land_Concrete_02.wav",
+   "source": "game SFX (Sonniss GDC bundle)",
+   "one_event": true
   }
  ]
 }
