@@ -796,6 +796,12 @@ cell, the cubes' faces included, so they follow the clutter.)
   box after a static change: the studio calls it when the hall's roof material changes.
 - **Per voice (main thread, wasm).** Reads at the source and the listener; the path from the flood,
   string-pulled into straight legs (excess, first corner).
+  - *A sound on a surface.* A contact point lies on the collider it touches. Every ray toward a
+    sound stops 5 cm short of it (`END_SKIP`): the direct test, the last leg of the path, and the
+    source's cells (cast from each cell's centre toward the point). Before this, a ray ending on the
+    ground counted as hidden, and every impact on a floor had no path: -18/-25/-33 dB with the occlusion
+    low-pass, from the field becoming the default (studio aeafb06) until mix4a. The Rapier adapter also
+    places a contact's sound 3 cm off the point, toward the centre of the striking or moving body.
   - *Opening between two spaces* (when the reads differ: decay ratio > 1.4 or open shares 0.15
     apart): the worker scans the path for the narrowest free cross-section, cached per pair of coarse
     cells. An opening is under 16 m² and narrower than half the wider end (a listener standing in the

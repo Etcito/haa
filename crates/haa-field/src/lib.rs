@@ -34,6 +34,9 @@ pub const ESCAPE: f64 = 60.0;
 /// Reflecting planes stored per cell.
 pub const PLANES: usize = 6;
 const BRICK: usize = 4;
+/// How far before a sound's point the rays toward it stop (clear_to): a contact point lies on the
+/// surface it touches; a casing or a step 3 cm above it is still seen.
+const END_SKIP: f64 = 0.05;
 /// Floats per exported cell record: index, state, rt60, mfp, absorption, escape, energy, dir xyz,
 /// predelay, 2 edge halves, plane count, planes (normal xyz, distance, absorption), then the low and
 /// high bands' decay times relative to rt60.
@@ -531,6 +534,16 @@ impl Field {
         len < 1e-6 || self.scene.cast(a, d * (1.0 / len), len).is_none()
     }
 
+    /// `clear` from `a` (in the air) to a sound's point `b`, which may lie on a surface: the last
+    /// `END_SKIP` m before `b` are not tested. A contact point is on the collider it touches (an
+    /// impact at y = 0.00 on the ground): a ray ending there hits that surface, and every impact on
+    /// a floor came out with no path (-18/-25/-33 dB, the occlusion's full loss).
+    fn clear_to(&mut self, a: V3, b: V3) -> bool {
+        let d = b - a;
+        let len = d.length();
+        len <= END_SKIP + 1e-6 || self.scene.cast(a, d * (1.0 / len), len - END_SKIP).is_none()
+    }
+
     /// The 8 cells around `p` whose centre `p` sees, with their distance.
     fn seeds(&mut self, p: V3) -> Vec<(usize, f64)> {
         let (b, _) = self.grid.base(p);
@@ -542,7 +555,8 @@ impl Field {
                 continue;
             }
             let c = self.grid.centre(idx);
-            if self.clear(p, c) {
+            // From the cell's centre (air) toward the point: a point on a surface sees its cells.
+            if self.clear_to(c, p) {
                 out.push((idx, (c - p).length()));
             }
         }
@@ -601,7 +615,7 @@ impl Field {
     pub fn path(&mut self, s: V3, l: V3, want_aperture: bool) -> PathResult {
         let direct = (s - l).length();
         let mut r = PathResult { via: s, length: direct, lattice: direct, ..Default::default() };
-        if self.clear(l, s) {
+        if self.clear_to(l, s) {
             r.found = true;
             r.visible = true;
             if want_aperture {
@@ -640,8 +654,10 @@ impl Field {
         let mut first: Option<V3> = None;
         let mut corners = 0;
         let mut j = 1;
+        let last = pts.len() - 1;
         while j < pts.len() {
-            if !self.clear(cur, pts[j]) {
+            let seen = if j == last { self.clear_to(cur, pts[j]) } else { self.clear(cur, pts[j]) };
+            if !seen {
                 let corner = pts[j - 1];
                 if (corner - cur).length() < 1e-9 {
                     len += (pts[j] - cur).length();
@@ -1157,6 +1173,26 @@ mod tests {
         assert!(p.excess > 0.5 && p.excess < 6.0, "excess {}", p.excess);
         assert!(p.via.z > -1.6 && p.via.z < 1.6, "arrives through the door: via {:?}", (p.via.x, p.via.y, p.via.z));
         assert!(p.aperture.area > 3.0 && p.aperture.area < 9.0 && (p.aperture.point.x - 5.15).abs() < 1.0, "aperture {} at {:?}", p.aperture.area, (p.aperture.point.x, p.aperture.point.z));
+    }
+
+    #[test]
+    fn a_sound_lying_on_a_surface_is_not_hidden_by_it() {
+        // Outside the room: an impact exactly on the ground (y = 0) 6 m from the listener and one on
+        // the outer face of the +x wall are in plain view. From inside, a sound on the ground behind
+        // the -z wall (outer side) is hidden by it.
+        let grid = Grid { origin: v3(-8.0, 0.0, -8.0), cell: 1.0, n: [20, 4, 16] };
+        let mut f = Field::new(room(), grid);
+        while f.bake(500, v3(9.0, 1.5, 0.0)) > 0 {}
+        let l = v3(9.0, 1.6, -6.0);
+        f.flood(l, 100.0);
+        let ground = f.path(v3(9.0, 0.0, -0.3), l, false);
+        assert!(ground.found && ground.visible, "on the ground: found {} visible {}", ground.found, ground.visible);
+        let wall_face = f.path(v3(5.3, 1.0, -3.0), l, false);
+        assert!(wall_face.found && wall_face.visible, "on the facing wall: found {} visible {}", wall_face.found, wall_face.visible);
+        let inside = v3(0.0, 1.6, 0.0);
+        f.flood(inside, 100.0);
+        let behind = f.path(v3(0.0, 0.0, -5.6), inside, false);
+        assert!(!behind.visible && behind.excess > 1.0, "behind the wall: visible {} excess {}", behind.visible, behind.excess);
     }
 
     #[test]

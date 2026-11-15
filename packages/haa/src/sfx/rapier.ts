@@ -39,6 +39,22 @@ export interface RCollider {
   translation(): RVec;
   mass(): number;
 }
+
+/**
+ * A contact's sound is placed this far off the contact point, toward the centre of the body that
+ * strikes or moves: the point lies on the surface it touches (an impact at y = 0.00 on the ground),
+ * and a path test that ends on that surface counts it as occluded. The engine's lookups also stop
+ * short of a sound's point (crates/haa-field `END_SKIP`, the tracer's `endSkip`).
+ */
+const CONTACT_LIFT = 0.03;
+
+/** `point` moved by up to `CONTACT_LIFT` toward `toward` (never past it). */
+function lifted(point: Vec3, toward: Vec3): Vec3 {
+  const d = sub(toward, point);
+  const l = length(d);
+  return l < 1e-6 ? point : add(point, scale(d, Math.min(CONTACT_LIFT, l * 0.5) / l));
+}
+
 export interface RManifold {
   normal(): RVec;
   numContacts(): number;
@@ -238,7 +254,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
     const surfaceMass = massOf(fc);
     const event: SfxEvent = {
       kind: 'impact',
-      position: hit.point,
+      position: lifted(hit.point, sc.translation()),
       striker,
       surface,
       inputs: {
@@ -310,7 +326,7 @@ export function createRapierSfx(o: RapierSfxOptions): RapierSfx {
       kind,
       key: `${kind}:${pair.key}`,
       phase: pair.continuous ? 'update' : 'start',
-      position: hit.point,
+      position: lifted(hit.point, strikerCollider.translation()),
       striker,
       surface,
       inputs: {
