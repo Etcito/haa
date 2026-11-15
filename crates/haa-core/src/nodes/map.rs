@@ -125,6 +125,10 @@ impl Node for MapNode {
         read_points(init.curve, &mut self.points);
     }
 
+    fn pure(&self) -> bool {
+        true
+    }
+
     fn reset(&mut self) {}
 }
 

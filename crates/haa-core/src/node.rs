@@ -53,6 +53,10 @@ pub trait Node {
     /// Processes one sample. `params` holds the effective (smoothed, modulated, clamped) values.
     fn process_sample(&mut self, ctx: &SampleCtx<'_>, input: (f64, f64), params: &[f64]) -> NodeOut;
 
+    /// True for a node whose output is a function of its params alone (no state, no clock, no audio
+    /// input): the graph skips it while those params stay the same, keeping its last output.
+    fn pure(&self) -> bool { false }
+
     /// Live swap: takes new params and keeps the state.
     fn configure(&mut self, init: &NodeInit<'_>) {
         let _ = init;

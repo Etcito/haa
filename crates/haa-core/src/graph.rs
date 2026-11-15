@@ -46,6 +46,10 @@ pub struct Voice {
     mod_smoothers: Vec<Vec<Smoother>>,
     /// Effective (smoothed, modulated, clamped) params per node.
     effective: Vec<Vec<f64>>,
+    /// Whether a node's `effective` and outputs come from a step since the last reset (so they can be kept).
+    primed: Vec<bool>,
+    /// Whether a node's control value or signal changed on the last step (its readers then recompute).
+    changed: Vec<bool>,
     values: Vec<f64>,
     signal_l: Vec<f64>,
     signal_r: Vec<f64>,
@@ -92,6 +96,8 @@ impl Voice {
             wire_smoothers: Vec::new(),
             mod_smoothers: Vec::new(),
             effective: Vec::new(),
+            primed: Vec::new(),
+            changed: Vec::new(),
             values: Vec::new(),
             signal_l: Vec::new(),
             signal_r: Vec::new(),
@@ -376,33 +382,56 @@ impl Voice {
         let values = &mut self.values;
         let signal_l = &mut self.signal_l;
         let signal_r = &mut self.signal_r;
+        let changed = &mut self.changed;
         for (index, pn) in plan.nodes.iter().enumerate() {
+            // Steady: nothing the effective params read moved since the last step (base smoothers idle,
+            // every control source unchanged, its edge smoother idle), so they are the same values,
+            // bit for bit, and are kept. A pure node then keeps its outputs too, without running.
+            let steady = self.primed[index]
+                && pn
+                    .def
+                    .params
+                    .iter()
+                    .zip(&self.param_smoothers[index])
+                    .all(|(param, s)| !matches!(param.kind, ParamKind::Number { .. }) || s.is_idle())
+                && pn
+                    .mods
+                    .iter()
+                    .zip(&self.mod_smoothers[index])
+                    .all(|(m, s)| m.from_port.is_none() && !changed[m.from] && s.is_idle());
+            if steady && !pn.muted && !pn.bypass && pn.audio_in.is_empty() && self.nodes[index].pure() {
+                changed[index] = false;
+                continue;
+            }
             // Effective params: smoothed base, plus Σ mods × edge-smoothed amount, clamped as Sona's `clamp`.
             let effective = &mut self.effective[index];
-            for (k, smoother) in self.param_smoothers[index].iter_mut().enumerate() {
-                effective[k] = match pn.def.params[k].kind {
-                    ParamKind::Number { .. } => smoother.next(),
-                    // sona: enums are strings read from `n.params`; enum, bool and text are never modulated.
-                    _ => pn.params[k],
-                };
-            }
-            for (m, smoother) in pn.mods.iter().zip(self.mod_smoothers[index].iter_mut()) {
-                let control=match m.from_port {
-                    None=>values[m.from],
-                    Some(port)=>if plan.nodes[m.from].muted {0.}else{finite_or_zero(self.nodes[m.from].control_output(port))},
-                };
-                effective[m.param] += control * smoother.next();
-            }
-            for (k, param) in pn.def.params.iter().enumerate() {
-                match param.kind {
-                    ParamKind::Number { min, max, .. } => effective[k] = clamp(effective[k], min, max),
-                    // A modulated enum is an index: rounded and kept within its values.
-                    ParamKind::Enum { values, .. } if param.modulatable => {
-                        effective[k] = clamp(effective[k].round(), 0.0, values.len().saturating_sub(1) as f64);
+            if !steady {
+                for (k, smoother) in self.param_smoothers[index].iter_mut().enumerate() {
+                    effective[k] = match pn.def.params[k].kind {
+                        ParamKind::Number { .. } => smoother.next(),
+                        // sona: enums are strings read from `n.params`; enum, bool and text are never modulated.
+                        _ => pn.params[k],
+                    };
+                }
+                for (m, smoother) in pn.mods.iter().zip(self.mod_smoothers[index].iter_mut()) {
+                    let control=match m.from_port {
+                        None=>values[m.from],
+                        Some(port)=>if plan.nodes[m.from].muted {0.}else{finite_or_zero(self.nodes[m.from].control_output(port))},
+                    };
+                    effective[m.param] += control * smoother.next();
+                }
+                for (k, param) in pn.def.params.iter().enumerate() {
+                    match param.kind {
+                        ParamKind::Number { min, max, .. } => effective[k] = clamp(effective[k], min, max),
+                        // A modulated enum is an index: rounded and kept within its values.
+                        ParamKind::Enum { values, .. } if param.modulatable => {
+                            effective[k] = clamp(effective[k].round(), 0.0, values.len().saturating_sub(1) as f64);
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
+            let before = (values[index], signal_l[index], signal_r[index]);
             let (mut input_l, mut input_r) = (0.0, 0.0);
             for (wire, smoother) in pn
                 .audio_in
@@ -418,25 +447,26 @@ impl Voice {
                 values[index] = 0.0;
                 signal_l[index] = 0.0;
                 signal_r[index] = 0.0;
-                continue;
-            }
-            if pn.bypass && effect {
+            } else if pn.bypass && effect {
                 signal_l[index] = input_l;
                 signal_r[index] = input_r;
                 values[index] = (input_l + input_r) * 0.5;
-                continue;
-            }
-            let out = self.nodes[index].process_sample(&ctx, (input_l, input_r), effective);
-            if effect {
-                signal_l[index] = out.l;
-                signal_r[index] = out.r;
-                values[index] = out.value;
             } else {
-                // sona: `values[index] = Number.isFinite(value) ? value : 0`, and the source signal likewise.
-                values[index] = finite_or_zero(out.value);
-                signal_l[index] = finite_or_zero(out.l);
-                signal_r[index] = finite_or_zero(out.r);
+                let out = self.nodes[index].process_sample(&ctx, (input_l, input_r), effective);
+                if effect {
+                    signal_l[index] = out.l;
+                    signal_r[index] = out.r;
+                    values[index] = out.value;
+                } else {
+                    // sona: `values[index] = Number.isFinite(value) ? value : 0`, and the source signal likewise.
+                    values[index] = finite_or_zero(out.value);
+                    signal_l[index] = finite_or_zero(out.l);
+                    signal_r[index] = finite_or_zero(out.r);
+                }
             }
+            // A NaN never equals itself: it always counts as changed.
+            changed[index] = before != (values[index], signal_l[index], signal_r[index]);
+            self.primed[index] = true;
         }
 
         // Output sum, master, DC blocker, limiter, fades.
@@ -691,6 +721,8 @@ impl Voice {
         self.wire_smoothers.clear();
         self.mod_smoothers.clear();
         self.effective.clear();
+        self.primed.clear();
+        self.changed.clear();
         self.values.clear();
         self.signal_l.clear();
         self.signal_r.clear();
@@ -792,6 +824,8 @@ impl Voice {
         let count = plan.nodes.len();
         self.node_ids = plan.nodes.iter().map(|pn| pn.id.clone()).collect();
         self.effective = plan.nodes.iter().map(|pn| pn.params.clone()).collect();
+        self.primed = vec![false; count];
+        self.changed = vec![true; count];
         self.values = vec![0.0; count];
         self.signal_l = vec![0.0; count];
         self.signal_r = vec![0.0; count];
@@ -810,6 +844,8 @@ impl Voice {
         self.values.fill(0.0);
         self.signal_l.fill(0.0);
         self.signal_r.fill(0.0);
+        self.primed.fill(false);
+        self.changed.fill(true);
         for node in &mut self.nodes {
             node.reset();
         }

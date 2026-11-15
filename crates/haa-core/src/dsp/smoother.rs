@@ -1,12 +1,15 @@
 // Ported from Sona v11 dsp.js
 //! One-pole smoother of parameters, edge amounts and inputs: `value += (target - value) * (1 - coef)` per sample.
 //! Deviation: the coefficient `exp(-1 / (time_s * sr))` is derived from a time in seconds, and time 0 jumps.
+//! A smoother whose step no longer moves its value is idle: `next` returns the value without computing. That is
+//! exact (the same value, target and coefficient give the same step) and lasts until a new target or time.
 
 /// One-pole smoother that glides toward a target with a time constant in seconds.
 pub struct Smoother {
     value: f64,
     target: f64,
     coef: f64,
+    idle: bool,
 }
 
 impl Smoother {
@@ -16,34 +19,50 @@ impl Smoother {
             value: initial,
             target: initial,
             coef: coefficient(time_s, sample_rate),
+            idle: false,
         }
     }
 
     /// Changes the time constant; the value and the target are kept.
     pub fn set_time(&mut self, time_s: f64, sample_rate: f64) {
         self.coef = coefficient(time_s, sample_rate);
+        self.idle = false;
     }
 
     /// Sets the value the smoother glides toward.
     pub fn set_target(&mut self, v: f64) {
+        if v != self.target {
+            self.idle = false;
+        }
         self.target = v;
     }
 
     /// Advances one sample toward the target and returns the new value.
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> f64 {
+        if self.idle {
+            return self.value;
+        }
+        let before = self.value;
         if self.coef == 0.0 {
             self.value = self.target;
         } else {
             self.value += (self.target - self.value) * (1.0 - self.coef);
         }
+        self.idle = self.value == before;
         self.value
+    }
+
+    /// True once a step no longer moves the value: `next` returns it unchanged until a new target or time.
+    pub fn is_idle(&self) -> bool {
+        self.idle
     }
 
     /// Sets the value and the target at once, without gliding.
     pub fn jump(&mut self, v: f64) {
         self.value = v;
         self.target = v;
+        self.idle = false;
     }
 
     /// The current value.
@@ -54,6 +73,7 @@ impl Smoother {
     /// Moves the value onto the target at once, keeping the target.
     pub fn settle(&mut self) {
         self.value = self.target;
+        self.idle = false;
     }
 }
 

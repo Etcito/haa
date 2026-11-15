@@ -159,6 +159,10 @@ impl Node for Math {
         }
     }
 
+    fn pure(&self) -> bool {
+        true
+    }
+
     fn reset(&mut self) {}
 }
 
