@@ -541,7 +541,7 @@
           "glide": 0,
           "delay": 0.003,
           "width": 0.95,
-          "level": 0.23
+          "level": 0.092
         }
       },
       {
@@ -664,19 +664,19 @@
         "x": 540,
         "y": 500,
         "params": {
-          "wave": "noise",
-          "frequency": 2700,
-          "resonance": 0.7,
+          "wave": "filtered-noise",
+          "frequency": 1800,
+          "resonance": 4,
           "rate": 0,
           "attack": 0.0001,
-          "decay": 0.0016,
+          "decay": 0.005,
           "spread": 0,
           "jitter": 1,
           "variation": 0.9,
           "glide": 0,
           "delay": 0.12,
           "width": 0.85,
-          "level": 0.28
+          "level": 1
         }
       },
       {
@@ -735,7 +735,7 @@
         "x": 1320,
         "y": 20,
         "params": {
-          "gain": 0.019775
+          "gain": 0.0458
         }
       }
     ],
@@ -843,7 +843,7 @@
         "from": "m-sqrt",
         "to": "bed-low",
         "target": "level",
-        "amount": 0.27
+        "amount": 0.135
       },
       {
         "id": "e16-bed-low-bed-low-hp-audio",
@@ -864,7 +864,7 @@
         "from": "m-sqrt",
         "to": "bed-mid",
         "target": "level",
-        "amount": 0.32
+        "amount": 0.08
       },
       {
         "id": "e19-bed-mid-bed-mid-filter-audio",
@@ -962,7 +962,7 @@
         "from": "density",
         "to": "accent",
         "target": "rate",
-        "amount": 4
+        "amount": 8
       },
       {
         "id": "e33-accent-accent-filter-audio",
