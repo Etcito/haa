@@ -74,6 +74,8 @@ pub struct Voice {
     dc_r: DcBlocker,
     limiter: f64,
     limiter_release: f64,
+    /// The lowest limiter gain since the last chain reset (1 = never limited).
+    limiter_floor: f64,
     guard_trips: u32,
 }
 
@@ -118,6 +120,7 @@ impl Voice {
             dc_r: DcBlocker::new(sample_rate),
             limiter: 1.0,
             limiter_release: 1.0 - (-1.0 / (LIMITER_RELEASE_S * sample_rate)).exp(),
+            limiter_floor: 1.0,
             guard_trips: 0,
         }
     }
@@ -257,6 +260,13 @@ impl Voice {
     }
 
     /// True once a timeline voice without loop has played to its end.
+    /// The lowest gain the output limiter applied since the voice was loaded or reset (1 = the
+    /// output never passed LIMIT_PEAK). An offline fitter reads it: a candidate that leans on the
+    /// limiter has a squashed attack that only sounds right at the level it was fitted at.
+    pub fn limiter_floor(&self) -> f64 {
+        self.limiter_floor
+    }
+
     pub fn ended(&self) -> bool {
         self.ended
     }
@@ -490,6 +500,7 @@ impl Voice {
         } else {
             self.limiter + (target - self.limiter) * self.limiter_release
         };
+        self.limiter_floor = self.limiter_floor.min(self.limiter);
         let start = self.start_frames as f64 / (sr * START_FADE_S);
         let fade = if mode == GraphMode::Live || (perf_live && plan.r#loop) {
             clamp(start, 0.0, 1.0)
@@ -841,6 +852,7 @@ impl Voice {
         self.dc_l.reset();
         self.dc_r.reset();
         self.limiter = 1.0;
+        self.limiter_floor = 1.0;
         self.values.fill(0.0);
         self.signal_l.fill(0.0);
         self.signal_r.fill(0.0);

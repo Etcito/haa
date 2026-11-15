@@ -51,6 +51,63 @@ pub fn write_wav(
     std::fs::write(path, encode_wav(left, right, sample_rate))
 }
 
+/// Decode a RIFF/WAVE buffer (PCM 8/16/24/32-bit or IEEE float 32/64) to mono (channel mean)
+/// and its sample rate.
+pub fn decode_wav_mono(bytes: &[u8]) -> Result<(Vec<f32>, u32), String> {
+    if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
+        return Err("not a RIFF/WAVE file".to_string());
+    }
+    let u16_at = |at: usize| u16::from_le_bytes([bytes[at], bytes[at + 1]]);
+    let u32_at = |at: usize| u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+    let mut fmt: Option<(u16, u16, u32, u16)> = None;
+    let mut at = 12;
+    while at + 8 <= bytes.len() {
+        let id = &bytes[at..at + 4];
+        let size = u32_at(at + 4) as usize;
+        let body = at + 8;
+        let end = (body + size).min(bytes.len());
+        if id == b"fmt " && size >= 16 {
+            let mut format = u16_at(body);
+            if format == 0xFFFE && size >= 26 {
+                format = u16_at(body + 24);
+            }
+            fmt = Some((format, u16_at(body + 2), u32_at(body + 4), u16_at(body + 14)));
+        } else if id == b"data" {
+            let (format, channels, rate, bits) = fmt.ok_or("data chunk before fmt")?;
+            let channels = channels.max(1) as usize;
+            let width = (bits as usize).div_ceil(8);
+            if width == 0 {
+                return Err("zero sample width".to_string());
+            }
+            let data = &bytes[body..end];
+            let frames = data.len() / (width * channels);
+            let sample = |o: usize| -> Result<f32, String> {
+                let s = &data[o..o + width];
+                Ok(match (format, bits) {
+                    (1, 8) => (s[0] as f32 - 128.0) / 128.0,
+                    (1, 16) => i16::from_le_bytes([s[0], s[1]]) as f32 / 32768.0,
+                    (1, 24) => (i32::from_le_bytes([0, s[0], s[1], s[2]]) >> 8) as f32 / 8_388_608.0,
+                    (1, 32) => i32::from_le_bytes([s[0], s[1], s[2], s[3]]) as f32 / 2_147_483_648.0,
+                    (3, 32) => f32::from_le_bytes([s[0], s[1], s[2], s[3]]),
+                    (3, 64) => f64::from_le_bytes(s.try_into().unwrap()) as f32,
+                    _ => return Err(format!("unsupported WAV format {format}/{bits}-bit")),
+                })
+            };
+            let mut mono = Vec::with_capacity(frames);
+            for f in 0..frames {
+                let mut sum = 0.0f32;
+                for c in 0..channels {
+                    sum += sample((f * channels + c) * width)?;
+                }
+                mono.push(sum / channels as f32);
+            }
+            return Ok((mono, rate));
+        }
+        at = body + size + (size & 1);
+    }
+    Err("no data chunk".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -11,4 +11,5 @@ path = "src/main.rs"
 
 [dependencies]
 haa-core = { path = "../haa-core" }
+haa-fit = { path = "../haa-fit" }
 serde_json.workspace = true

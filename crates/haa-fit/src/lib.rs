@@ -11,12 +11,14 @@
 //! - `cmaes`: CMA-ES with box constraints, stepped one evaluation at a time;
 //! - `mutate`: add/remove one catalog node;
 //! - `fit`: the staged search (`Fitter`), stepped by the host;
+//! - `impact`: the struck-object template measured from a one-shot sample (modes, excitation);
 //! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note).
 
 pub mod cmaes;
 pub mod eval;
 pub mod fft;
 pub mod fit;
+pub mod impact;
 pub mod loss;
 pub mod mutate;
 pub mod params;

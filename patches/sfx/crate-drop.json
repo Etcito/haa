@@ -1,0 +1,216 @@
+{
+  "haa": 1,
+  "id": "crate-drop",
+  "title": "Wooden crate dropped on concrete (fitted to the owner pick)",
+  "inputs": [
+    {
+      "curve": "lin",
+      "default": 1,
+      "kind": "continuous",
+      "max": 1,
+      "min": 0,
+      "name": "energy",
+      "smooth": 0,
+      "unit": ""
+    }
+  ],
+  "graph": {
+    "mode": "timeline",
+    "duration": 0.8110416666666667,
+    "loop": false,
+    "nodes": [
+      {
+        "id": "strike",
+        "type": "blast",
+        "label": "Contact",
+        "x": 40.0,
+        "y": 40.0,
+        "params": {
+          "delay": 0,
+          "duration": 0.00172561,
+          "level": 1.06532,
+          "negative": 0.488762,
+          "noise": 0.449835,
+          "noiseDecay": 0.615322,
+          "tone": 200.0
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "decay": 1.18133,
+          "direct": 0.1,
+          "gain": 2.01145,
+          "low": 0.0,
+          "modes": "[[43.7561,0.554063,2.69239],[143.804,0.005,15.5027],[565.491,4.0,-71.8406]]",
+          "size": 1.14364,
+          "wood": 0.15641,
+          "woodDecay": 0.29826,
+          "woodFreq": 784.93,
+          "woodModes": 48,
+          "woodWidth": 3
+        }
+      },
+      {
+        "id": "tail-env",
+        "type": "curve",
+        "label": "Tail level (measured)",
+        "x": 40.0,
+        "y": 240.0,
+        "params": {
+          "amount": 1.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.438966
+          ],
+          [
+            0.119427,
+            0.0621058
+          ],
+          [
+            0.138418,
+            0.00633621
+          ],
+          [
+            0.176996,
+            0.0343645
+          ],
+          [
+            0.229564,
+            0.0537669
+          ],
+          [
+            0.293942,
+            0.0400623
+          ],
+          [
+            0.368823,
+            0.0754766
+          ],
+          [
+            0.453299,
+            0.0326614
+          ],
+          [
+            0.546689,
+            0.037662
+          ],
+          [
+            0.648458,
+            0.0219043
+          ],
+          [
+            0.758169,
+            0.0124575
+          ],
+          [
+            0.875454,
+            0.0100989
+          ],
+          [
+            1.0,
+            0.000999355
+          ]
+        ]
+      },
+      {
+        "id": "tail",
+        "type": "bandNoise",
+        "label": "Tail noise",
+        "x": 300.0,
+        "y": 240.0,
+        "params": {
+          "bandwidth": 10.0,
+          "frequency": 403.009,
+          "level": 0.0,
+          "tilt": -6.7977,
+          "width": 0.00842079
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "fit-equalizer-1",
+        "type": "equalizer",
+        "label": "3-band equalizer",
+        "x": 400.0,
+        "y": 130.0,
+        "params": {
+          "frequency": 1420.43,
+          "high": -6.37394,
+          "low": -2.12849,
+          "mid": 11.7404
+        }
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "strike",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "body",
+        "to": "fit-equalizer-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "tail-env",
+        "to": "tail",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c4",
+        "from": "tail",
+        "to": "fit-equalizer-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c1",
+        "from": "fit-equalizer-1",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.542323
+      }
+    ]
+  },
+  "master": 1
+}

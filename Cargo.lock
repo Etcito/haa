@@ -47,6 +47,7 @@ name = "haa-cli"
 version = "0.2.0"
 dependencies = [
  "haa-core",
+ "haa-fit",
  "serde_json",
 ]
 

@@ -12,11 +12,13 @@ pub struct Renderer {
     left: Vec<f32>,
     right: Vec<f32>,
     mono: Vec<f32>,
+    /// Gain reduction of haa-core's voice limiter during the last render, dB (0 = never limited).
+    limited_db: f64,
 }
 
 impl Renderer {
     pub fn new(sample_rate: f64, frames: usize) -> Renderer {
-        Renderer { sample_rate, frames, left: vec![0.0; frames], right: vec![0.0; frames], mono: vec![0.0; frames] }
+        Renderer { sample_rate, frames, left: vec![0.0; frames], right: vec![0.0; frames], mono: vec![0.0; frames], limited_db: 0.0 }
     }
 
     /// Renders `patch` to mono ((L+R)/2); None when the patch does not validate.
@@ -39,7 +41,13 @@ impl Renderer {
         for i in 0..self.frames {
             self.mono[i] = 0.5 * (self.left[i] + self.right[i]);
         }
+        self.limited_db = -20.0 * voice.limiter_floor().max(1e-6).log10();
         Some(&self.mono)
+    }
+
+    /// How far the voice limiter pulled the last render down, dB.
+    pub fn limited_db(&self) -> f64 {
+        self.limited_db
     }
 
     /// The last rendered mono buffer.

@@ -31,9 +31,12 @@ use crate::loss::{F0Mode, FAILED_LOSS, LossConfig, LossTerms, TargetFeatures, rm
 use crate::mutate;
 use crate::params::{MAX_DIMS, ParamSpace, round_sig};
 
+/// Loss added per dB of voice-limiter gain reduction in a candidate's render.
+const LIMIT_PENALTY_PER_DB: f64 = 0.05;
+
 /// Fitter settings. JSON keys (all optional): `budget`, `seed`, `topK`, `mutations`, `maxDims`,
 /// `sigma`, `trimLead`, `align`, `f0` (`"auto"`, `true`, `false`), `weights` `{stft, mel, env, f0}`,
-/// `ffts`.
+/// `ffts`, `peakDb`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FitOptions {
     pub budget: usize,
@@ -47,6 +50,11 @@ pub struct FitOptions {
     pub trim_lead: bool,
     /// Try the measured pitch/level alignment of each template while screening.
     pub align: bool,
+    /// Scale the target to this peak (dBFS) before the fit. A loud transient (a drop, a shot) normalised
+    /// near 0 dBFS can only be matched by a candidate that drives haa-core's per-voice limiter
+    /// (LIMIT_PEAK): the fit then finds a patch whose attack the limiter squashes, a saturated sound at
+    /// any other level. A peak of -12 dBFS keeps every candidate clear of it. None fits the level as given.
+    pub peak_db: Option<f64>,
     pub loss: LossConfig,
 }
 
@@ -61,6 +69,7 @@ impl Default for FitOptions {
             sigma: 0.4,
             trim_lead: true,
             align: true,
+            peak_db: None,
             loss: LossConfig::default(),
         }
     }
@@ -94,6 +103,9 @@ impl FitOptions {
         }
         if let Some(b) = v.get("align").and_then(Value::as_bool) {
             o.align = b;
+        }
+        if let Some(x) = num("peakDb") {
+            o.peak_db = Some(x.clamp(-60.0, 0.0));
         }
         match v.get("f0") {
             Some(Value::Bool(true)) => o.loss.f0 = F0Mode::On,
@@ -211,6 +223,8 @@ pub struct Fitter {
     mutate_share: usize,
     /// One line per optimisation run: stage, template, mutations, evaluations, best loss.
     trials: Vec<(String, Value)>,
+    /// The factor applied to the target (`peak_db`); the fitted patch is that much quieter than the sample.
+    target_gain: f64,
 }
 
 impl Fitter {
@@ -225,7 +239,8 @@ impl Fitter {
             return Err("target is empty or silent".to_string());
         }
         let offset = if opts.trim_lead { lead_offset(pcm, peak, sample_rate) } else { 0 };
-        let target_pcm: Vec<f32> = pcm[offset..].iter().map(|x| if x.is_finite() { *x } else { 0.0 }).collect();
+        let target_gain = opts.peak_db.map_or(1.0, |db| 10f64.powf(db / 20.0) / peak as f64) as f32;
+        let target_pcm: Vec<f32> = pcm[offset..].iter().map(|x| if x.is_finite() { *x * target_gain } else { 0.0 }).collect();
         let seconds = target_pcm.len() as f64 / sample_rate;
         let states: Vec<TemplateState> = templates.iter().enumerate().map(|(i, text)| load_template(i, text, seconds)).collect();
         if !states.iter().any(|t| t.prepared.is_some()) {
@@ -252,6 +267,7 @@ impl Fitter {
             history: Vec::new(),
             mutate_share: 0,
             trials: Vec::new(),
+            target_gain: target_gain as f64,
         })
     }
 
@@ -597,10 +613,16 @@ impl Fitter {
 
     fn evaluate(&mut self, patch: &Patch, template: usize, mutations: &[String], values: Value) -> LossTerms {
         self.evals += 1;
-        let terms = match self.renderer.render(patch) {
+        let mut terms = match self.renderer.render(patch) {
             Some(mono) => self.target.loss(mono),
             None => LossTerms::failed(),
         };
+        // A candidate the voice limiter rides down is matched only through that squashing (a loud
+        // transient fitted this way is a saturated attack at any other level): it pays per dB.
+        let limited = self.renderer.limited_db();
+        if terms.total < FAILED_LOSS && limited > 0.1 {
+            terms.total += LIMIT_PENALTY_PER_DB * limited;
+        }
         if terms.total < self.best_loss() {
             self.history.push((self.evals, round6(terms.total)));
             self.best = Some(Best { patch: patch.clone(), terms, template, mutations: mutations.to_vec(), values });
@@ -668,6 +690,7 @@ impl Fitter {
             "seed": self.opts.seed,
             "sampleRate": self.sample_rate,
             "offset": round6(self.offset as f64 / self.sample_rate),
+            "targetGain": round6(self.target_gain),
             "seconds": round6(self.target_pcm.len() as f64 / self.sample_rate),
             "usesF0": self.target.uses_f0(),
             "targetF0": round6(self.target.target_f0()),
