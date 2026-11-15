@@ -8,6 +8,7 @@ CPU is enough (about 0.3 s a clip).
 """
 import argparse
 import json
+import os
 import sys
 
 import librosa
@@ -31,7 +32,33 @@ EVERYDAY = [
     "footsteps on snow", "footsteps on a concrete floor indoors", "small pebbles scattering on the ground",
     "a submachine gun burst", "a shotgun blast", "a glass bottle shattering", "a wooden crate falling on the ground",
     "rain falling on a roof", "rain falling on a metal roof", "silence",
+    "something heavy being dragged across a floor", "a wooden crate sliding and scraping on concrete",
+    "a metal object scraping on a steel plate", "footsteps on a metal floor", "footsteps on a wooden floor",
+    "a glass bottle rolling on the floor", "brass bullet casings falling on concrete", "a single dry click or clack",
 ]
+
+# Which real-reference class validates each scenario (clap_validate.py writes clap_validation.json: per class,
+# how often CLAP puts the right prompt in its top 3 on real recordings; under half = CLAP cannot judge it).
+SCENARIO_CLASS = [
+    ("ball-metal", "ball"), ("balls-", "manyballs"), ("ball-", "ball"), ("grenade-explode", "explosion"),
+    ("shot-", "pistol"), ("casings", "casing"), ("walk-snow", "footstep-snow"), ("walk-concrete", "footstep-concrete"),
+    ("walk-metal", "footstep-metal"), ("walk-wood", "footstep-wood"), ("pebbles", "pebbles"), ("smg", "smg"),
+    ("shotgun", "shotgun"), ("bottle-concrete", "bottle-break"), ("crate-slide", "slide"), ("crate-drop", "wood-crate"),
+    ("rain-shed", "rain-metal"), ("rain", "rain"),
+]
+
+
+_VP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "clap_validation.json")
+VALIDATION = json.load(open(_VP)) if os.path.exists(_VP) else {}
+
+
+def class_of(scenario):
+    return next((c for p, c in SCENARIO_CLASS if scenario.startswith(p)), None)
+
+
+def features(out):
+    """transformers 5 returns an output object from get_*_features, 4.x a tensor."""
+    return getattr(out, "pooler_output", out) if not torch.is_tensor(out) else out
 
 
 def main():
@@ -61,6 +88,11 @@ def main():
         r["top3"] = [names[k] for k in order[:3]]
         r["intent_rank"] = int(np.where(order == 0)[0][0]) + 1 if intent else None
         r["defect_top"] = max(DEFECTS, key=lambda d: r["p"][d])
+        # Whether CLAP recognises this kind of event at all on real recordings (clap_validation.json).
+        cls = class_of(os.path.splitext(os.path.basename(path))[0])
+        v = VALIDATION.get(cls) if cls else None
+        r["class"] = cls
+        r["judgeable"] = None if v is None else bool(v["judgeable"])
         out[path] = r
         print(path.split("/")[-1], r["top3"], "intent rank", r["intent_rank"], file=sys.stderr)
     json.dump(out, open(a.json, "w"), indent=1)

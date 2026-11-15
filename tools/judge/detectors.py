@@ -55,7 +55,9 @@ def flags_for(name, r, meta=None, ref=None):
         f.append("bell")
     if ref and ref.get("decay_s") and r.get("decay_s", 0) > max(1.0, 1.5 * ref["decay_s"]):
         f.append("too long")
-    if meta and (meta.get("underruns", 0) > 0 or meta.get("thinned", 0) > 0) or r.get("clipped", 0) > 0:
+    # The mix's own overload (blocks frozen while a worker was behind, voices silenced) or clipping; audio underruns
+    # describe the capturing machine and make a take invalid instead (run_judge.invalid_take).
+    if meta and (meta.get("thinned", 0) > 0 or meta.get("silenced", 0) > 0) or r.get("clipped", 0) > 0:
         f.append("sature")
     return f
 

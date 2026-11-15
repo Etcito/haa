@@ -1,0 +1,184 @@
+{
+ "ball": {
+  "prompt": "a rubber ball bouncing on a concrete floor",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "ballroll": {
+  "prompt": "a ball rolling on concrete",
+  "n": 8,
+  "top3": 0.12,
+  "median_rank": 4.5,
+  "judgeable": false
+ },
+ "manyballs": {
+  "prompt": "many balls bouncing on the ground",
+  "n": 8,
+  "top3": 0.0,
+  "median_rank": 8.5,
+  "judgeable": false
+ },
+ "pebbles": {
+  "prompt": "small pebbles scattering on the ground",
+  "n": 8,
+  "top3": 0.25,
+  "median_rank": 6.0,
+  "judgeable": false
+ },
+ "footstep-snow": {
+  "prompt": "footsteps on snow",
+  "n": 8,
+  "top3": 0.88,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "footstep-concrete": {
+  "prompt": "footsteps on a concrete floor indoors",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 3.0,
+  "judgeable": true
+ },
+ "footstep-metal": {
+  "prompt": "footsteps on a metal floor",
+  "n": 8,
+  "top3": 0.5,
+  "median_rank": 4.5,
+  "judgeable": true
+ },
+ "footstep-wood": {
+  "prompt": "footsteps on a wooden floor",
+  "n": 8,
+  "top3": 1.0,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "pistol": {
+  "prompt": "a gunshot outdoors",
+  "n": 8,
+  "top3": 0.0,
+  "median_rank": 7.0,
+  "judgeable": false
+ },
+ "smg": {
+  "prompt": "a submachine gun burst",
+  "n": 8,
+  "top3": 0.75,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "shotgun": {
+  "prompt": "a shotgun blast",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "bottle-break": {
+  "prompt": "a glass bottle shattering",
+  "n": 8,
+  "top3": 0.88,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "wood-crate": {
+  "prompt": "a wooden crate falling on the ground",
+  "n": 8,
+  "top3": 1.0,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "rain": {
+  "prompt": "rain falling on a roof",
+  "n": 8,
+  "top3": 0.75,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "rain-metal": {
+  "prompt": "rain falling on a metal roof",
+  "n": 3,
+  "top3": 1.0,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "slide": {
+  "prompt": "something heavy being dragged across a floor",
+  "n": 8,
+  "top3": 0.25,
+  "median_rank": 6.0,
+  "judgeable": false
+ },
+ "scrape": {
+  "prompt": "a metal object scraping on a steel plate",
+  "n": 8,
+  "top3": 0.75,
+  "median_rank": 1.5,
+  "judgeable": true
+ },
+ "casing": {
+  "prompt": "brass bullet casings falling on concrete",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "explosion": {
+  "prompt": "an explosion",
+  "n": 8,
+  "top3": 0.88,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "nogo-thunder": {
+  "prompt": "thunder rumbling in the distance",
+  "n": 7,
+  "top3": 0.71,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "nogo-organ": {
+  "prompt": "a church organ holding a sustained chord",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "nogo-bell": {
+  "prompt": "a small bell or chime ringing",
+  "n": 8,
+  "top3": 0.88,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "water": {
+  "prompt": "water running or trickling in a stream",
+  "n": 8,
+  "top3": 0.62,
+  "median_rank": 2.5,
+  "judgeable": true
+ },
+ "nogo-toy": {
+  "prompt": "a plastic toy cap gun clicking",
+  "n": 6,
+  "top3": 1.0,
+  "median_rank": 2.0,
+  "judgeable": true
+ },
+ "nogo-nail": {
+  "prompt": "a hammer striking a nail into concrete",
+  "n": 8,
+  "top3": 0.75,
+  "median_rank": 1.0,
+  "judgeable": true
+ },
+ "nogo-wetrag": {
+  "prompt": "a wet cloth slapped against a wall",
+  "n": 8,
+  "top3": 0.88,
+  "median_rank": 1.5,
+  "judgeable": true
+ }
+}

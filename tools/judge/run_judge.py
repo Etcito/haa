@@ -22,6 +22,7 @@ from scipy.signal import fftconvolve
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import detectors as D  # noqa: E402
+from clap import VALIDATION as CLAP_VALID, class_of as clap_class  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # Gentle on a shared machine: niced, every step with 4 CPU threads.
@@ -115,10 +116,11 @@ def main():
     os.makedirs(os.path.join(a.out, "refs"), exist_ok=True)
     index = json.load(open(os.path.join(a.captures, "index.json")))
     caps = sorted(index["captures"], key=lambda c: c["name"])
+    all_caps = caps
     if a.only:
         keep = set(a.only.split(","))
         caps = [c for c in caps if c["name"] in keep]
-    wav = {c["name"]: os.path.join(a.captures, c["name"] + ".wav") for c in caps}
+    wav = {c["name"]: os.path.join(a.captures, c["name"] + ".wav") for c in all_caps}
     refs_spec = json.load(open(os.path.join(HERE, "refs.json")))
     root = os.environ.get("JUDGE_REFS", "/root/nmc/temp")
     ref = {}
@@ -132,39 +134,71 @@ def main():
             ref[c["name"]] = p
         except Exception as e:  # a missing reference leaves the A/B out, nothing else
             print(f"[judge] no reference for {c['name']}: {e}", file=sys.stderr)
+    # Each step's results merge into the folder's earlier ones: a run with --only adds to them.
+    for c in all_caps:
+        p = os.path.join(a.out, "refs", c["name"] + ".wav")
+        if c["name"] not in ref and os.path.exists(p):
+            ref[c["name"]] = p
+    mine = [wav[c["name"]] for c in caps] + [ref[c["name"]] for c in caps if c["name"] in ref]
     det_path = os.path.join(a.out, "detectors.json")
-    if not (a.reuse and os.path.exists(det_path)):
-        run([PY, os.path.join(HERE, "detectors.py"), *wav.values(), *ref.values(), "--json", det_path])
-    det = json.load(open(det_path))
+    det = json.load(open(det_path)) if os.path.exists(det_path) else {}
+    if not (a.reuse and all(p in det for p in mine)):
+        run([PY, os.path.join(HERE, "detectors.py"), *mine, "--json", det_path + ".new"])
+        det.update(json.load(open(det_path + ".new")))
+        os.replace(det_path + ".new", det_path + ".last")
+        json.dump(det, open(det_path, "w"), indent=1)
     clap = {}
     if not a.no_clap:
         clap_path = os.path.join(a.out, "clap.json")
-        args = [PY, os.path.join(HERE, "clap.py"), *wav.values(), "--json", clap_path]
-        for c in caps:
-            args += ["--intent", c["intent"]]
-        if not (a.reuse and os.path.exists(clap_path)):
+        clap = json.load(open(clap_path)) if os.path.exists(clap_path) else {}
+        if not (a.reuse and all(wav[c["name"]] in clap for c in caps)):
+            args = [PY, os.path.join(HERE, "clap.py"), *[wav[c["name"]] for c in caps], "--json", clap_path + ".new"]
+            for c in caps:
+                args += ["--intent", c["intent"]]
             run(args)
-        clap = json.load(open(clap_path))
+            clap.update(json.load(open(clap_path + ".new")))
+            os.replace(clap_path + ".new", clap_path + ".last")
+            json.dump(clap, open(clap_path, "w"), indent=1)
     listen = []
     if not a.no_listen:
         jobs = []
         for c in caps:
             n = c["name"]
+            if invalid_take(c):
+                continue
             jobs.append({"id": n, "mode": "blind", "wav": wav[n]})
             jobs.append({"id": n, "mode": "rate", "wav": wav[n], "intent": c["intent"]})
             if n in ref and not a.no_ab:
                 jobs.append({"id": n, "mode": "ab", "wav": wav[n], "ref": ref[n], "intent": c["intent"]})
         jp = os.path.join(a.out, "listen-jobs.json")
         lp = os.path.join(a.out, "listen.json")
-        if not (a.reuse and os.path.exists(lp)):
+        listen = json.load(open(lp)) if os.path.exists(lp) else []
+        done = {(x["id"], x["mode"]) for x in listen}
+        if not (a.reuse and all((j["id"], j["mode"]) in done for j in jobs)):
             json.dump(jobs, open(jp, "w"), indent=1)
-            run([PY, os.path.join(HERE, "listen.py"), jp, lp, "--runs", str(a.runs)])
-        listen = json.load(open(lp))
-    rows = summarize(caps, wav, ref, det, clap, listen)
+            run([PY, os.path.join(HERE, "listen.py"), jp, lp + ".new", "--runs", str(a.runs)])
+            new = json.load(open(lp + ".new"))
+            fresh = {(x["id"], x["mode"]) for x in new}
+            listen = [x for x in listen if (x["id"], x["mode"]) not in fresh] + new
+            os.replace(lp + ".new", lp + ".last")
+            json.dump(listen, open(lp, "w"), indent=1)
+    elif os.path.exists(os.path.join(a.out, "listen.json")):
+        listen = json.load(open(os.path.join(a.out, "listen.json")))
+    rows = summarize(all_caps, wav, ref, det, clap, listen)
     json.dump({"index": index, "rows": rows}, open(os.path.join(a.out, "judge.json"), "w"), indent=1)
     write_table(rows, os.path.join(a.out, "table.md"), index)
     write_page(rows, a.out, a.captures, index)
     print(f"[judge] {os.path.join(a.out, 'index.html')}", file=sys.stderr)
+
+
+def invalid_take(c):
+    """A take captured on a busy machine (audio underruns, a slow scene load) says nothing about the sound: it is
+    shown, never scored (the listening model does not hear it)."""
+    if c.get("underruns", 0) >= 10:
+        return f"{c['underruns']} underruns"
+    if (c.get("sceneReadyS") or 0) > 120:
+        return f"scene load {c['sceneReadyS']} s"
+    return None
 
 
 def summarize(caps, wav, ref, det, clap, listen):
@@ -185,13 +219,27 @@ def summarize(caps, wav, ref, det, clap, listen):
                 heard[k] = heard.get(k, 0) + 1
         d = dict(det.get(wav[n], {}))
         d["flags"] = D.flags_for(n, d, c, det.get(ref.get(n, ""), {}))
+        bad = invalid_take(c)
+        if bad:
+            # Nothing of an invalid take is scored: not the model's answers of an earlier run, not the detectors.
+            blind, scores, rate_texts, ab, heard = [], [], [], [], {}
+            d["flags"] = []
         rows.append({
+            "invalid": bad,
             "name": n, "intent": c["intent"], "capture": c, "detectors": d, "ref_detectors": det.get(ref.get(n, ""), {}),
             "has_ref": n in ref, "clap": clap.get(wav[n], {}), "blind": blind, "heard": heard, "rate": rate_texts,
             "score": round(float(np.mean(scores)), 1) if scores else None, "scores": scores,
             "ab_correct": sum(1 for x in ab if x.get("correct")), "ab_runs": len(ab), "ab_texts": [x["text"] for x in ab],
         })
     return rows
+
+
+def clap_cell(r):
+    """CLAP's top answers, or why they do not count: on real recordings of this kind of event CLAP rarely names it
+    (clap_validation.json)."""
+    v = CLAP_VALID.get(clap_class(r["name"]) or "")
+    top = ", ".join(r["clap"].get("top3", [])[:2]) or "-"
+    return f"(CLAP cannot judge this class: {top})" if v and not v["judgeable"] else top
 
 
 def write_table(rows, path, index):
@@ -204,7 +252,10 @@ def write_table(rows, path, index):
         c = r["capture"]
         cap = f"underruns {c.get('underruns')}, thinned {c.get('thinned')}, peak {r['detectors'].get('peak_dbfs')} dBFS"
         ab = f"{r['ab_correct']}/{r['ab_runs']}" if r["ab_runs"] else "-"
-        lines.append(f"| {r['name']} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {', '.join(r['clap'].get('top3', [])[:2]) or '-'} | {cap} | {c.get('summary', '-')} |")
+        if r.get("invalid"):
+            lines.append(f"| {r['name']} | INVALID take ({r['invalid']}): not scored, capture again on a quiet machine | | | | | {cap} | {c.get('summary', '-')} |")
+            continue
+        lines.append(f"| {r['name']} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {clap_cell(r)} | {cap} | {c.get('summary', '-')} |")
     lines += ["", "## Blind descriptions", ""]
     for r in rows:
         lines.append(f"### {r['name']}")
@@ -232,6 +283,7 @@ def write_page(rows, out, captures, index):
   <h2>{e(r['name'])}</h2>
   <p class="intent">{e(r['intent'])}</p>
   <p class="intent">voices: {e(str(r['capture'].get('summary', '-')))}</p>
+  {f'<p class="flag">INVALID take ({e(r["invalid"])}): not scored</p>' if r.get('invalid') else ''}
   <div class="players">
     <figure><figcaption>scene capture</figcaption><audio controls preload="none" src="{e(rel_cap)}/{e(r['name'])}.wav"></audio></figure>
     <figure><figcaption>real recording</figcaption>{refp}</figure>
