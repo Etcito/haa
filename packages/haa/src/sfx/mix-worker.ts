@@ -20,6 +20,7 @@ interface MixExports {
   mix_input(): number;
   mix_bus(): number;
   mix_reset_voice(v: number, fadeIn: number): void;
+  mix_fade_out_voice(v: number): void;
   mix_voice(v: number, n: number): void;
   mix_finish(n: number): void;
   mix_clear(): void;
@@ -54,6 +55,8 @@ interface Voice {
  * the voice held its slot (and its worker's time) the whole 2.5 s.
  */
 const QUIET = 1e-5;
+/** How long a thinned voice stays out before it may resume (see `renderBlock`). */
+const THIN_HOLD_S = 0.085;
 const QUIET_S = 0.25;
 const MIN_AGE_S = 0.1;
 function blockPeak(x: Float32Array, n: number): number {
@@ -143,13 +146,35 @@ function renderBlock(w: number, fill: number): Float32Array {
   const input = new Float32Array(mx.memory.buffer, mx.mix_input(), Q);
   for (let i = 0; i < live.length; i++) {
     const v = live[i];
-    const fits = i === 0 || spent + v.costMs <= budget;
+    // A thinned voice stays out THIN_HOLD_S before it may resume (fading in): at the edge of the budget,
+    // voices went in and out every block or two, and the chopping sounded like a broken radio.
+    const held = v.thinned > 0 && v.thinned < THIN_HOLD_S * sr;
+    const fits = !held && (i === 0 || spent + v.costMs <= budget);
     if (fits) spent += v.costMs;
     if (!fits) {
       if (fill < 0.5) diag.thinLowRing++;
       else diag.thinCost++;
       count('thinned');
+      const first = v.thinned === 0;
       v.thinned += Q;
+      // A baked one-shot keeps its time while thinned (it resumes where it would be, not late).
+      if (v.sample) v.sample.pos += Q;
+      if (first) {
+        // Its first thinned block fades it out over the block without synthesis (the samples already in
+        // its delay line, or its buffer's next block): skipped outright it fell to 0 in one sample,
+        // and bursts of thinned voices sounded like static (the judge's "broken radio" under load).
+        const p = paramsOf(v.slot);
+        if (p) {
+          new Float32Array(mx.memory.buffer, mx.mix_params(v.local), MIX_PARAMS).set(p);
+          const sm = v.sample;
+          for (let k = 0; k < Q; k++) {
+            const at = sm ? sm.pos - Q + k : -1;
+            input[k] = sm && at < sm.l.length ? 0.5 * (sm.l[at] + sm.r[at]) * sm.gain : 0;
+          }
+          mx.mix_fade_out_voice(v.local);
+          mx.mix_voice(v.local, Q);
+        }
+      }
       if (v.oneShot && v.thinned > 0.25 * sr) {
         finish(v, w + Q);
         count('silenced');
