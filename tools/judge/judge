@@ -18,6 +18,10 @@ PY="${JUDGE_PY:-/root/nmc/venvs/judge/bin/python}"
 OUT_ROOT="${JUDGE_OUT:-/mnt/q/temp_nomorechat/haa/judge}"
 WT_ROOT="${JUDGE_WT:-/root/nmc/temp/judge/wt}"
 export PATH="${NMC_ENGINES:-/root/nmc/engines}/bin:$PATH"
+# Gentle on a shared machine: niced, builds and numeric libraries on 4 threads; the capture and the listening
+# step each take a machine-wide lock (scripts/scene-judge.ts, listen.py), so judges run one after the other.
+renice -n 15 $$ >/dev/null 2>&1 || true
+export CARGO_BUILD_JOBS=4 OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 HAA_REV="" STUDIO_REV="" ONLY="" RUNS=3 TRIES=3 LISTEN=1 CAPTURE=1
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -46,7 +50,8 @@ if [ -n "$HAA_REV$STUDIO_REV" ]; then
   fi
   # The capture harness, from this checkout, into a studio that predates it.
   S="$W/haa-studio"
-  if [ ! -f "$S/src/ui/panels/scene/scene-judge.ts" ] || [ ! -f "$S/scripts/scene-judge.ts" ]; then
+  # A harness the checkout tracks is its own; an injected one is refreshed from this checkout every run.
+  if ! git -C "$S" ls-files --error-unmatch src/ui/panels/scene/scene-judge.ts >/dev/null 2>&1; then
     cp "$STUDIO/src/ui/panels/scene/scene-judge.ts" "$S/src/ui/panels/scene/"
     cp "$STUDIO/scripts/scene-judge.ts" "$S/scripts/"
     "$PY" - "$S/src/ui/panels/scene/ScenePanel.vue" <<'EOF'

@@ -12,7 +12,9 @@ owner's failing captures: tools/judge/validate.py):
 - decay_s           "too long": from the last moment within 10 dB of the peak to 60 dB under it (100 ms RMS), extrapolated
                     from the slope when the clip ends first.
 - audible_s         how long the output stays above -70 dBFS after the onset (what a listener at full volume hears).
-- clipped / clicks  "sature": samples held at the ceiling (|x| >= 0.97 for 3+ samples) and isolated discontinuities per s.
+- clipped / clicks  samples held at the ceiling (|x| >= 0.97 for 3+ samples) and isolated discontinuities per s (reported;
+                    real recordings have many, so "sature" comes from the take's underruns and thinned blocks).
+flags_for() turns these into the owner's words, scoped to the scenario (APPLIES).
 """
 import argparse
 import json
@@ -22,13 +24,40 @@ import numpy as np
 import soundfile as sf
 from scipy.signal import stft
 
+# Validated (validate.py, tonality on 95 real reverberant tails, ringing on 226 real recordings incl. 17 metal hits,
+# the low band on 70 real small impacts and rolls): real p95 / max, then the owner's failing captures.
 THRESHOLDS = {
-    "tail_tonality_db": 9.0,
-    "ringing_s": 0.6,
-    "lf_hang_s": 1.2,
-    "clicks_per_s": 3.0,
-    "clipped": 1,
+    "tail_tonality_db": 11.5,  # real reverberant tails: median 5.7, p95 11.0, max 17.6 (a stone shaft); 3/95 over
+    "ringing_s": 0.6,          # real: median 0.05, p95 0.48; 2/17 real metal hits over (1.1 s)
+    "lf_hang_s": 1.2,          # with lf_tail_db >= 5: a low band that holds after a small object's impact
+    "lf_tail_db": 5.0,
 }
+
+# Which detector speaks for which scenario (by name prefix): a reverb tail's tonality only where there is a room,
+# a held low band only after a small object's impact, a ringing partial only where nothing should ring.
+APPLIES = {
+    "organ": ("shot-hall", "shot-big", "shot-vault", "shot-shed", "grenade-explode-big", "ball-hall", "ball-big", "walk-concrete"),
+    "thunder": ("ball-", "balls-", "grenade-land", "pebbles", "crate-"),
+    "bell": ("ball-", "balls-", "grenade-land", "pebbles", "crate-", "walk-"),
+}
+
+
+def flags_for(name, r, meta=None, ref=None):
+    """The defect flags of a capture: the scoped detectors, `too long` against the real reference's decay, and
+    `sature` from the take itself (audio underruns, voice-blocks frozen while a worker was behind, clipping)."""
+    f = []
+    on = lambda k: name.startswith(APPLIES[k])  # noqa: E731
+    if on("organ") and r.get("tail_tonality_db", 0) >= THRESHOLDS["tail_tonality_db"]:
+        f.append("organ")
+    if on("thunder") and r.get("lf_hang_s", 0) >= THRESHOLDS["lf_hang_s"] and r.get("lf_tail_db", -99) >= THRESHOLDS["lf_tail_db"]:
+        f.append("thunder")
+    if on("bell") and r.get("ringing_s", 0) >= THRESHOLDS["ringing_s"]:
+        f.append("bell")
+    if ref and ref.get("decay_s") and r.get("decay_s", 0) > max(1.0, 1.5 * ref["decay_s"]):
+        f.append("too long")
+    if meta and (meta.get("underruns", 0) > 0 or meta.get("thinned", 0) > 0) or r.get("clipped", 0) > 0:
+        f.append("sature")
+    return f
 
 
 def mono(path):
@@ -199,7 +228,7 @@ def measure(path):
         "lf_hang_s": round(hang, 2), "lf_tail_db": round(lft, 1), "decay_s": round(decay(m, sr), 2), "audible_s": round(audible(m, sr), 2),
         "clipped": clipped, "clicks_per_s": round(cps, 2), "peak_dbfs": round(float(20 * np.log10(np.abs(x).max() + 1e-12)), 1),
     }
-    r["flags"] = [k for k, th in THRESHOLDS.items() if r.get(k, 0) >= th]
+    r["flags"] = [k for k in ("tail_tonality_db", "ringing_s", "lf_hang_s") if r.get(k, 0) >= THRESHOLDS[k]]
     return r
 
 

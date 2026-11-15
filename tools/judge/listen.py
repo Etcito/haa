@@ -9,19 +9,30 @@ jobs.json: [{"id": ..., "mode": "blind" | "rate" | "ab", "wav": path, "intent": 
 Each job runs `runs` times with sampling (temperature 0.7, seeds 0..runs-1); the answers are kept verbatim.
 
 The model loads once, 4-bit (bitsandbytes) on the GPU (about 6 GB), or bf16 on the CPU with --cpu.
+One listen job runs on the machine at a time ($JUDGE_LOCK_DIR/listen.lock, default /root/nmc/temp/judge; it waits),
+niced, with 4 CPU threads.
 Audio goes in as the model expects it: mono, 16 kHz, peak-normalised to -3 dBFS (the scene's levels are
 reported by the detectors, not by the model).
 """
 import argparse
+import fcntl
 import json
+import os
 import random
 import re
 import sys
 import time
 
-import librosa
-import numpy as np
-import torch
+# Gentle on a shared machine: niced, 4 CPU threads (owner, 2026-11-15: "les agents utilisent trop le CPU").
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.nice(15)
+
+import librosa  # noqa: E402
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+
+torch.set_num_threads(4)
 
 BLIND = ("Listen carefully. Describe exactly what you hear: what object or objects, what event or action, and what kind of "
          "place (outdoors, small room, large hall...). Then say whether anything sounds unnatural, synthetic, or out of place, "
@@ -94,6 +105,12 @@ def main():
     ap.add_argument("--cpu", action="store_true")
     a = ap.parse_args()
     jobs = json.load(open(a.jobs))
+    # One listening job on the machine at a time (the GPU and the CPU are shared): wait for the lock.
+    lock_dir = os.environ.get("JUDGE_LOCK_DIR", "/root/nmc/temp/judge")
+    os.makedirs(lock_dir, exist_ok=True)
+    lock = open(os.path.join(lock_dir, "listen.lock"), "w")
+    print(f"[listen] waiting for {lock.name}", file=sys.stderr, flush=True)
+    fcntl.flock(lock, fcntl.LOCK_EX)
     t0 = time.time()
     ears = Ears(a.model, a.cpu)
     print(f"[listen] {a.model} loaded in {time.time() - t0:.0f} s", file=sys.stderr, flush=True)

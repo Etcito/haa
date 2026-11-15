@@ -20,7 +20,18 @@ import numpy as np
 import soundfile as sf
 from scipy.signal import fftconvolve
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import detectors as D  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
+# Gentle on a shared machine: niced, every step with 4 CPU threads.
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("MKL_NUM_THREADS", "4")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "4")
+try:
+    os.nice(15)
+except OSError:
+    pass
 PY = sys.executable
 
 # The defect words the owner used, as a blind description would say them.
@@ -31,6 +42,9 @@ CLASSES = {
     "water": r"water|stream|trickl|splash|pour|liquid|drip",
     "toy": r"\btoy|cap gun|popgun|cork",
     "crackle": r"crackl|distort|static|clipp|glitch",
+    "nail": r"hammer|nail|knock|tapping|\btap\b|chisel",
+    "wet cloth": r"\bwet\b|slap|splat|squish|cloth|towel|\bmud",
+    "too long": r"long (reverb|echo|tail|decay)|lingering|excessive (reverb|echo)|echo(es)? (go(es)? on|too)",
     "synthetic": r"synthe|artificial|electronic|computer|digital|unnatural|fake",
 }
 
@@ -80,6 +94,7 @@ def main():
     ap.add_argument("--no-listen", action="store_true")
     ap.add_argument("--no-clap", action="store_true")
     ap.add_argument("--no-ab", action="store_true")
+    ap.add_argument("--reuse", action="store_true", help="keep detectors.json, clap.json and listen.json when present")
     a = ap.parse_args()
     os.makedirs(os.path.join(a.out, "refs"), exist_ok=True)
     index = json.load(open(os.path.join(a.captures, "index.json")))
@@ -102,7 +117,8 @@ def main():
         except Exception as e:  # a missing reference leaves the A/B out, nothing else
             print(f"[judge] no reference for {c['name']}: {e}", file=sys.stderr)
     det_path = os.path.join(a.out, "detectors.json")
-    run([PY, os.path.join(HERE, "detectors.py"), *wav.values(), *ref.values(), "--json", det_path])
+    if not (a.reuse and os.path.exists(det_path)):
+        run([PY, os.path.join(HERE, "detectors.py"), *wav.values(), *ref.values(), "--json", det_path])
     det = json.load(open(det_path))
     clap = {}
     if not a.no_clap:
@@ -110,7 +126,8 @@ def main():
         args = [PY, os.path.join(HERE, "clap.py"), *wav.values(), "--json", clap_path]
         for c in caps:
             args += ["--intent", c["intent"]]
-        run(args)
+        if not (a.reuse and os.path.exists(clap_path)):
+            run(args)
         clap = json.load(open(clap_path))
     listen = []
     if not a.no_listen:
@@ -123,8 +140,9 @@ def main():
                 jobs.append({"id": n, "mode": "ab", "wav": wav[n], "ref": ref[n], "intent": c["intent"]})
         jp = os.path.join(a.out, "listen-jobs.json")
         lp = os.path.join(a.out, "listen.json")
-        json.dump(jobs, open(jp, "w"), indent=1)
-        run([PY, os.path.join(HERE, "listen.py"), jp, lp, "--runs", str(a.runs)])
+        if not (a.reuse and os.path.exists(lp)):
+            json.dump(jobs, open(jp, "w"), indent=1)
+            run([PY, os.path.join(HERE, "listen.py"), jp, lp, "--runs", str(a.runs)])
         listen = json.load(open(lp))
     rows = summarize(caps, wav, ref, det, clap, listen)
     json.dump({"index": index, "rows": rows}, open(os.path.join(a.out, "judge.json"), "w"), indent=1)
@@ -149,7 +167,8 @@ def summarize(caps, wav, ref, det, clap, listen):
         for t in blind:
             for k in classes_of(t):
                 heard[k] = heard.get(k, 0) + 1
-        d = det.get(wav[n], {})
+        d = dict(det.get(wav[n], {}))
+        d["flags"] = D.flags_for(n, d, c, det.get(ref.get(n, ""), {}))
         rows.append({
             "name": n, "intent": c["intent"], "capture": c, "detectors": d, "ref_detectors": det.get(ref.get(n, ""), {}),
             "has_ref": n in ref, "clap": clap.get(wav[n], {}), "blind": blind, "heard": heard, "rate": rate_texts,
