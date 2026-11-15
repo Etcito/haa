@@ -46,12 +46,28 @@ CLASSES = {
     "wet cloth": r"\bwet\b|slap|splat|squish|cloth|towel|\bmud",
     "too long": r"long (reverb|echo|tail|decay)|lingering|excessive (reverb|echo)|echo(es)? (go(es)? on|too)",
     "synthetic": r"synthe|artificial|electronic|computer|digital|unnatural|fake",
+    # Broader, for the calibration: a small object heard as a blast; a tail heard as something pitched.
+    "boom": r"explosion|explod|\bboom|blast|firework|\bbomb",
+    "tonal": r"organ|drone|\bhum\b|tonal|chord|guitar|piano|music|siren|\bbell|chime|ringing|\btone\b|\bnote\b|whistl|resonan",
 }
 
 
+NEGATION = re.compile(r"\b(no|not|nothing|none|without|neither|nor|lack|lacks)\b|n't\b")
+
+
+def sentences(text):
+    return [s for s in re.split(r"(?<=[.!?;])\s+|\n", text.lower()) if s]
+
+
 def classes_of(text):
-    t = text.lower()
-    return [k for k, rx in CLASSES.items() if re.search(rx, t)]
+    """The defect classes a description affirms: a sentence that negates ("nothing sounds unnatural", "no ringing")
+    does not count."""
+    found = set()
+    for s in sentences(text):
+        if NEGATION.search(s):
+            continue
+        found.update(k for k, rx in CLASSES.items() if re.search(rx, s))
+    return sorted(found)
 
 
 def load_mono(path, sr=48000):
@@ -180,15 +196,15 @@ def summarize(caps, wav, ref, det, clap, listen):
 
 def write_table(rows, path, index):
     lines = [f"# Judge: haa {index.get('haa')} / studio {index.get('studio')} ({index.get('at')})", "",
-             "| scenario | blind hears (runs) | score 0-10 | real picked (A/B) | detector flags | CLAP top | capture |",
-             "|---|---|---|---|---|---|---|"]
+             "| scenario | blind hears (runs) | score 0-10 | real picked (A/B) | detector flags | CLAP top | capture | voices that played |",
+             "|---|---|---|---|---|---|---|---|"]
     for r in rows:
         heard = ", ".join(f"{k} {v}/{len(r['blind'])}" for k, v in sorted(r["heard"].items())) or "-"
         flags = ", ".join(r["detectors"].get("flags", [])) or "-"
         c = r["capture"]
         cap = f"underruns {c.get('underruns')}, thinned {c.get('thinned')}, peak {r['detectors'].get('peak_dbfs')} dBFS"
         ab = f"{r['ab_correct']}/{r['ab_runs']}" if r["ab_runs"] else "-"
-        lines.append(f"| {r['name']} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {', '.join(r['clap'].get('top3', [])[:2]) or '-'} | {cap} |")
+        lines.append(f"| {r['name']} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {', '.join(r['clap'].get('top3', [])[:2]) or '-'} | {cap} | {c.get('summary', '-')} |")
     lines += ["", "## Blind descriptions", ""]
     for r in rows:
         lines.append(f"### {r['name']}")
@@ -215,6 +231,7 @@ def write_page(rows, out, captures, index):
 <section>
   <h2>{e(r['name'])}</h2>
   <p class="intent">{e(r['intent'])}</p>
+  <p class="intent">voices: {e(str(r['capture'].get('summary', '-')))}</p>
   <div class="players">
     <figure><figcaption>scene capture</figcaption><audio controls preload="none" src="{e(rel_cap)}/{e(r['name'])}.wav"></audio></figure>
     <figure><figcaption>real recording</figcaption>{refp}</figure>
