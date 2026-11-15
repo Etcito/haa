@@ -65,6 +65,33 @@ fn speakers() -> [[f32; 3]; SPEAKERS] {
     s
 }
 
+/// Unit-energy panning gains rescaled to unit sum: what the speakers' feeds must be where they add as
+/// pressure (the low band, where the virtual speakers' HRTFs barely differ).
+fn low_gains(g: &[f32; SPEAKERS]) -> [f32; SPEAKERS] {
+    let sum: f32 = g.iter().sum();
+    let mut out = *g;
+    if sum > 1e-6 {
+        out.iter_mut().for_each(|x| *x /= sum);
+    }
+    out
+}
+
+/// Unit-energy gains cubed, back to unit energy: the nearest speaker leads where the speakers' HRTFs
+/// interfere (above 2.5 kHz).
+fn high_gains(g: &[f32; SPEAKERS]) -> [f32; SPEAKERS] {
+    let mut out = [0.0f32; SPEAKERS];
+    let mut e = 0.0;
+    for (o, &x) in out.iter_mut().zip(g.iter()) {
+        *o = x * x * x;
+        e += *o * *o;
+    }
+    if e > 1e-12 {
+        let k = 1.0 / e.sqrt();
+        out.iter_mut().for_each(|x| *x *= k);
+    }
+    out
+}
+
 fn det3(m: [[f32; 3]; 3]) -> f32 {
     m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0])
 }
@@ -164,25 +191,31 @@ struct Voice {
     b2: f32,
     send_lp: f32,
     tap_lp: [f32; 4],
+    /// Each tap's low band (below 600 Hz), panned with unit-sum gains.
+    tap_lo: [f32; 4],
     /// The level, smoothed per sample (10 ms): a mute or a fade never steps.
     level: f32,
     /// Resumed after thinning: fade in from silence instead of starting at the level.
     fade_in: bool,
+    /// This block fades the voice out to silence (it is thinned from the next block on).
+    fade_out: bool,
 }
 
 impl Voice {
     fn new(sr: f32) -> Voice {
-        Voice { line: vec![0.0; (MAX_DELAY_S * sr) as usize + 4], w: 0, cur: [0.0; p::LEN], fresh: true, air: 0.0, b1: 0.0, b2: 0.0, send_lp: 0.0, tap_lp: [0.0; 4], level: 0.0, fade_in: false }
+        Voice { line: vec![0.0; (MAX_DELAY_S * sr) as usize + 4], w: 0, cur: [0.0; p::LEN], fresh: true, air: 0.0, b1: 0.0, b2: 0.0, send_lp: 0.0, tap_lp: [0.0; 4], tap_lo: [0.0; 4], level: 0.0, fade_in: false, fade_out: false }
     }
     fn reset(&mut self, fade_in: bool) {
         self.line.iter_mut().for_each(|x| *x = 0.0);
         self.fresh = true;
         self.fade_in = fade_in;
+        self.fade_out = false;
         self.air = 0.0;
         self.b1 = 0.0;
         self.b2 = 0.0;
         self.send_lp = 0.0;
         self.tap_lp = [0.0; 4];
+        self.tap_lo = [0.0; 4];
         self.level = 0.0;
     }
     /// The line read `d` samples behind the last write (linear interpolation).
@@ -715,35 +748,50 @@ impl Fdn {
             }
             self.hpos = hp;
         }
+        // The state in locals for the block (through `self` every field was reloaded and stored per line
+        // and sample: 11 steps cost 1.3 ms of a 2.7 ms block), written back after it.
         let depth = self.depth;
+        let hd = depth * 0.5;
+        let mut base = [0.0f32; LINES];
+        for (b, &l) in base.iter_mut().zip(self.lens.iter()) {
+            *b = l as f32 + hd;
+        }
+        let (mut osc, mut pos) = (self.osc, self.pos);
+        let (mut lp_lo, mut lp_hi, mut lp_8k) = (self.lp_lo, self.lp_hi, self.lp_8k);
+        let (gl, gh, g8, g) = (self.gl, self.gh, self.g8, self.g);
+        let (k_lo, k_hi, k_8k) = (self.k_lo, self.k_hi, self.k_8k);
+        let og = half * self.out_gain;
+        let lines = &mut self.lines;
+        let input = &self.input;
         for i in 0..n {
             let mut v = [0.0f32; LINES];
             for j in 0..LINES {
-                let l = &self.lines[j];
+                let l = &lines[j];
                 let size = l.len();
                 // Read through a delay moving over [len - depth, len] (linear interpolation).
-                let (c, sn, cw, sw) = self.osc[j];
-                self.osc[j] = (c * cw - sn * sw, sn * cw + c * sw, cw, sw);
-                let d = (self.lens[j] as f32 + depth / 2.0) - depth * 0.5 * (1.0 + sn);
-                let mut rp = self.pos[j] as f32 - d;
+                let (c, sn, cw, sw) = osc[j];
+                osc[j] = (c * cw - sn * sw, sn * cw + c * sw, cw, sw);
+                let mut rp = pos[j] as f32 - (base[j] - hd * (1.0 + sn));
                 if rp < 0.0 {
                     rp += size as f32;
                 }
-                let i0 = rp as usize % size;
-                let fr = rp - rp.floor();
-                let i1 = if i0 + 1 == size { 0 } else { i0 + 1 };
+                // rp is in [0, size): one conditional wrap, no integer modulo or floor per sample.
+                let ii = rp as usize;
+                let fr = rp - ii as f32;
+                let i0 = if ii >= size { ii - size } else { ii };
+                let i1 = if i0 + 1 >= size { i0 + 1 - size } else { i0 + 1 };
                 let o = l[i0] + (l[i1] - l[i0]) * fr;
-                let sign = if j < RING_OUT { 1.0 } else { -1.0 };
-                bus[(j % RING_OUT) * BLOCK + i] += sign * half * o * self.out_gain;
+                let sign = if j < RING_OUT { og } else { -og };
+                bus[(j % RING_OUT) * BLOCK + i] += sign * o;
                 // Low shelf (DC gain gl, 1 above 250 Hz), then high shelf (1 below 3 kHz, gh above):
                 // first order, monotone, never above the largest band gain: stable.
-                self.lp_lo[j] += self.k_lo * (o - self.lp_lo[j]);
-                let x1 = o + (self.gl[j] - 1.0) * self.lp_lo[j];
-                self.lp_hi[j] += self.k_hi * (x1 - self.lp_hi[j]);
-                let x2 = self.lp_hi[j] + self.gh[j] * (x1 - self.lp_hi[j]);
-                self.lp_8k[j] += self.k_8k * (x2 - self.lp_8k[j]);
-                let x3 = self.lp_8k[j] + self.g8[j] * (x2 - self.lp_8k[j]);
-                v[j] = x3 * self.g[j];
+                lp_lo[j] += k_lo * (o - lp_lo[j]);
+                let x1 = o + (gl[j] - 1.0) * lp_lo[j];
+                lp_hi[j] += k_hi * (x1 - lp_hi[j]);
+                let x2 = lp_hi[j] + gh[j] * (x1 - lp_hi[j]);
+                lp_8k[j] += k_8k * (x2 - lp_8k[j]);
+                let x3 = lp_8k[j] + g8[j] * (x2 - lp_8k[j]);
+                v[j] = x3 * g[j];
             }
             // 16-point Hadamard (fast Walsh-Hadamard), orthonormal.
             for h in [1usize, 2, 4, 8] {
@@ -756,11 +804,16 @@ impl Fdn {
                 }
             }
             for j in 0..LINES {
-                let size = self.lines[j].len();
-                self.lines[j][self.pos[j]] = self.input[j][i] + v[j] * s;
-                self.pos[j] = if self.pos[j] + 1 == size { 0 } else { self.pos[j] + 1 };
+                let size = lines[j].len();
+                lines[j][pos[j]] = input[j][i] + v[j] * s;
+                pos[j] = if pos[j] + 1 == size { 0 } else { pos[j] + 1 };
             }
         }
+        self.osc = osc;
+        self.pos = pos;
+        self.lp_lo = lp_lo;
+        self.lp_hi = lp_hi;
+        self.lp_8k = lp_8k;
         // The oscillators stay on the unit circle.
         for o in self.osc.iter_mut() {
             let r = 1.0 / (o.0 * o.0 + o.1 * o.1).sqrt();
@@ -815,6 +868,15 @@ impl Mixer {
         }
     }
 
+    /// The next `voice` call of `v` ramps it to silence over its block: a voice the worker thins (no time
+    /// left this block) leaves without a step. Skipped outright, its output fell from its level to 0 in
+    /// one sample, and a burst of thinned voices sounded like static.
+    pub fn fade_out_voice(&mut self, v: usize) {
+        if let Some(x) = self.voices.get_mut(v) {
+            x.fade_out = true;
+        }
+    }
+
     /// Mix `n` samples of voice `v` (its mono block in `self.input`) into the bus and the reverb inputs.
     pub fn voice(&mut self, v: usize, n: usize) {
         let sr = self.sr;
@@ -830,12 +892,27 @@ impl Mixer {
         let cur = vo.cur;
         let g0 = pan(&self.spk, [cur[p::DIR], cur[p::DIR + 1], cur[p::DIR + 2]], cur[p::FOCUS]);
         let g1 = pan(&self.spk, [tgt[p::DIR], tgt[p::DIR + 1], tgt[p::DIR + 2]], tgt[p::FOCUS]);
+        // Three bands, three gain sets (Chrome's HRTF at the true direction against our 16 speakers,
+        // measured: docs "Floor sources and the speakers' layout", mix5).
+        // - Below 600 Hz the speakers' HRTFs are nearly one filter and the feeds add as pressure: unit-
+        //   energy gains gave +3..+5 dB of low end to a source shared by 2-3 speakers (one 15-40 degrees
+        //   below the horizon: the front speaker and two lower ones). Unit sum there.
+        // - 600 Hz-2.5 kHz: unit energy.
+        // - Above 2.5 kHz the shared speakers' HRTFs (their delays differ) interfere: -14 dB at 3.15 kHz
+        //   and -11 at 4 kHz for a source 30 degrees down, where a real ear has -3. The gains cubed then
+        //   unit energy: the nearest speaker leads (-4 dB there).
+        let (l0, l1) = (low_gains(&g0), low_gains(&g1));
+        let (h0, h1) = (high_gains(&g0), high_gains(&g1));
         let mut t0 = [[0.0f32; SPEAKERS]; 4];
         let mut t1 = [[0.0f32; SPEAKERS]; 4];
+        let mut tl0 = [[0.0f32; SPEAKERS]; 4];
+        let mut tl1 = [[0.0f32; SPEAKERS]; 4];
         for k in 0..4 {
             let b = p::TAPS + k * 5;
             t0[k] = pan(&self.spk, [cur[b], cur[b + 1], cur[b + 2]], 1.0);
             t1[k] = pan(&self.spk, [tgt[b], tgt[b + 1], tgt[b + 2]], 1.0);
+            tl0[k] = low_gains(&t0[k]);
+            tl1[k] = low_gains(&t1[k]);
         }
         // Reverb input weights per FDN line: biased toward the diffuse field's direction.
         let rd = [tgt[p::RDIR], tgt[p::RDIR + 1], tgt[p::RDIR + 2]];
@@ -868,18 +945,19 @@ impl Mixer {
             vo.line[vo.w] = self.input[i];
             vo.w = (vo.w + 1) % len;
             vo.level += kl * (level_tgt - vo.level);
-            let level = vo.level;
+            let level = if vo.fade_out { vo.level * (1.0 - t) } else { vo.level };
             let delay = lerp(cur[p::DELAY], tgt[p::DELAY], t) * sr;
             let y = vo.read(delay);
             vo.air += ka * (y - vo.air);
             let y2 = vo.air + lerp(cur[p::AIR], tgt[p::AIR], t) * (y - vo.air);
             vo.b1 += k1 * (y2 - vo.b1);
             vo.b2 += k2 * (y2 - vo.b2);
-            let z = lerp(cur[p::LOW], tgt[p::LOW], t) * vo.b1 + lerp(cur[p::MID], tgt[p::MID], t) * (vo.b2 - vo.b1) + lerp(cur[p::HIGH], tgt[p::HIGH], t) * (y2 - vo.b2);
-            let z = z * level;
+            let zl = lerp(cur[p::LOW], tgt[p::LOW], t) * vo.b1 * level;
+            let zm = lerp(cur[p::MID], tgt[p::MID], t) * (vo.b2 - vo.b1) * level;
+            let zh = lerp(cur[p::HIGH], tgt[p::HIGH], t) * (y2 - vo.b2) * level;
             let wide = y2 * lerp(cur[p::WIDE], tgt[p::WIDE], t) * level * omni;
             for s in 0..SPEAKERS {
-                bus[s * BLOCK + i] += z * lerp(g0[s], g1[s], t) + wide;
+                bus[s * BLOCK + i] += zl * lerp(l0[s], l1[s], t) + zm * lerp(g0[s], g1[s], t) + zh * lerp(h0[s], h1[s], t) + wide;
             }
             for k in 0..4 {
                 let b = p::TAPS + k * 5;
@@ -890,8 +968,10 @@ impl Mixer {
                 let yt = vo.read(lerp(cur[b + 3], tgt[b + 3], t) * sr);
                 vo.tap_lp[k] += kt * (yt - vo.tap_lp[k]);
                 let val = vo.tap_lp[k] * gain * level;
+                vo.tap_lo[k] += k1 * (val - vo.tap_lo[k]);
+                let (lo, rest) = (vo.tap_lo[k], val - vo.tap_lo[k]);
                 for s in 0..SPEAKERS {
-                    bus[s * BLOCK + i] += val * lerp(t0[k][s], t1[k][s], t);
+                    bus[s * BLOCK + i] += lo * lerp(tl0[k][s], tl1[k][s], t) + rest * lerp(t0[k][s], t1[k][s], t);
                 }
             }
             if !fed_steps.is_empty() {
@@ -912,6 +992,7 @@ impl Mixer {
             }
         }
         vo.cur = tgt;
+        vo.fade_out = false;
     }
 
     /// Run the reverb steps that are fed or still ringing; the bus then holds the block (8 planes of
@@ -1015,6 +1096,11 @@ mod abi {
     }
 
     #[unsafe(no_mangle)]
+    pub extern "C" fn mix_fade_out_voice(v: u32) {
+        with(|m| m.fade_out_voice(v as usize));
+    }
+
+    #[unsafe(no_mangle)]
     pub extern "C" fn mix_voice(v: u32, n: u32) {
         with(|m| m.voice(v as usize, (n as usize).min(BLOCK)));
     }
@@ -1067,6 +1153,57 @@ mod tests {
             assert!((10.0 * e.log10()).abs() < 1.0, "rt {rt}: {e}");
             assert!((t20 / rt - 1.0).abs() < 0.08, "rt {rt}: T20 {t20}");
         }
+    }
+
+    /// A source shared by several virtual speakers keeps its low end. Below 600 Hz their HRTFs are nearly
+    /// one filter and the feeds add as pressure: a 100 Hz tone 28 degrees below the horizon (the front
+    /// speaker and two lower ones) summed +4.5 dB over the same tone on a speaker. Its 4 kHz part still
+    /// keeps unit energy over the speakers.
+    #[test]
+    fn a_source_between_speakers_keeps_its_low_end() {
+        let sr = 48000.0f32;
+        let mut m = Mixer::new(sr, 1);
+        let mut run = |dir: [f32; 3], hz: f32| -> (f32, f32) {
+            m.clear();
+            {
+                let q = m.params_mut(0);
+                q[p::LEVEL] = 1.0;
+                q[p::DIR..p::DIR + 3].copy_from_slice(&dir);
+                q[p::AIR] = 1.0;
+                q[p::LOW] = 1.0;
+                q[p::MID] = 1.0;
+                q[p::HIGH] = 1.0;
+                q[p::FOCUS] = 1.0;
+                q[p::SEND_HZ] = 16000.0;
+                q[p::TAP_HZ] = 16000.0;
+            }
+            m.reset_voice(0, false);
+            let (mut sum, mut energy, mut input) = (0.0f64, 0.0f64, 0.0f64);
+            for b in 0..80 {
+                for i in 0..BLOCK {
+                    m.input[i] = (2.0 * PI * hz * (b * BLOCK + i) as f32 / sr).sin();
+                }
+                m.voice(0, BLOCK);
+                m.finish(BLOCK);
+                if b >= 30 {
+                    for i in 0..BLOCK {
+                        let s: f32 = (0..SPEAKERS).map(|c| m.bus[c * BLOCK + i]).sum();
+                        sum += f64::from(s * s);
+                        energy += (0..SPEAKERS).map(|c| f64::from(m.bus[c * BLOCK + i]).powi(2)).sum::<f64>();
+                        input += f64::from(m.input[i] * m.input[i]);
+                    }
+                }
+                m.clear();
+            }
+            ((10.0 * (sum / input).log10()) as f32, (10.0 * (energy / input).log10()) as f32)
+        };
+        let below = [0.0f32, -(28f32.to_radians().sin()), -(28f32.to_radians().cos())];
+        let (on_speaker, _) = run([0.0, 0.0, -1.0], 100.0);
+        let (shared, _) = run(below, 100.0);
+        assert!((shared - on_speaker).abs() < 1.0, "100 Hz: shared {shared:.1} dB, on a speaker {on_speaker:.1} dB");
+        let (_, hf_on) = run([0.0, 0.0, -1.0], 4000.0);
+        let (_, hf_shared) = run(below, 4000.0);
+        assert!((hf_shared - hf_on).abs() < 1.0, "4 kHz energy: shared {hf_shared:.1} dB, on a speaker {hf_on:.1} dB");
     }
 
     /// The organ (mix4): 8 fixed lines of 8.5-25 ms gave every tail the same few stationary modes, heard

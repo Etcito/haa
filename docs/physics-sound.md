@@ -1160,3 +1160,63 @@ shelf 700 Hz -5 dB, high shelf 6 kHz +3 dB): the average is within +-0.8 dB from
 never engaged, 0 underruns, 0 frozen blocks, peaks -42 to -47 dBFS, no clipping or clicks. The only
 mechanism seen that cuts the output is a mix worker starving under machine load (the worklet fades
 that worker's share out for a block and back in).
+
+### Floor sources and the speakers' layout, sources beyond the field, thinned voices (mix5)
+
+Judged on captures of the scene's output and on Chrome's own HRTF set; not listened to.
+
+**The 16 virtual speakers against one HRTF at the true direction.** Each speaker of the decode is a
+Chrome HRTF panner (the IRCAM set it carries). Rendered offline, a source between speakers against
+Chrome's HRTF at the source's own direction (both ears' power, third-octaves):
+- Below 600 Hz the speakers' HRTFs are nearly one filter, so their feeds add as pressure. Unit-energy
+  gains gave +3.0 dB to a source between two ring speakers, +4.5 dB at 30 degrees down (front speaker and
+  two of the lower ones at -45 degrees), +4.7 dB at 40 down, +3.3 dB at 90 / -20 degrees. That was part
+  of the low end no voice accounted for (the grenade, the crate).
+- Above 2 kHz the shared speakers' HRTFs (their delays differ) interfere: -14.2 dB at 3.15 kHz and -11.1
+  at 4 kHz for a source 30 degrees down at the front, where the real ear at that elevation has -3. The
+  crate 3 m away (28 degrees down) lost its 2-8 kHz band that way. Between two ring speakers -8.2 dB at
+  2.5 kHz.
+- Now: below 600 Hz the gains of unit sum (pressure), 600 Hz-2.5 kHz unit energy, above 2.5 kHz the gains
+  cubed then unit energy (the nearest speaker leads); the early taps' low band the same as the dry's.
+  Measured: below 600 Hz within 0.5 dB of the real HRTF (+3..+4.7 before); 30 degrees down at 3.15 / 4
+  kHz -4.0 / -3.6 dB (-14.2 / -11.1). On the scene's captures: grenade-land-outdoor 20-150 Hz 5.9 ->
+  1.5 % of the energy (the dry voices predict 1.7 %), crate-drop 2-8 kHz 1.3 -> 3.7 % (5 % predicted). Left as it was: two equal speakers (exactly between two ring
+  speakers) keep their comb at 2-2.5 kHz (-8.2 dB); only decorrelating the speakers' feeds removes it
+  (ideal decorrelation: within -4.2..+5.5 dB everywhere), and a decorrelator long enough smears a click
+  by ~10 ms. Test: `a_source_between_speakers_keeps_its_low_end` (+4.5 dB before).
+- Chrome's HRTF data stop at -45 degrees: below that every elevation reads the same.
+
+**Sources the field cannot reach.** The field's flood reaches 40 m from the listener. A source with no
+path through it read fully occluded (the transmission loss, -18/-25/-33 dB) and got its reverb as if it
+shared the listener's space (+10 dB for a hit 43 m away outside the hall, heard from inside). With no
+field path the rays now decide the voice's path, reverb and reflections, as without a field. The hall
+shot's far ricochets that read -24.7 dB were not a reach problem: the probe found them inside the vault
+(the triangle barrel at x = 24, r = 3.5 m), 2.2 m under its shell, after the bullets passed its base
+where it meets the ground; hidden is right for that position.
+
+**Frozen voice-blocks.** A mix worker renders, each 2.7 ms block, the loudest voices whose costs fit in
+75 % of the block less its reverb; the others are thinned for that block. A thinned voice used to be
+skipped outright: its output fell from its level to 0 in one sample and came back blocks later. Voices
+at the edge of the budget went in and out every block or two; under load the listening model heard that
+as "static noise, broken radio" (pebbles, 6 underruns / 60 frozen blocks, 3 of 3), the owner as
+saturation. Now:
+- a thinned voice fades out over its first thinned block (without synthesis: its delay line, or its
+  buffer's next block), stays out at least 85 ms, and fades back in; a baked one-shot keeps its time
+  while thinned;
+- off the audio thread the voices were capped by the slots only; a voice cap now follows the mix
+  workers: a second with more than 2 % of the voice-blocks frozen lowers it below the voices playing (the
+  next quiet ones are not started, or take a quieter one's slot), a second with none raises it by 2;
+- at most 8 slides or rolls of one preset play at once, the loudest (30 balls rolling were 30 live
+  ball-roll voices at 0.5-0.8 ms of synthesis per 2.7 ms block each);
+- the reverb's inner loop keeps its state in locals (11 steps unfed 0.84 -> 0.61 ms per block).
+
+balls-30 on this machine: 3082 frozen voice-blocks before (5680 in the judge's take of main), 627 after,
+no voice silenced; rain-hall 152 (judge, main) -> 0. With four threads (one mix worker, `taskset` and
+hardwareConcurrency 4) balls-30 is past what one worker renders whatever the policy (a live ball-roll
+costs 0.31 ms of a 2.7 ms block, rain-on-face 0.37, slide-scrape 0.26, solid-impact 0.20): main froze
+36 220 voice-blocks and silenced 111 voices, now 27 605 (the 85 ms hold counts every held block) and 24,
+the quiet ones refused or replaced at start. pebbles stays clean on four and on two threads. No take had
+underruns; the judge's click detector reads 0 on balls-30 in both cases, so it does not measure the cut.
+The studio's overlay keeps the worst since start (underruns, frozen blocks and their worst second,
+silenced voices, late worker blocks, the limiter's deepest reduction, workers / threads) for a
+reproduction on another machine.

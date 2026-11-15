@@ -188,6 +188,8 @@ export interface SfxStats {
   mix: MixStats | null;
   /** The master limiter's gain reduction now (dB, <= 0): 0 while the mix stays under its -3 dBFS threshold. */
   limiterDb: number;
+  /** The reverb's low and high bands' decay relative to its mid (mix thread; 1, 1 before any voice). */
+  reverbBands: [number, number];
 }
 
 export interface SfxVoiceAcoustics {
@@ -421,6 +423,8 @@ const CHAIN_COST = 0.03;
 const AUDIBLE = 1e-3;
 /** A slide/roll voice (its measured RMS, not a proxy) estimated below −70 dB at the listener is not started. */
 const CONTACT_AUDIBLE = 10 ** (-70 / 20);
+/** Slides and rolls of one preset playing at once (the loudest), see `handle`. */
+const MAX_SAME_CONTACT = 8;
 /** A running slide/roll voice estimated 6 dB under `CONTACT_AUDIBLE` for this long (s) is stopped. */
 const QUIET_STOP_S = 0.25;
 /** Speeds (0..1) at which a looping `speed` preset's level is measured. */
@@ -797,9 +801,13 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const ac = s.ac;
     const field = ao.field;
     let refl: Reflection[];
-    if (field && field.ready(s.position) && field.ready(listener.position)) {
+    // No path through the field: its flood reaches 40 m from the listener, and a source beyond it (a
+    // bullet's hit outside the hall, 45 m away) read fully occluded, -25 dB with the low-pass, and its
+    // reverb as one space with the hall (+10 dB). The rays decide then, as without a field.
+    const fieldPath = field && field.ready(s.position) && field.ready(listener.position) ? field.path(s.position, listener.position, s.extent) : null;
+    if (field && fieldPath && fieldPath.found) {
       // The baked field: one lookup per source instead of rays (docs/physics-sound.md, "Acoustic field").
-      ac.path = field.path(s.position, listener.position, s.extent);
+      ac.path = fieldPath;
       ac.reverb = field.reverb(s.position, listener.position, ac.path);
       refl = field.reflections(s.position, listener.position);
       // The debug view draws what the field used: the direct line (red when partly hidden), or the
@@ -866,6 +874,30 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
    * The reverb steps are shared by every voice: their low and high bands follow the surfaces' α per
    * band of the spaces the voices excite, each voice's ratios weighted by its diffuse energy.
    */
+  let reverbBands: [number, number] = [1, 1];
+
+  /**
+   * The voices the mix workers can carry. Off the audio thread nothing capped the voices but the slots:
+   * past what the workers render in a block they froze the quietest ones, mid-sound (30 balls on a
+   * 4-thread machine, one worker: 21 900 frozen voice-blocks in 9 s, 88 voices cut). Each second: more
+   * than 2 % of the voice-blocks frozen lowers the cap under the voices playing, so the next quiet ones
+   * are not started (or take a quieter one's slot); a second with none frozen raises it by 2.
+   */
+  let mixCap = Infinity;
+  let mixSeen = { at: -1, thinned: 0, rendered: 0 };
+  function mixGovernor(now: number): void {
+    if (!mixPool) return;
+    if (mixSeen.at >= 0 && now - mixSeen.at < 1) return;
+    const st = mixPool.mixStats();
+    if (mixSeen.at >= 0) {
+      const thinned = st.thinned - mixSeen.thinned;
+      const rendered = st.rendered - mixSeen.rendered;
+      const playing = slots.filter((x) => x.busy && !x.stopping).length;
+      if (thinned > 0.02 * (thinned + rendered)) mixCap = Math.max(4, Math.min(mixCap, playing) - Math.max(2, Math.round(0.2 * playing)));
+      else if (thinned === 0 && Number.isFinite(mixCap)) mixCap = mixCap + 2 >= slots.length ? Infinity : mixCap + 2;
+    }
+    mixSeen = { at: now, thinned: st.thinned, rendered: st.rendered };
+  }
   function mixBands(): void {
     let w = 0;
     let lo = 0;
@@ -878,7 +910,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       lo += e * Math.log(r.rtLo ?? 1);
       hi += e * Math.log(r.rtHi ?? 1);
     }
-    if (w > 1e-9) mixPool!.setBands(Math.exp(lo / w), Math.exp(hi / w));
+    if (w > 1e-9) {
+      reverbBands = [Math.exp(lo / w), Math.exp(hi / w)];
+      mixPool!.setBands(reverbBands[0], reverbBands[1]);
+    }
   }
 
   /** Jump the smoothed values to the targets (a voice that starts). */
@@ -1026,8 +1061,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     const busy = slots.filter((s) => s.busy);
     let load = busy.reduce((a, s) => a + (s.stopping ? 0 : s.cost), 0);
     let active = busy.filter((s) => !s.stopping).length;
-    // Off the audio thread the voices cost that thread nothing that varies: the cap is the slots.
-    const limit = Math.max(1, Math.min(slots.length - SPARE_SLOTS, orch && !offThread ? orch.voiceCap() : Infinity));
+    // Off the audio thread the voices cost that thread nothing that varies: the cap is the slots, or the
+    // mix workers' (see `mixGovernor`).
+    const limit = Math.max(1, Math.min(slots.length - SPARE_SLOTS, orch && !offThread ? orch.voiceCap() : mixPool ? mixCap : Infinity));
     const fits = (): boolean => load + cost <= budget && active < limit;
     const freeSlot = (): Slot | null => {
       const free = slots.filter((s) => !s.busy);
@@ -1270,6 +1306,22 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
           log({ label, preset: r.slot.preset, kind: ev.kind, inputs: r.inputs, slot: -1, result: 'missing', distance: dist(ev.position) });
           continue;
         }
+        // At most MAX_SAME_CONTACT slides/rolls of one preset, the loudest: 30 balls rolling at once were
+        // 30 live ball-roll voices (0.5-0.8 ms of synthesis per 2.7 ms block each), and the mix workers
+        // froze 3000-5700 voice-blocks. A quieter newcomer is not started; a louder one replaces the
+        // quietest (which fades out).
+        const same = [...continuous.values()].filter((x) => x.busy && !x.stopping && x.preset === rec.name);
+        if (same.length >= MAX_SAME_CONTACT && rec.speedLevels) {
+          const level = (x: Slot): number => contactLevel(rec, x.speed, x.level, dist(x.position));
+          const quietest = same.reduce((a, b) => (level(a) <= level(b) ? a : b));
+          if (contactLevel(rec, r.inputs.speed, r.gain * levelTrim(rec, r.inputs.energy, ev.kind), dist(ev.position)) <= level(quietest)) {
+            counters.culled++;
+            if (!quietKeys.has(key)) log({ label, preset: rec.name, kind: ev.kind, inputs: r.inputs, slot: -1, result: 'culled', distance: dist(ev.position) });
+            quietKeys.add(key);
+            continue;
+          }
+          stopSlot(quietest);
+        }
         const s = start(rec, ev.position, r.inputs, false, r.gain, undefined, label, ev.kind, key, ev.extent);
         if (s) continuous.set(key, s);
       }
@@ -1369,7 +1421,10 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       geometry(s, now, false);
       applyChain(s, dt, false);
     }
-    if (mixPool) mixBands();
+    if (mixPool) {
+      mixBands();
+      mixGovernor(now);
+    }
     if (orch) {
       orch.tick(now, slots.reduce((a, s) => a + (s.busy && !s.stopping ? s.cost : 0), 0));
       if (mixPool) {
@@ -1566,12 +1621,13 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
         convolvers: reverb.running,
         mix: mixPool ? mixPool.mixStats() : null,
         limiterDb: limiter.reduction,
+        reverbBands,
         allowedConvolvers: reverb.allowedMask.filter(Boolean).length,
         orchestrator: orch ? orch.stats() : null,
         offThread,
         starved: pool.starved?.() ?? 0,
         workerLoad: pool.workerLoad?.() ?? [],
-        voiceCap: Math.max(1, Math.min(slots.length - SPARE_SLOTS, orch && !offThread ? orch.voiceCap() : Infinity)),
+        voiceCap: Math.max(1, Math.min(slots.length - SPARE_SLOTS, orch && !offThread ? orch.voiceCap() : mixPool ? mixCap : Infinity)),
       };
     },
     rays() {
