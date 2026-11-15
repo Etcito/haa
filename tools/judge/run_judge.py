@@ -39,13 +39,13 @@ PY = sys.executable
 CLASSES = {
     "thunder": r"thunder|rumbl|storm",
     "organ": r"organ|drone|\bhum\b|humming|tonal|whistl|sustained (tone|note|pitch)|chord|resonan|feedback",
-    "bell": r"\bbell|chime|ringing|tinkl|ding",
+    "bell": r"\bbells?\b|chime|ringing|tinkl|\bding\b",
     "water": r"water|stream|trickl|splash|pour|liquid|drip",
     "toy": r"\btoy|cap gun|popgun|cork",
     "crackle": r"crackl|distort|static|clipp|glitch",
     "nail": r"hammer|nail|knock|tapping|\btap\b|chisel",
     "wet cloth": r"\bwet\b|slap|splat|squish|cloth|towel|\bmud",
-    "too long": r"long (reverb|echo|tail|decay)|lingering|excessive (reverb|echo)|echo(es)? (go(es)? on|too)",
+    "too long": r"long (reverb|echo|tail|decay)|lingering|excessive (reverb|echo)|echo(es)? (go(es)? on|too)|(reverb\w*|echo\w*|decay|tail) (is|are|was|were|seems?|sounds?) too|too much (reverb|echo)",
     "synthetic": r"synthe|artificial|electronic|computer|digital|unnatural|fake",
     # Broader, for the calibration: a small object heard as a blast; a tail heard as something pitched.
     "boom": r"explosion|explod|\bboom|blast|firework|\bbomb",
@@ -174,7 +174,7 @@ def main():
         lp = os.path.join(a.out, "listen.json")
         listen = json.load(open(lp)) if os.path.exists(lp) else []
         done = {(x["id"], x["mode"]) for x in listen}
-        if not (a.reuse and all((j["id"], j["mode"]) in done for j in jobs)):
+        if jobs and not (a.reuse and all((j["id"], j["mode"]) in done for j in jobs)):
             json.dump(jobs, open(jp, "w"), indent=1)
             run([PY, os.path.join(HERE, "listen.py"), jp, lp + ".new", "--runs", str(a.runs)])
             new = json.load(open(lp + ".new"))
