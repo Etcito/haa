@@ -26,8 +26,12 @@ import { OCCLUSION_SHELF_HZ } from './acoustics.ts';
 export const TAPS_PER_VOICE = 4;
 /** Distance (m) at which a voice plays at its nominal level; beyond, 1/r (the panner's inverse model). */
 export const REF_DISTANCE = 2;
-/** Near-field: below REF_DISTANCE the level keeps rising as REF/d down to this distance (+6 dB at 1 m). */
-export const NEAR_MIN_DISTANCE = 1;
+/**
+ * Near-field: below REF_DISTANCE the level keeps rising as REF/d down to this distance (+12 dB at 0.5 m).
+ * At 1 m, a weapon held at 0.79 m played 2 dB under 1/r while its reflections (their own distance) did not:
+ * the ground's reflection came 11.6 dB under the shot instead of 13.6.
+ */
+export const NEAR_MIN_DISTANCE = 0.5;
 /** High-shelf frequency of the air absorption. */
 export const AIR_SHELF_HZ = 4000;
 

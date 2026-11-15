@@ -984,7 +984,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       levels.bandsDb[b] -= s.txs[b];
     }
     if (!immediate && s.fadeIn < 1) s.fadeIn = Math.min(1, s.fadeIn + dt / CONTINUOUS_FADE_IN_S);
-    const near = len < REF_DISTANCE ? REF_DISTANCE / Math.max(len, NEAR_MIN_DISTANCE) : 1;
+    // A point source rises as 1/r down to NEAR_MIN_DISTANCE; a face source (`nearest`: the nearest point of
+    // a roof or a floor) stops at 1 m, an extended surface does not follow 1/r near it.
+    const near = len < REF_DISTANCE ? REF_DISTANCE / Math.max(len, s.nearest ? 1 : NEAR_MIN_DISTANCE) : 1;
     const u = s.extent / Math.max(len, 0.01);
     const spread = u >= 1 ? 1 : u * u;
     // A source heard through a solid (a face's far side, `setTransmission`) feeds the room with what

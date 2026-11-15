@@ -1281,3 +1281,31 @@ source (placed at its nearest point) is unchanged. The grenade's explosion at 12
 -13.6 dBFS (1.2 dB predicted); at 4.9 m it is 3.4 dB quieter than before. Every source's level follows
 1/r down to 1 m and stays there nearer (`NEAR_MIN_DISTANCE`): a pistol at hand (0.79 m, no extent) gets
 the level of 1 m, 2.0 dB under 1/r at 0.79 m.
+
+### Reproducible bakes, a weapon at hand, roof rain's texture (mix8)
+
+Judged on captures of the scene's output; not listened to.
+
+**A baked cell is one waveform.** The bake worker kept one voice per seed and reused it for every cell. A
+restart draws a new take and the random streams carry on, so a cell's take depended on the bakes before it
+in the session: the explosion's cell came out 0.9 dB apart from a fresh voice's, and the grenade's explosion
+in three sessions at the same settings peaked at -14.4, -9.5 and -15.2 dBFS (loudest 400 ms -27.5, -25.5,
+-28.3 dB). Each bake now has its own voice: three sessions -11.5 dBFS and -27.5 dB, the same take. Which
+of the cell's three variants plays is still drawn (repeats differ by design); the explosion's variants
+differ by 1.0 dB in peak and 2.0 dB in RMS (the blast's per-take spread).
+
+**A weapon at hand.** A point source's level now follows 1/r down to 0.5 m (it stopped at 1 m): a pistol at
+0.79 m was 2 dB under 1/r while its ground reflection, at its own distance, was not (11.6 dB under the shot
+instead of 13.6). A face source (rain's nearest point on a roof) still stops at 1 m. shot-outdoor: the
+first 5 ms against 5-50 ms -8.1 -> -6.2 dB, against the rest -3.6 -> -1.3 dB (the dry pistol -3.7 / -0.1).
+No reflection or reverb arrives before the direct sound: the pistol has two taps (the ground, 6.6 ms later
+and 11.6 dB down, a wall 29 dB down), and the take with the reverb at -60 dB reads the same. The pistol's
+takes are dense bursts: after the first click its 16 ms stay within 2-10 dB of it, and in the scene the
+ground reflection lands on that burst 6.6 ms after the onset.
+
+**Roof rain's texture.** The drops' crest in 2-8 kHz (p99 over the median of a 5 ms envelope) is 6.5-7 dB
+in the scene. The six faces rendered at their real inputs (each input mapped into the preset's declared
+range, `toDeclared`: a contract area of 1 is 10 000 m2 for rain-on-face) and summed with the scene's gains
+read 8.9 dB; through the mixer offline 8.8 dB. Reverb, early taps and the wide part's decorrelators each
+changed it by under 0.5 dB (A/B takes). The preset at those inputs is a dense bed with its own 10-30 Hz
+modulation (the "engine"), not the mix.

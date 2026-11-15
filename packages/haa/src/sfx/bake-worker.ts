@@ -14,16 +14,18 @@ const scope = globalThis as unknown as {
 };
 
 /** A voice per seed, keeping its last patch (a preset baked at many cells loads once per seed). */
+/**
+ * A new voice for every bake. A voice kept per seed carried its random streams from one bake to the next
+ * (a restart draws a new take, the stream goes on), so a cell's take depended on the bakes before it in
+ * the session: the explosion's cell came out 0.9 dB apart from a fresh voice's, and the scene's explosion
+ * peak moved by about 3 dB between sessions at the same settings. Now a cell and seed give one waveform.
+ */
 function voiceFor(seed: number, sr: number, key: string, bytes: Uint8Array): HaaVoice | null {
-  let v = voices.get(seed);
-  if (!v) {
-    v = { voice: engine!.createVoice(sr, seed), key: '' };
-    voices.set(seed, v);
-  }
-  if (v.key !== key) {
-    if (!v.voice.load(bytes).playable) return null;
-    v.key = key;
-  }
+  voices.get(seed)?.voice.free();
+  const v = { voice: engine!.createVoice(sr, seed), key: '' };
+  voices.set(seed, v);
+  if (!v.voice.load(bytes).playable) return null;
+  v.key = key;
   return v.voice;
 }
 
