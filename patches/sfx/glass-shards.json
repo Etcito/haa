@@ -55,7 +55,7 @@
     }
   ],
   "graph": {
-    "duration": 0.6,
+    "duration": 0.15,
     "loop": false,
     "mode": "timeline",
     "nodes": [
@@ -158,7 +158,7 @@
       {
         "id": "shard",
         "type": "modal",
-        "label": "Glass piece (its body: shape, dim, thickness)",
+        "label": "Glass piece tick (its body: shape, dim, thickness)",
         "x": 540,
         "y": 20,
         "params": {
@@ -175,7 +175,7 @@
           "click": 1.4,
           "rattle": 0,
           "glide": 0,
-          "bounces": 2,
+          "bounces": 0,
           "bounceTime": 0.012,
           "restitution": 0.4,
           "input": 0,
@@ -735,31 +735,6 @@
         ]
       },
       {
-        "id": "chips",
-        "type": "crackle",
-        "label": "Chips tinkling",
-        "x": 540,
-        "y": 140,
-        "params": {
-          "kind": "ring",
-          "rate": 90,
-          "rise": 0.0,
-          "fall": 0.12,
-          "frequency": 5000,
-          "spread": 1.4,
-          "sizePitch": 0.6,
-          "decay": 0.05,
-          "contact": 4e-05,
-          "range": 24,
-          "exponent": 1.0,
-          "modes": 2,
-          "regularity": 0,
-          "clump": 0,
-          "delay": 0.01,
-          "level": 0
-        }
-      },
-      {
         "id": "out",
         "type": "output",
         "label": "Output",
@@ -877,29 +852,8 @@
         "amount": 1.0
       },
       {
-        "id": "e16-m-level-chips-level",
-        "from": "m-level",
-        "to": "chips",
-        "target": "level",
-        "amount": 0.35
-      },
-      {
-        "id": "e17-in-size-chips-rate",
-        "from": "in-size",
-        "to": "chips",
-        "target": "rate",
-        "amount": 120
-      },
-      {
         "id": "e18-shard-out-audio",
         "from": "shard",
-        "to": "out",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e19-chips-out-audio",
-        "from": "chips",
         "to": "out",
         "target": "audio",
         "amount": 1.0

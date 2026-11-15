@@ -8,7 +8,7 @@ import { add, cross, dot, earlyReflections, length, normalize, scale, SPEED_OF_S
 import type { DirectPath, ListenerTrace, SpaceEstimate, VoiceReverb } from './raytrace.ts';
 import { diffractionLevels, directPath, sphereDirections, traceListener, voiceReverb } from './raytrace.ts';
 import type { InteractionKind, SfxEvent, SfxInputs, SoundMaterial, SoundMaterialSpec } from './contract.ts';
-import { bodyInputs, defineMaterial, energyFromJoules, fallbackGain, fullInputs, isContinuous, materialInput, resolveInteraction, SFX_INPUTS, sizeFromMass } from './contract.ts';
+import { bodyInputs, breaksOn, defineMaterial, energyFromJoules, fallbackGain, fullInputs, isContinuous, materialInput, resolveInteraction, SFX_INPUTS, sizeFromMass } from './contract.ts';
 import { createSfxPool } from './pool.ts';
 import type { SfxPool } from './pool.ts';
 import type { SfxPoolOutMsg } from './pool-protocol.ts';
@@ -1318,7 +1318,9 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
       }
       if (swarms.quiet(sw, now)) {
         // The swarm's cluster voice fades out (it faded in): the cluster is never switched on or off in one step.
-        stopSlot(slot, 0.2);
+        // Its pieces have stopped (no impact for the swarm's hold, 0.15 s): hold + this fade keep the silence within
+        // 0.3 s of the last impact (a bottle's shards kept tinkling after they lay still).
+        stopSlot(slot, 0.1);
         clusterVoices.delete(sw.id);
         continue;
       }
@@ -1578,8 +1580,11 @@ export async function createSfxEngine(o: SfxEngineOptions): Promise<SfxEngine> {
     for (const { striker, surface, mass, speeds } of list) {
       for (const v of speeds) {
         // As the Rapier adapter builds an impact on a fixed surface (rapier.ts tryImpact).
-        const inputs = { energy: energyFromJoules(0.5 * mass * v * v), size: sizeFromMass(mass), depth: 0, speed: 0 };
-        for (const r of resolveInteraction('impact', striker, surface, inputs)) {
+        const joules = 0.5 * mass * v * v;
+        const inputs = { energy: energyFromJoules(joules), size: sizeFromMass(mass), depth: 0, speed: 0 };
+        // A contact that breaks the striker plays its break too (a bottle's shatter played live, 0.15 s late).
+        const kinds = breaksOn(striker, surface, joules) ? (['impact', 'break'] as const) : (['impact'] as const);
+        for (const r of kinds.flatMap((kind) => resolveInteraction(kind, striker, surface, inputs))) {
           const rec = await preset(r.slot.preset);
           if (!rec || !rec.playable) continue;
           const declared = declaredInputs(rec, r.inputs);

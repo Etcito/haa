@@ -45,7 +45,7 @@
     }
   ],
   "graph": {
-    "duration": 1.6,
+    "duration": 0.5,
     "loop": false,
     "mode": "timeline",
     "nodes": [
@@ -464,36 +464,6 @@
         }
       },
       {
-        "id": "m-rate",
-        "type": "map",
-        "label": "Energy -> fragments per second",
-        "x": 280,
-        "y": 500,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 900,
-          "outMax": 3500
-        }
-      },
-      {
-        "id": "m-tail",
-        "type": "map",
-        "label": "Size -> fragment shower length (s)",
-        "x": 280,
-        "y": 620,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 0.12,
-          "outMax": 0.3
-        }
-      },
-      {
         "id": "body",
         "type": "modal",
         "label": "Bottle shell (struck, failing)",
@@ -511,184 +481,6 @@
           "position": 0.3,
           "vary": 0.8,
           "click": 0.8,
-          "rattle": 0,
-          "glide": 0,
-          "bounces": 0,
-          "bounceTime": 0.03,
-          "restitution": 0.5,
-          "input": 0,
-          "strike": true,
-          "delay": 0.006,
-          "level": 0
-        }
-      },
-      {
-        "id": "m-thud-f",
-        "type": "map",
-        "label": "Size -> floor thud (Hz)",
-        "x": 280,
-        "y": 740,
-        "params": {
-          "in": 0,
-          "inMin": 0,
-          "inMax": 1,
-          "scale": "lin",
-          "outMin": 180.0,
-          "outMax": 71.66666667
-        },
-        "curve": [
-          [
-            0.0,
-            -0.0
-          ],
-          [
-            0.0312,
-            0.04446
-          ],
-          [
-            0.0625,
-            0.08786
-          ],
-          [
-            0.0938,
-            0.13021
-          ],
-          [
-            0.125,
-            0.17154
-          ],
-          [
-            0.1562,
-            0.21187
-          ],
-          [
-            0.1875,
-            0.25123
-          ],
-          [
-            0.2188,
-            0.28965
-          ],
-          [
-            0.25,
-            0.32713
-          ],
-          [
-            0.2812,
-            0.36372
-          ],
-          [
-            0.3125,
-            0.39943
-          ],
-          [
-            0.3438,
-            0.43427
-          ],
-          [
-            0.375,
-            0.46828
-          ],
-          [
-            0.4062,
-            0.50146
-          ],
-          [
-            0.4375,
-            0.53385
-          ],
-          [
-            0.4688,
-            0.56546
-          ],
-          [
-            0.5,
-            0.5963
-          ],
-          [
-            0.5312,
-            0.6264
-          ],
-          [
-            0.5625,
-            0.65578
-          ],
-          [
-            0.5938,
-            0.68445
-          ],
-          [
-            0.625,
-            0.71243
-          ],
-          [
-            0.6562,
-            0.73974
-          ],
-          [
-            0.6875,
-            0.76639
-          ],
-          [
-            0.7188,
-            0.79239
-          ],
-          [
-            0.75,
-            0.81777
-          ],
-          [
-            0.7812,
-            0.84254
-          ],
-          [
-            0.8125,
-            0.86671
-          ],
-          [
-            0.8438,
-            0.8903
-          ],
-          [
-            0.875,
-            0.91333
-          ],
-          [
-            0.9062,
-            0.93579
-          ],
-          [
-            0.9375,
-            0.95772
-          ],
-          [
-            0.9688,
-            0.97912
-          ],
-          [
-            1.0,
-            1.0
-          ]
-        ]
-      },
-      {
-        "id": "thud",
-        "type": "modal",
-        "label": "Bottle hitting the floor (thud)",
-        "x": 540,
-        "y": 140,
-        "params": {
-          "shape": "block",
-          "material": "stone",
-          "frequency": 20,
-          "modes": 12,
-          "decay": 0.6,
-          "damping": 1.0,
-          "contact": 0.0025,
-          "force": 0,
-          "position": 0.3,
-          "vary": 0.7,
-          "click": 0.2,
           "rattle": 0,
           "glide": 0,
           "bounces": 0,
@@ -766,56 +558,6 @@
         }
       },
       {
-        "id": "shards",
-        "type": "crackle",
-        "label": "Fragments ringing",
-        "x": 540,
-        "y": 500,
-        "params": {
-          "kind": "ring",
-          "rate": 0,
-          "rise": 0.01,
-          "fall": 0.1,
-          "frequency": 3800,
-          "spread": 2.0,
-          "sizePitch": 0.7,
-          "decay": 0.04,
-          "contact": 4e-05,
-          "range": 30,
-          "exponent": 1.1,
-          "modes": 3,
-          "regularity": 0,
-          "clump": 0.5,
-          "delay": 0.008,
-          "level": 0
-        }
-      },
-      {
-        "id": "skitter",
-        "type": "crackle",
-        "label": "Pieces skittering",
-        "x": 540,
-        "y": 620,
-        "params": {
-          "kind": "ring",
-          "rate": 0,
-          "rise": 0.15,
-          "fall": 0.1,
-          "frequency": 5200,
-          "spread": 1.6,
-          "sizePitch": 0.6,
-          "decay": 0.05,
-          "contact": 4e-05,
-          "range": 30,
-          "exponent": 1.3,
-          "modes": 2,
-          "regularity": 0,
-          "clump": 0.7,
-          "delay": 0.06,
-          "level": 0
-        }
-      },
-      {
         "id": "out",
         "type": "output",
         "label": "Output",
@@ -856,20 +598,6 @@
         "amount": 1.0
       },
       {
-        "id": "e5-in-energy-m-rate-in",
-        "from": "in-energy",
-        "to": "m-rate",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e6-in-size-m-tail-in",
-        "from": "in-size",
-        "to": "m-tail",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
         "id": "e7-m-f-body-frequency",
         "from": "m-f",
         "to": "body",
@@ -896,34 +624,6 @@
         "to": "body",
         "target": "level",
         "amount": 1.0
-      },
-      {
-        "id": "e11-in-size-m-thud-f-in",
-        "from": "in-size",
-        "to": "m-thud-f",
-        "target": "in",
-        "amount": 1.0
-      },
-      {
-        "id": "e12-m-thud-f-thud-frequency",
-        "from": "m-thud-f",
-        "to": "thud",
-        "target": "frequency",
-        "amount": 1.0
-      },
-      {
-        "id": "e13-m-force-thud-force",
-        "from": "m-force",
-        "to": "thud",
-        "target": "force",
-        "amount": 1.0
-      },
-      {
-        "id": "e14-m-level-thud-level",
-        "from": "m-level",
-        "to": "thud",
-        "target": "level",
-        "amount": 1.2
       },
       {
         "id": "e15-m-level-fracture-level",
@@ -954,57 +654,8 @@
         "amount": 0.7
       },
       {
-        "id": "e19-m-rate-shards-rate",
-        "from": "m-rate",
-        "to": "shards",
-        "target": "rate",
-        "amount": 1.0
-      },
-      {
-        "id": "e20-m-tail-shards-fall",
-        "from": "m-tail",
-        "to": "shards",
-        "target": "fall",
-        "amount": 1.0
-      },
-      {
-        "id": "e21-m-level-shards-level",
-        "from": "m-level",
-        "to": "shards",
-        "target": "level",
-        "amount": 0.8
-      },
-      {
-        "id": "e22-m-rate-skitter-rate",
-        "from": "m-rate",
-        "to": "skitter",
-        "target": "rate",
-        "amount": 0.25
-      },
-      {
-        "id": "e23-m-tail-skitter-fall",
-        "from": "m-tail",
-        "to": "skitter",
-        "target": "fall",
-        "amount": 2.0
-      },
-      {
-        "id": "e24-m-level-skitter-level",
-        "from": "m-level",
-        "to": "skitter",
-        "target": "level",
-        "amount": 0.4
-      },
-      {
         "id": "e25-body-out-audio",
         "from": "body",
-        "to": "out",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e26-thud-out-audio",
-        "from": "thud",
         "to": "out",
         "target": "audio",
         "amount": 1.0
@@ -1019,20 +670,6 @@
       {
         "id": "e28-grains-out-audio",
         "from": "grains",
-        "to": "out",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e29-shards-out-audio",
-        "from": "shards",
-        "to": "out",
-        "target": "audio",
-        "amount": 1.0
-      },
-      {
-        "id": "e30-skitter-out-audio",
-        "from": "skitter",
         "to": "out",
         "target": "audio",
         "amount": 1.0
