@@ -588,7 +588,7 @@
           "inMax": 1,
           "scale": "lin",
           "outMin": 0,
-          "outMax": 0.9712
+          "outMax": 1.9375
         },
         "curve": [
           [
