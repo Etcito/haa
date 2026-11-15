@@ -244,19 +244,21 @@ fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
 // fit: haa-fit (the Decompose fitter) natively, one thread, on a target WAV.
 // ---------------------------------------------------------------------------
 const FIT_USAGE: &str =
-    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
+    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact] [--stroke] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
 
 fn fit(args: &[String]) -> i32 {
     let mut target: Option<String> = None;
     let mut templates: Vec<String> = Vec::new();
     let mut options = String::from("{}");
-    let mut impact = false;
+    let (mut impact, mut stroke) = (false, false);
     let (mut sfx_id, mut title, mut loudness): (Option<String>, Option<String>, Option<f64>) = (None, None, None);
     let (mut out, mut patch_out, mut render_out): (Option<String>, Option<String>, Option<String>) = (None, None, None);
     let mut i = 0;
     while i < args.len() {
         let arg = args[i].as_str();
-        if arg == "--impact" {
+        if arg == "--stroke" {
+            stroke = true;
+        } else if arg == "--impact" {
             impact = true;
         } else if let Some((flag, inline)) = split_option(arg) {
             let value = match inline {
@@ -291,7 +293,7 @@ fn fit(args: &[String]) -> i32 {
         i += 1;
     }
     let (Some(target), Some(out)) = (target, out) else { return fail(FIT_USAGE) };
-    if templates.is_empty() && !impact {
+    if templates.is_empty() && !impact && !stroke {
         return fail(FIT_USAGE);
     }
     let bytes = match std::fs::read(&target) {
@@ -322,14 +324,21 @@ fn fit(args: &[String]) -> i32 {
         Err(e) => return fail(format!("bad --options: {e}")),
     };
     let opts = haa_fit::FitOptions::from_json(&options_json);
-    if impact {
+    if impact || stroke {
         // The template is measured on the target as the fitter will see it (peakDb applied).
         let peak = pcm.iter().fold(0.0f32, |m, x| m.max(x.abs()));
         let scale = opts.peak_db.map_or(1.0, |db| 10f64.powf(db / 20.0) as f32 / peak.max(1e-9));
         let scaled: Vec<f32> = pcm.iter().map(|x| x * scale).collect();
-        let (text, report) = haa_fit::impact::template(&scaled, rate as f64, "struck-object");
-        eprintln!("[haa] impact template {report}");
-        texts.insert(0, text);
+        if impact {
+            let (text, report) = haa_fit::impact::template(&scaled, rate as f64, "struck-object");
+            eprintln!("[haa] impact template {report}");
+            texts.insert(0, text);
+        }
+        if stroke {
+            let (text, report) = haa_fit::impact::stroke_template(&scaled, rate as f64, "stroke");
+            eprintln!("[haa] stroke template {report}");
+            texts.insert(0, text);
+        }
     }
     let mut fitter = match haa_fit::Fitter::new(&pcm, rate as f64, &texts, opts) {
         Ok(f) => f,
@@ -352,7 +361,8 @@ fn fit(args: &[String]) -> i32 {
             (Some(_), Err(issues)) => return report_issues(&issues),
             (None, _) => 1.0,
         };
-        match haa_fit::impact::sfx_preset(text, id, title.as_deref().unwrap_or(id), level) {
+        let wrap = if stroke { haa_fit::impact::slide_preset } else { haa_fit::impact::sfx_preset };
+        match wrap(text, id, title.as_deref().unwrap_or(id), level) {
             Ok(p) => best = Some(p),
             Err(e) => return fail(e),
         }

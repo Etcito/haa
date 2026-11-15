@@ -383,3 +383,131 @@ pub fn sfx_preset(patch_json: &str, id: &str, title: &str, level: f64) -> Result
     conns.push(json!({"id": "c-energy-level", "from": "in-energy", "to": out_id, "target": "gain", "amount": round_sig(gain)}));
     serde_json::to_string_pretty(&p).map(|s| s + "\n").map_err(|e| e.to_string())
 }
+
+/// The slip speed (the sfx contract's `speed`, m/s / 10) of the dragged stroke a slide preset is fitted
+/// to: a crate pulled by hand at about 0.8 m/s.
+pub const STROKE_SPEED: f64 = 0.08;
+
+/// A fitted stroke as a continuous slide preset: the measured `stroke` level curve gives way to the
+/// `speed` input (0 silent, `STROKE_SPEED` the stroke's loudest moment, twice it 1.5x louder), the
+/// graph loops (a slide lasts as long as the contact), and `energy` scales the level linearly as in
+/// `sfx_preset`. Err when the patch has no `stroke` curve or a time-dependent node besides it (a
+/// fitter mutation's curve would pulse once per loop: fit strokes with `mutations: 0`).
+pub fn slide_preset(patch_json: &str, id: &str, title: &str, level: f64) -> Result<String, String> {
+    let mut p: Value = serde_json::from_str(patch_json).map_err(|e| e.to_string())?;
+    {
+        let graph = p.get_mut("graph").ok_or("no graph")?;
+        let nodes = graph.get_mut("nodes").and_then(Value::as_array_mut).ok_or("no nodes")?;
+        if let Some(n) = nodes.iter().find(|n| n["id"] != "stroke" && (n["type"] == "curve" || n["type"] == "envelope")) {
+            return Err(format!("time-dependent node {} would repeat every loop", n["id"]));
+        }
+        let stroke = nodes.iter_mut().find(|n| n["id"] == "stroke").ok_or("no stroke curve")?;
+        let peak = stroke["curve"].as_array().map_or(0.0, |c| c.iter().filter_map(|pt| pt[1].as_f64()).fold(0.0, f64::max));
+        *stroke = json!({"id": "stroke", "type": "map", "label": "Speed to friction level", "x": 40, "y": 40, "params": {
+            "in": 0, "inMin": 0, "inMax": 2.0 * STROKE_SPEED, "scale": "lin", "outMin": 0, "outMax": round_sig(1.5 * peak)},
+            "curve": [[0, 0], [0.5, 0.6667], [1, 1]]});
+        nodes.push(json!({"id": "in-speed", "type": "input", "label": "Speed", "x": 20, "y": 120, "params": {"name": "speed"}}));
+        let conns = graph.get_mut("connections").and_then(Value::as_array_mut).ok_or("no connections")?;
+        conns.push(json!({"id": "c-speed", "from": "in-speed", "to": "stroke", "target": "in", "amount": 1}));
+        graph["loop"] = Value::from(true);
+        graph["duration"] = Value::from(3);
+    }
+    let with_energy: Value = serde_json::from_str(&sfx_preset(&p.to_string(), id, title, level)?).map_err(|e| e.to_string())?;
+    let mut out = with_energy;
+    out["inputs"].as_array_mut().ok_or("no inputs")?.push(json!(
+        {"name": "speed", "kind": "continuous", "unit": "", "min": 0, "max": 1, "default": STROKE_SPEED, "smooth": 0.05, "curve": "lin"}));
+    serde_json::to_string_pretty(&out).map(|s| s + "\n").map_err(|e| e.to_string())
+}
+
+// --- strokes: a scrape, a drag, a slide -------------------------------------------------------
+
+/// Breakpoints of a stroke's friction level curve.
+const STROKE_POINTS: usize = 24;
+
+/// Level (dB) of each mode bin averaged over the whole sound: a stroke excites its modes all along.
+fn stroke_levels(s: &Stft, bins: &[usize]) -> Vec<f64> {
+    let spec = mean_db(s, 0, s.db.len());
+    bins.iter().map(|&k| (k.saturating_sub(1)..=(k + 1).min(spec.len() - 1)).map(|j| spec[j]).fold(f64::MIN, f64::max)).collect()
+}
+
+fn stroke_json(id: &str, modes: &[Mode], curve: &[(f64, f64)], centroid: f64, body_gain: f64, seconds: f64) -> String {
+    let points: Vec<Value> = curve.iter().map(|(x, y)| json!([round_sig(*x), round_sig(y.clamp(0.0, 1.0))])).collect();
+    json!({
+        "haa": 1, "id": id, "title": "Stroke (measured)", "inputs": [], "master": 1,
+        "graph": {
+            "mode": "timeline", "duration": round_sig(seconds.max(0.05)), "loop": false,
+            "nodes": [
+                {"id": "stroke", "type": "curve", "x": 40, "y": 40, "label": "Stroke level (measured)", "params": {"amount": 1}, "curve": points},
+                {"id": "friction", "type": "bandNoise", "x": 300, "y": 40, "label": "Friction", "params": {
+                    "frequency": round_sig(centroid.clamp(20.0, 18_000.0)), "bandwidth": 4, "tilt": 0, "level": 0, "width": 0.3}},
+                {"id": "body", "type": "body", "x": 560, "y": 40, "label": "Resonances (measured)", "params": {
+                    "modes": modes_text(modes), "size": 1, "decay": 1, "low": 1, "wood": 0.3,
+                    "woodFreq": round_sig(centroid.clamp(300.0, 10_000.0)), "woodWidth": 3, "woodDecay": 0.03,
+                    "direct": 0.5, "gain": round_sig(body_gain.clamp(0.0, 4.0)), "woodModes": 48}},
+                {"id": "out", "type": "output", "x": 820, "y": 40, "label": "Out", "params": {"gain": 0.5}}
+            ],
+            "connections": [
+                {"id": "c1", "from": "stroke", "to": "friction", "target": "level", "amount": 1},
+                {"id": "c2", "from": "friction", "to": "body", "target": "audio", "amount": 1},
+                {"id": "c3", "from": "body", "to": "out", "target": "audio", "amount": 1}
+            ],
+            "performance": null
+        }
+    })
+    .to_string()
+}
+
+/// The stroke template of a sample (a scrape or a drag): friction noise whose level follows the
+/// measured envelope (a `curve` node, the part the scene drives by `speed`), shaped by the measured
+/// resonances of the dragged object. Corrected by analysis by synthesis like `template`.
+pub fn stroke_template(pcm: &[f32], sample_rate: f64, id: &str) -> (String, Value) {
+    let seconds = pcm.len() as f64 / sample_rate;
+    let s = stft(pcm, sample_rate);
+    let spec = mean_db(&s, 0, s.db.len());
+    let picked = pick_modes(&spec, s.bin_hz, sample_rate);
+    let bins: Vec<usize> = picked.iter().map(|p| p.0).collect();
+    let top = picked.iter().map(|p| p.2).fold(f64::MIN, f64::max);
+    // A resonance under steady excitation shows its decay as its width: T60 = 2.2 / bandwidth, at
+    // most what the analysis window resolves; the fitter's `decay` refines it.
+    let t60 = round_sig(2.2 / (2.0 * s.bin_hz));
+    let mut modes: Vec<Mode> = picked.iter().map(|p| Mode { hz: round_sig(p.1), t60, db: round_sig(p.2 - top) }).collect();
+    let centroid = centroid(&spec, s.bin_hz);
+    let want_modes = stroke_levels(&s, &bins);
+    let times: Vec<f64> = (0..STROKE_POINTS).map(|i| seconds * i as f64 / (STROKE_POINTS - 1) as f64).collect();
+    let want_env = levels_at(pcm, sample_rate, &times);
+    let top_env = want_env.iter().cloned().fold(f64::MIN, f64::max);
+    let mut curve: Vec<(f64, f64)> = times.iter().zip(&want_env).map(|(t, d)| (t / seconds, 0.5 * 10f64.powf((d - top_env) / 20.0))).collect();
+    let mut body_gain = 1.0;
+    let mut renderer = Renderer::new(sample_rate, pcm.len());
+    let mut passes = Vec::new();
+    for _ in 0..PASSES {
+        let text = stroke_json(id, &modes, &curve, centroid, body_gain, seconds);
+        let Ok((patch, _)) = haa_core::load_patch(&text) else { break };
+        let Some(mono) = renderer.render(&patch).map(<[f32]>::to_vec) else { break };
+        let got = stroke_levels(&stft(&mono, sample_rate), &bins);
+        let mut err = 0.0;
+        for (m, (w, g)) in modes.iter_mut().zip(want_modes.iter().zip(&got)) {
+            let dl = (w - g).clamp(-24.0, 24.0);
+            err += dl.abs();
+            m.db = round_sig(m.db + dl);
+        }
+        let top = modes.iter().map(|m| m.db).fold(f64::MIN, f64::max);
+        if top > 18.0 || top < -6.0 {
+            let shift = top - 6.0;
+            body_gain = (body_gain * 10f64.powf(shift / 20.0)).clamp(0.01, 4.0);
+            for m in &mut modes {
+                m.db = round_sig(m.db - shift);
+            }
+        }
+        // The whole level follows the envelope: each breakpoint moves by its moment's error.
+        let got_env = levels_at(&mono, sample_rate, &times);
+        for (p, (w, g)) in curve.iter_mut().zip(want_env.iter().zip(&got_env)) {
+            p.1 = (p.1 * 10f64.powf((w - g).clamp(-20.0, 20.0) / 20.0)).clamp(0.0, 1.0);
+        }
+        passes.push(round_sig(err / modes.len().max(1) as f64));
+    }
+    let text = stroke_json(id, &modes, &curve, centroid, body_gain, seconds);
+    let report = json!({"modes": modes.len(), "corrected": modes_text(&modes), "meanLevelErrorDb": passes,
+        "centroidHz": round_sig(centroid), "bodyGain": round_sig(body_gain)});
+    (text, report)
+}

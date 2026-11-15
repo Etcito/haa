@@ -1,0 +1,165 @@
+{
+  "haa": 1,
+  "id": "crate-slide",
+  "title": "Wooden crate dragged (fitted to the owner pick)",
+  "inputs": [
+    {
+      "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
+      "smooth": 0,
+      "curve": "lin"
+    },
+    {
+      "name": "speed",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 0.08,
+      "smooth": 0.05,
+      "curve": "lin"
+    }
+  ],
+  "graph": {
+    "mode": "timeline",
+    "duration": 3,
+    "loop": true,
+    "nodes": [
+      {
+        "id": "stroke",
+        "type": "map",
+        "label": "Speed to friction level",
+        "x": 40,
+        "y": 40,
+        "params": {
+          "in": 0,
+          "inMax": 0.16,
+          "inMin": 0,
+          "outMax": 0.202641,
+          "outMin": 0,
+          "scale": "lin"
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.5,
+            0.6667
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "friction",
+        "type": "bandNoise",
+        "label": "Friction",
+        "x": 300.0,
+        "y": 40.0,
+        "params": {
+          "bandwidth": 6.59936,
+          "frequency": 751.821,
+          "level": 0.0586756,
+          "tilt": -7.97976,
+          "width": 0.0924563
+        }
+      },
+      {
+        "id": "body",
+        "type": "body",
+        "label": "Resonances (measured)",
+        "x": 560.0,
+        "y": 40.0,
+        "params": {
+          "decay": 0.957411,
+          "direct": 0.464794,
+          "gain": 3.68474,
+          "low": 1.19036,
+          "modes": "[[3902.0,0.0938667,6.0]]",
+          "size": 0.799386,
+          "wood": 0.0,
+          "woodDecay": 0.014118,
+          "woodFreq": 387.072,
+          "woodModes": 48,
+          "woodWidth": 4.84646
+        }
+      },
+      {
+        "id": "out",
+        "type": "output",
+        "label": "Out",
+        "x": 820.0,
+        "y": 40.0,
+        "params": {
+          "gain": 0
+        }
+      },
+      {
+        "id": "in-speed",
+        "type": "input",
+        "label": "Speed",
+        "x": 20,
+        "y": 120,
+        "params": {
+          "name": "speed"
+        }
+      },
+      {
+        "id": "in-energy",
+        "type": "input",
+        "label": "Energy",
+        "x": 20,
+        "y": 20,
+        "params": {
+          "name": "energy"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "c1",
+        "from": "stroke",
+        "to": "friction",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "c2",
+        "from": "friction",
+        "to": "body",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c3",
+        "from": "body",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "c-speed",
+        "from": "in-speed",
+        "to": "stroke",
+        "target": "in",
+        "amount": 1
+      },
+      {
+        "id": "c-energy-level",
+        "from": "in-energy",
+        "to": "out",
+        "target": "gain",
+        "amount": 0.423627
+      }
+    ]
+  },
+  "master": 1
+}

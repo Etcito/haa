@@ -4,14 +4,14 @@
   "title": "Wooden crate dropped on concrete (fitted to the owner pick)",
   "inputs": [
     {
-      "curve": "lin",
-      "default": 1,
-      "kind": "continuous",
-      "max": 1,
-      "min": 0,
       "name": "energy",
+      "kind": "continuous",
+      "unit": "",
+      "min": 0,
+      "max": 1,
+      "default": 1,
       "smooth": 0,
-      "unit": ""
+      "curve": "lin"
     }
   ],
   "graph": {

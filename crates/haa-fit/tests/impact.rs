@@ -2,7 +2,7 @@
 //! from a fit, and the voice-limiter reading the fitter penalises.
 
 use haa_fit::eval::Renderer;
-use haa_fit::impact::{analyze, sfx_preset, template};
+use haa_fit::impact::{STROKE_SPEED, analyze, sfx_preset, slide_preset, stroke_template, template};
 
 const RATE: f64 = 24_000.0;
 
@@ -62,6 +62,47 @@ fn scene_preset_level_follows_energy_linearly() {
     };
     let db = 10.0 * (render(0.25) / render(1.0)).log10();
     assert!((db + 12.04).abs() < 0.5, "energy 0.25 is 12 dB under energy 1: {db}");
+}
+
+/// A drag stroke: noise swelling in and out over 1 s, through a 300 Hz resonance.
+fn stroke() -> Vec<f32> {
+    let n = RATE as usize;
+    let (mut seed, mut y1, mut y2) = (11u32, 0.0f64, 0.0f64);
+    let r = (-6.9f64 / (0.05 * RATE)).exp();
+    let a1 = 2.0 * r * (std::f64::consts::TAU * 300.0 / RATE).cos();
+    (0..n)
+        .map(|i| {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            let x = (seed >> 8) as f64 / 8_388_608.0 - 1.0;
+            let y = x * 0.05 + a1 * y1 - r * r * y2;
+            (y2, y1) = (y1, y);
+            let env = (std::f64::consts::PI * i as f64 / n as f64).sin();
+            (0.2 * env * (0.3 * x + y)) as f32
+        })
+        .collect()
+}
+
+#[test]
+fn slide_preset_follows_speed_and_loops() {
+    let (text, _) = stroke_template(&stroke(), RATE, "stroke");
+    let preset = slide_preset(&text, "drag", "Drag", 1.0).expect("wraps");
+    let json: serde_json::Value = serde_json::from_str(&preset).unwrap();
+    assert_eq!(json["graph"]["loop"], true);
+    let level = |speed: f64| {
+        let o = haa_core::render::RenderOptions {
+            sample_rate: RATE as u32,
+            seconds: Some(4.0),
+            inputs: vec![("speed".to_string(), haa_core::render::InputValue::Number(speed))],
+            ..Default::default()
+        };
+        let r = haa_core::render::render(&preset, &o).expect("renders");
+        // Past the 3 s loop point: a slide keeps sounding as long as the contact lasts.
+        let tail = &r.left[(3.2 * RATE) as usize..];
+        tail.iter().map(|x| (*x as f64).powi(2)).sum::<f64>() / tail.len() as f64
+    };
+    let (slow, fast) = (level(0.02), level(STROKE_SPEED));
+    assert!(fast > 0.0 && slow < fast, "a faster drag is louder: {slow} {fast}");
+    assert!(level(0.0) < fast * 1e-12, "a crate at rest is silent: {}", level(0.0));
 }
 
 #[test]
