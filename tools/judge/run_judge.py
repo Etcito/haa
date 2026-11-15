@@ -53,6 +53,29 @@ CLASSES = {
 }
 
 
+# The words that name each scenario's event (by name prefix), to check that the model recognises it: on the real
+# references (a scenario whose real recordings it does not recognise is one it cannot decide) and on our capture.
+EXPECT = [
+    ("balls-", r"\bballs?\b|bounc"), ("ball-", r"\bballs?\b|bounc|rubber"), ("grenade-explode", r"explo|blast|bomb|boom"),
+    ("grenade-land", r"metal|steel|clank|clang|drop|thud|object|can\b|tool"), ("shot-", r"gun|shot|firearm|pistol|rifle|bullet"),
+    ("casings", r"casing|shell|brass|metal|gun|shot"), ("walk-", r"step|walk|foot"), ("pebbles", r"pebble|stone|gravel|rock|grit"),
+    ("smg", r"gun|shot|fire|machine"), ("shotgun", r"gun|shot|blast"), ("bottle-", r"glass|bottle|shatter|break"),
+    ("crate-drop", r"crate|box|wood|thud|drop|fall"), ("crate-slide", r"drag|slid|scrap|push|furniture"), ("rain", r"rain|drizzl|downpour|storm"),
+]
+
+
+def expect_of(name):
+    return next((rx for p, rx in EXPECT if name.startswith(p)), None)
+
+
+def recognised(texts, name):
+    """In how many descriptions a sentence names the scenario's event (negated sentences do not count)."""
+    rx = expect_of(name)
+    if not rx:
+        return None
+    return sum(1 for t in texts if any(re.search(rx, x) and not NEGATION.search(x) for x in sentences(t)))
+
+
 NEGATION = re.compile(r"\b(no|not|nothing|none|without|neither|nor|lack|lacks)\b|n't\b")
 
 
@@ -111,6 +134,7 @@ def main():
     ap.add_argument("--no-listen", action="store_true")
     ap.add_argument("--no-clap", action="store_true")
     ap.add_argument("--no-ab", action="store_true")
+    ap.add_argument("--no-ref-listen", action="store_true", help="do not have the model describe the real references")
     ap.add_argument("--reuse", action="store_true", help="keep detectors.json, clap.json and listen.json when present")
     a = ap.parse_args()
     os.makedirs(os.path.join(a.out, "refs"), exist_ok=True)
@@ -123,23 +147,24 @@ def main():
     wav = {c["name"]: os.path.join(a.captures, c["name"] + ".wav") for c in all_caps}
     refs_spec = json.load(open(os.path.join(HERE, "refs.json")))
     root = os.environ.get("JUDGE_REFS", "/root/nmc/temp")
+    # Several real references per scenario (refs.json): refs/<name>-<k>.wav, each built once.
     ref = {}
-    for c in caps:
-        spec = refs_spec.get(c["name"])
-        if not spec:
-            continue
-        p = os.path.join(a.out, "refs", c["name"] + ".wav")
-        try:
-            sf.write(p, build_ref(spec, root, c["seconds"]), 48000, subtype="FLOAT")
-            ref[c["name"]] = p
-        except Exception as e:  # a missing reference leaves the A/B out, nothing else
-            print(f"[judge] no reference for {c['name']}: {e}", file=sys.stderr)
-    # Each step's results merge into the folder's earlier ones: a run with --only adds to them.
     for c in all_caps:
-        p = os.path.join(a.out, "refs", c["name"] + ".wav")
-        if c["name"] not in ref and os.path.exists(p):
-            ref[c["name"]] = p
-    mine = [wav[c["name"]] for c in caps] + [ref[c["name"]] for c in caps if c["name"] in ref]
+        spec = refs_spec.get(c["name"])
+        specs = spec if isinstance(spec, list) else ([spec] if spec else [])
+        paths = []
+        for k, sp in enumerate(specs):
+            p = os.path.join(a.out, "refs", f"{c['name']}-{k}.wav")
+            if not os.path.exists(p) or c in caps:
+                try:
+                    sf.write(p, build_ref(sp, root, c["seconds"]), 48000, subtype="FLOAT")
+                except Exception as e:  # a missing reference is left out, nothing else
+                    print(f"[judge] no reference {k} for {c['name']}: {e}", file=sys.stderr)
+                    continue
+            paths.append(p)
+        if paths:
+            ref[c["name"]] = paths
+    mine = [wav[c["name"]] for c in caps] + [p for c in caps for p in ref.get(c["name"], [])]
     det_path = os.path.join(a.out, "detectors.json")
     det = json.load(open(det_path)) if os.path.exists(det_path) else {}
     if not (a.reuse and all(p in det for p in mine)):
@@ -151,10 +176,12 @@ def main():
     if not a.no_clap:
         clap_path = os.path.join(a.out, "clap.json")
         clap = json.load(open(clap_path)) if os.path.exists(clap_path) else {}
-        if not (a.reuse and all(wav[c["name"]] in clap for c in caps)):
-            args = [PY, os.path.join(HERE, "clap.py"), *[wav[c["name"]] for c in caps], "--json", clap_path + ".new"]
-            for c in caps:
-                args += ["--intent", c["intent"]]
+        if not (a.reuse and all(p in clap for c in caps for p in [wav[c["name"]], *ref.get(c["name"], [])])):
+            # Our capture and each real reference, told the scenario's intent (is the real one recognised at all?).
+            items = [(wav[c["name"]], c["intent"]) for c in caps] + [(p, c["intent"]) for c in caps for p in ref.get(c["name"], [])]
+            args = [PY, os.path.join(HERE, "clap.py"), *[i[0] for i in items], "--json", clap_path + ".new"]
+            for _, intent in items:
+                args += ["--intent", intent]
             run(args)
             clap.update(json.load(open(clap_path + ".new")))
             os.replace(clap_path + ".new", clap_path + ".last")
@@ -169,7 +196,8 @@ def main():
             jobs.append({"id": n, "mode": "blind", "wav": wav[n]})
             jobs.append({"id": n, "mode": "rate", "wav": wav[n], "intent": c["intent"]})
             if n in ref and not a.no_ab:
-                jobs.append({"id": n, "mode": "ab", "wav": wav[n], "ref": ref[n], "intent": c["intent"]})
+                for k, rp in enumerate(ref[n][:2]):
+                    jobs.append({"id": n, "mode": f"ab{k}" if k else "ab", "wav": wav[n], "ref": rp, "intent": c["intent"]})
         jp = os.path.join(a.out, "listen-jobs.json")
         lp = os.path.join(a.out, "listen.json")
         listen = json.load(open(lp)) if os.path.exists(lp) else []
@@ -184,7 +212,24 @@ def main():
             json.dump(listen, open(lp, "w"), indent=1)
     elif os.path.exists(os.path.join(a.out, "listen.json")):
         listen = json.load(open(os.path.join(a.out, "listen.json")))
-    rows = summarize(all_caps, wav, ref, det, clap, listen)
+    # The real references heard blind (2 runs each): a scenario whose real recordings the model does not recognise
+    # is one it cannot decide.
+    rl = os.path.join(a.out, "listen-refs.json")
+    ref_listen = json.load(open(rl)) if os.path.exists(rl) else []
+    if not a.no_listen and not a.no_ref_listen:
+        done = {x["wav"] for x in ref_listen}
+        rjobs = [{"id": f"ref:{c['name']}:{k}", "mode": "blind", "wav": p} for c in caps for k, p in enumerate(ref.get(c["name"], []))
+                 if p not in done or not a.reuse]
+        if rjobs:
+            rj = os.path.join(a.out, "listen-refs-jobs.json")
+            json.dump(rjobs, open(rj, "w"), indent=1)
+            run([PY, os.path.join(HERE, "listen.py"), rj, rl + ".new", "--runs", "2"])
+            new = json.load(open(rl + ".new"))
+            fresh = {x["wav"] for x in new}
+            ref_listen = [x for x in ref_listen if x["wav"] not in fresh] + new
+            os.replace(rl + ".new", rl + ".last")
+            json.dump(ref_listen, open(rl, "w"), indent=1)
+    rows = summarize(all_caps, wav, ref, det, clap, listen, ref_listen)
     json.dump({"index": index, "rows": rows}, open(os.path.join(a.out, "judge.json"), "w"), indent=1)
     write_table(rows, os.path.join(a.out, "table.md"), index)
     write_page(rows, a.out, a.captures, index)
@@ -205,10 +250,13 @@ def invalid_take(c):
     return None
 
 
-def summarize(caps, wav, ref, det, clap, listen):
+def summarize(caps, wav, ref, det, clap, listen, ref_listen=()):
     by = {}
     for r in listen:
         by.setdefault(r["id"], {})[r["mode"]] = r
+    ref_texts = {}
+    for r in ref_listen:
+        ref_texts[r["wav"]] = [x["text"] for x in r["answers"]]
     rows = []
     for c in caps:
         n = c["name"]
@@ -216,22 +264,36 @@ def summarize(caps, wav, ref, det, clap, listen):
         blind = [x["text"] for x in L.get("blind", {}).get("answers", [])]
         scores = [x["score"] for x in L.get("rate", {}).get("answers", []) if x.get("score") is not None]
         rate_texts = [x["text"] for x in L.get("rate", {}).get("answers", [])]
-        ab = L.get("ab", {}).get("answers", [])
+        ab = [x for m in ("ab", "ab1") for x in L.get(m, {}).get("answers", [])]
         heard = {}
         for t in blind:
             for k in classes_of(t):
                 heard[k] = heard.get(k, 0) + 1
+        refs = ref.get(n, [])
         d = dict(det.get(wav[n], {}))
-        d["flags"] = D.flags_for(n, d, c, det.get(ref.get(n, ""), {}))
+        d["flags"] = D.flags_for(n, d, c, det.get(refs[0], {}) if refs else {})
+        # Are the real references recognised for what they are? By the model (blind) and by CLAP (intent in its top 3).
+        rt = [t for p in refs for t in ref_texts.get(p, [])]
+        rm = recognised(rt, n)
+        ref_model = round(rm / len(rt), 2) if rt and rm is not None else None
+        rc = [clap.get(p, {}).get("intent_rank") for p in refs]
+        rc = [x for x in rc if x is not None]
+        ref_clap = round(sum(1 for x in rc if x <= 3) / len(rc), 2) if rc else None
+        om = recognised(blind, n)
+        ours_model = round(om / len(blind), 2) if blind and om is not None else None
+        decidable = (ref_model is not None and ref_model >= 0.5) or (ref_clap is not None and ref_clap >= 0.5)
+        undecided = None if decidable or not refs else (
+            f"real references not recognised (model {ref_model if ref_model is not None else '-'}, CLAP {ref_clap if ref_clap is not None else '-'})")
         bad = invalid_take(c)
         if bad:
             # Nothing of an invalid take is scored: not the model's answers of an earlier run, not the detectors.
             blind, scores, rate_texts, ab, heard = [], [], [], [], {}
             d["flags"] = []
         rows.append({
-            "invalid": bad,
-            "name": n, "intent": c["intent"], "capture": c, "detectors": d, "ref_detectors": det.get(ref.get(n, ""), {}),
-            "has_ref": n in ref, "clap": clap.get(wav[n], {}), "blind": blind, "heard": heard, "rate": rate_texts,
+            "invalid": bad, "undecided": undecided, "ref_model": ref_model, "ref_clap": ref_clap, "ours_model": ours_model,
+            "refs": [os.path.basename(p) for p in refs],
+            "name": n, "intent": c["intent"], "capture": c, "detectors": d, "ref_detectors": det.get(refs[0], {}) if refs else {},
+            "has_ref": bool(refs), "clap": clap.get(wav[n], {}), "blind": blind, "heard": heard, "rate": rate_texts,
             "score": round(float(np.mean(scores)), 1) if scores else None, "scores": scores,
             "ab_correct": sum(1 for x in ab if x.get("correct")), "ab_runs": len(ab), "ab_texts": [x["text"] for x in ab],
         })
@@ -248,8 +310,8 @@ def clap_cell(r):
 
 def write_table(rows, path, index):
     lines = [f"# Judge: haa {index.get('haa')} / studio {index.get('studio')} ({index.get('at')})", "",
-             "| scenario | blind hears (runs) | score 0-10 | real picked (A/B) | detector flags | CLAP top | capture | voices that played |",
-             "|---|---|---|---|---|---|---|---|"]
+             "| scenario | event named: real refs / ours (model) | blind hears (runs) | score 0-10 | real picked (A/B) | detector flags | CLAP top | capture | voices that played |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         heard = ", ".join(f"{k} {v}/{len(r['blind'])}" for k, v in sorted(r["heard"].items())) or "-"
         flags = ", ".join(r["detectors"].get("flags", [])) or "-"
@@ -257,9 +319,13 @@ def write_table(rows, path, index):
         cap = f"underruns {c.get('underruns')}, thinned {c.get('thinned')}, peak {r['detectors'].get('peak_dbfs')} dBFS"
         ab = f"{r['ab_correct']}/{r['ab_runs']}" if r["ab_runs"] else "-"
         if r.get("invalid"):
-            lines.append(f"| {r['name']} | INVALID take ({r['invalid']}): not scored, capture again on a quiet machine | | | | | {cap} | {c.get('summary', '-')} |")
+            lines.append(f"| {r['name']} | INVALID take ({r['invalid']}): not scored, capture again on a quiet machine | | | | | | {cap} | {c.get('summary', '-')} |")
             continue
-        lines.append(f"| {r['name']} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {clap_cell(r)} | {cap} | {c.get('summary', '-')} |")
+        named = f"{r['ref_model'] if r['ref_model'] is not None else '-'} / {r['ours_model'] if r['ours_model'] is not None else '-'}"
+        if r.get("undecided"):
+            lines.append(f"| {r['name']} | {named}: judge cannot decide ({r['undecided']}) | {heard} | | | {flags} | {clap_cell(r)} | {cap} | {c.get('summary', '-')} |")
+            continue
+        lines.append(f"| {r['name']} | {named} | {heard} | {r['score'] if r['score'] is not None else '-'} | {ab} | {flags} | {clap_cell(r)} | {cap} | {c.get('summary', '-')} |")
     lines += ["", "## Blind descriptions", ""]
     for r in rows:
         lines.append(f"### {r['name']}")
@@ -277,7 +343,7 @@ def write_page(rows, out, captures, index):
         d = r["detectors"]
         flags = " ".join(f'<span class="flag">{e(f)}</span>' for f in d.get("flags", [])) or '<span class="ok">none</span>'
         heard = " ".join(f'<span class="flag">{e(k)} {v}/{len(r["blind"])}</span>' for k, v in sorted(r["heard"].items())) or '<span class="ok">-</span>'
-        refp = f'<audio controls preload="none" src="refs/{e(r["name"])}.wav"></audio>' if r["has_ref"] else "<em>no reference</em>"
+        refp = "".join(f'<audio controls preload="none" src="refs/{e(x)}"></audio>' for x in r.get("refs", [])) or "<em>no reference</em>"
         blind = "".join(f"<li>{e(t)}</li>" for t in r["blind"])
         rate = "".join(f"<li>{e(t)}</li>" for t in r["rate"])
         ab = "".join(f"<li>{e(t)}</li>" for t in r["ab_texts"])
@@ -288,9 +354,11 @@ def write_page(rows, out, captures, index):
   <p class="intent">{e(r['intent'])}</p>
   <p class="intent">voices: {e(str(r['capture'].get('summary', '-')))}</p>
   {f'<p class="flag">INVALID take ({e(r["invalid"])}): not scored</p>' if r.get('invalid') else ''}
+  {f'<p class="flag">judge cannot decide: {e(r["undecided"])}</p>' if r.get('undecided') else ''}
+  <p class="intent">event named by the model: real references {r.get('ref_model')}, ours {r.get('ours_model')}; CLAP recognises the real references {r.get('ref_clap')}</p>
   <div class="players">
     <figure><figcaption>scene capture</figcaption><audio controls preload="none" src="{e(rel_cap)}/{e(r['name'])}.wav"></audio></figure>
-    <figure><figcaption>real recording</figcaption>{refp}</figure>
+    <figure><figcaption>real recordings</figcaption>{refp}</figure>
   </div>
   <p><b>Blind, the model hears:</b> {heard} &nbsp; <b>score</b> {r['score'] if r['score'] is not None else '-'} &nbsp;
      <b>A/B real picked</b> {f"{r['ab_correct']}/{r['ab_runs']}" if r['ab_runs'] else '-'} &nbsp; <b>detectors</b> {flags}</p>
