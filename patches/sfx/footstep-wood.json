@@ -186,8 +186,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 846.66666667,
-          "outMax": 446.66666667
+          "outMin": 338.66666666800006,
+          "outMax": 178.666666668
         },
         "curve": [
           [
@@ -350,8 +350,8 @@
           "material": "plastic",
           "frequency": 20,
           "modes": 24,
-          "decay": 0.6,
-          "damping": 1.5,
+          "decay": 0.25,
+          "damping": 3.0,
           "contact": 0.0002,
           "force": 0,
           "position": 0.35,
@@ -1130,7 +1130,7 @@
         "from": "m-ring1",
         "to": "floor",
         "target": "decay",
-        "amount": 1.0
+        "amount": 0.5
       },
       {
         "id": "e20-in-shape-floor-shape",

@@ -735,7 +735,7 @@
         "x": 1320,
         "y": 20,
         "params": {
-          "gain": 0.0175
+          "gain": 0.019775
         }
       }
     ],
@@ -843,7 +843,7 @@
         "from": "m-sqrt",
         "to": "bed-low",
         "target": "level",
-        "amount": 0.9
+        "amount": 0.27
       },
       {
         "id": "e16-bed-low-bed-low-hp-audio",

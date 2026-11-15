@@ -504,7 +504,7 @@
           "shape": "block",
           "material": "plastic",
           "frequency": 20,
-          "modes": 16,
+          "modes": 8,
           "decay": 0.05,
           "damping": 4.0,
           "contact": 0.00033333,

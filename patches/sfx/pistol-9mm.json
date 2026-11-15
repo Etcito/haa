@@ -121,7 +121,7 @@
           "negative": 0.3,
           "noise": 0.3,
           "noiseDecay": 0.004,
-          "tone": 6000,
+          "tone": 5714.9198,
           "delay": 0.006,
           "level": 0.0
         }
@@ -136,7 +136,7 @@
           "duration": 0.0012,
           "negative": 0.5,
           "noise": 1.0,
-          "noiseDecay": 0.8,
+          "noiseDecay": 0.4,
           "tone": 3000,
           "delay": 0.006,
           "level": 0.0
@@ -149,7 +149,7 @@
         "x": 800,
         "y": 20,
         "params": {
-          "cutoff": 350,
+          "cutoff": 200.0,
           "resonance": 0.6,
           "mode": "highpass"
         }
@@ -161,7 +161,7 @@
         "x": 800,
         "y": 140,
         "params": {
-          "cutoff": 900,
+          "cutoff": 2830.2457,
           "resonance": 0.6,
           "mode": "lowpass"
         }
@@ -176,8 +176,8 @@
           "duration": 0.0001,
           "negative": 0,
           "noise": 1.0,
-          "noiseDecay": 1.4,
-          "tone": 700,
+          "noiseDecay": 0.1842,
+          "tone": 3930.2721,
           "delay": 0.008,
           "level": 0.0
         }
@@ -189,7 +189,7 @@
         "x": 800,
         "y": 260,
         "params": {
-          "cutoff": 80,
+          "cutoff": 594.9016,
           "resonance": 0.6,
           "mode": "highpass"
         }
@@ -201,7 +201,7 @@
         "x": 540,
         "y": 380,
         "params": {
-          "duration": 0.025,
+          "duration": 0.0161,
           "negative": 0.7,
           "noise": 0,
           "noiseDecay": 0.03,
@@ -246,7 +246,7 @@
         "x": 800,
         "y": 380,
         "params": {
-          "amount": 0.8,
+          "amount": 0.1,
           "mix": 1.0
         }
       },
@@ -274,14 +274,14 @@
         "from": "m-level",
         "to": "crack",
         "target": "level",
-        "amount": 0.8
+        "amount": 1.1368
       },
       {
         "id": "e3-m-level-gas-level",
         "from": "m-level",
         "to": "gas",
         "target": "level",
-        "amount": 1.0
+        "amount": 1.4548
       },
       {
         "id": "e4-gas-gas-hp-audio",
@@ -302,7 +302,7 @@
         "from": "m-level",
         "to": "tail",
         "target": "level",
-        "amount": 0.7
+        "amount": 0.1443
       },
       {
         "id": "e7-tail-tail-hp-audio",
@@ -316,7 +316,7 @@
         "from": "m-level",
         "to": "punch",
         "target": "level",
-        "amount": 1.2
+        "amount": 0.6078
       },
       {
         "id": "e9-m-level-action-level",
