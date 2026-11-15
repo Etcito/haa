@@ -2,71 +2,81 @@
  "_": "Several real recordings per scenario (dry, or a dry recording convolved with real rooms' impulse responses), under $JUDGE_REFS (default /root/nmc/temp); local only (CC0 Freesound previews, OpenAIR CC BY, EchoThief research use), never committed or deployed. A scenario whose real references the judge does not recognise is marked 'judge cannot decide'.",
  "ball-outdoor": [
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav"
+   "dry": "sfx-quality/ref/fs/bigball/378355.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav"
+   "dry": "sfx-quality/ref/fs/bigball/543179.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/319785.wav"
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav"
   }
  ],
  "ball-hall": [
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav",
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
    "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav",
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
    "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav",
+   "dry": "sfx-quality/ref/fs/bigball/378355.wav",
    "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav",
+   "dry": "sfx-quality/ref/fs/bigball/378355.wav",
    "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
   }
  ],
  "ball-big-empty": [
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav",
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
    "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav",
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
    "ir": "compute/ref/openair/terrys-factory-warehouse/terrys_warehouse_stereo.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav",
+   "dry": "sfx-quality/ref/fs/bigball/378355.wav",
    "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav",
+   "dry": "sfx-quality/ref/fs/bigball/378355.wav",
    "ir": "compute/ref/openair/terrys-factory-warehouse/terrys_warehouse_stereo.wav"
   }
  ],
  "ball-metal": [
   {
-   "dry": "sfx-quality/ref/fs/ball/267882.wav"
+   "dry": "sfx-quality/ref/fs/bigball/514640.wav",
+   "note": "surface differs: on hard ground, not steel"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/650982.wav"
+   "dry": "sfx-quality/ref/fs/ball/811910.wav",
+   "note": "surface differs: on hard ground, not steel"
   },
   {
-   "dry": "sfx-quality/ref/fs/ball/319785.wav"
+   "dry": "sfx-quality/ref/fs/ball/859910.wav",
+   "note": "surface differs: on hard ground, not steel"
   }
  ],
  "balls-30": [
   {
-   "dry": "sfx-quality/ref/fs/manyballs/765650.wav"
-  },
-  {
-   "dry": "sfx-quality/ref/fs/manyballs/444372.wav"
-  },
-  {
-   "dry": "sfx-quality/ref/fs/manyballs/445515.wav"
+   "mix": [
+    "sfx-quality/ref/fs/bigball/378355.wav",
+    "sfx-quality/ref/fs/bigball/543179.wav",
+    "sfx-quality/ref/fs/bigball/514640.wav",
+    "sfx-quality/ref/fs/bigball/873899.wav",
+    "sfx-quality/ref/fs/ball/811910.wav",
+    "sfx-quality/ref/fs/ball/859910.wav"
+   ],
+   "count": 30,
+   "start": 0.6,
+   "spacing": 0.1,
+   "clip": 2.0,
+   "seconds": 9,
+   "seed": 7
   }
  ],
  "grenade-land-outdoor": [
@@ -74,10 +84,10 @@
    "dry": "sfx-quality/ref/fs/steeldrop/259553.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/steeldrop/520037.wav"
+   "dry": "sfx-quality/ref/fs/steeldrop/693581.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/steeldrop/693581.wav"
+   "dry": "sfx-quality/ref/fs/steeldrop/693582.wav"
   }
  ],
  "grenade-land-big": [
@@ -132,10 +142,10 @@
    "dry": "sfx-quality/ref/fs/pistol/233318.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav"
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/151066.wav"
+   "dry": "sfx-quality/ref/fs/pistol/371440.wav"
   }
  ],
  "shot-hall": [
@@ -148,11 +158,11 @@
    "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
   }
  ],
@@ -166,11 +176,11 @@
    "ir": "compute/ref/openair/terrys-factory-warehouse/terrys_warehouse_stereo.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/r1-nuclear-reactor-hall/r1_ortf-48k.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/terrys-factory-warehouse/terrys_warehouse_stereo.wav"
   }
  ],
@@ -184,11 +194,11 @@
    "ir": "compute/ref/openair/sports-centre-university-york/sportscentre_ortf.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/terrys-factory-warehouse/terrys_warehouse_stereo.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/sports-centre-university-york/sportscentre_ortf.wav"
   }
  ],
@@ -202,11 +212,11 @@
    "ir": "compute/ref/openair/maes-howe/mh3_000_ortf_48k.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/innocent-railway-tunnel/middle_tunnel_1way_mono.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/maes-howe/mh3_000_ortf_48k.wav"
   }
  ],
@@ -220,23 +230,23 @@
    "ir": "compute/ref/openair/terrys-typing-room/terrys_typing_ortf.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/echothief/unzipped/**/HartwellTavern.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/pistol/476433.wav",
+   "dry": "sfx-quality/ref/fs/pistol/392229.wav",
    "ir": "compute/ref/openair/terrys-typing-room/terrys_typing_ortf.wav"
   }
  ],
  "casings": [
   {
-   "dry": "sfx-quality/ref/fs/casing/177863.wav"
-  },
-  {
-   "dry": "sfx-quality/ref/fs/casing/335475.wav"
-  },
-  {
    "dry": "sfx-quality/ref/fs/casing/347603.wav"
+  },
+  {
+   "dry": "sfx-quality/ref/fs/casing/620929.wav"
+  },
+  {
+   "dry": "sfx-quality/ref/fs/casing/777923.wav"
   }
  ],
  "walk-concrete-hall": [
@@ -277,23 +287,19 @@
  ],
  "walk-metal": [
   {
-   "dry": "sfx-quality/ref/fs/footstep-metal/253735.wav",
+   "dry": "sfx-quality/ref/fs/footstep-metal/698697.wav",
    "seconds": 4
   },
   {
-   "dry": "sfx-quality/ref/fs/footstep-metal/451864.wav",
+   "dry": "sfx-quality/ref/fs/footstep-metal/834029.wav",
    "seconds": 4
   },
   {
-   "dry": "sfx-quality/ref/fs/footstep-metal/452421.wav",
+   "dry": "sfx-quality/ref/fs/footstep-metal/50724.wav",
    "seconds": 4
   }
  ],
  "walk-wood": [
-  {
-   "dry": "sfx-quality/ref/fs/footstep-wood/119913.wav",
-   "seconds": 4
-  },
   {
    "dry": "sfx-quality/ref/fs/footstep-wood/119914.wav",
    "seconds": 4
@@ -301,46 +307,60 @@
   {
    "dry": "sfx-quality/ref/fs/footstep-wood/426620.wav",
    "seconds": 4
+  },
+  {
+   "dry": "sfx-quality/ref/fs/footstep-wood/546362.wav",
+   "seconds": 4
   }
  ],
  "pebbles": [
   {
-   "dry": "sfx-quality/ref/fs/pebbles/787857.wav"
+   "dry": "sfx-quality/ref/fs/pebbles/787857.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/740544.wav"
+   "dry": "sfx-quality/ref/fs/gravel/398698.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/666481.wav"
+   "dry": "sfx-quality/ref/fs/gravel/34175.wav",
+   "seconds": 5
   }
  ],
  "pebbles-close": [
   {
-   "dry": "sfx-quality/ref/fs/pebbles/787857.wav"
+   "dry": "sfx-quality/ref/fs/pebbles/787857.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/740544.wav"
+   "dry": "sfx-quality/ref/fs/gravel/398698.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/666481.wav"
+   "dry": "sfx-quality/ref/fs/gravel/34175.wav",
+   "seconds": 5
   }
  ],
  "pebbles-hall": [
   {
    "dry": "sfx-quality/ref/fs/pebbles/787857.wav",
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
+   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav",
+   "seconds": 5
   },
   {
    "dry": "sfx-quality/ref/fs/pebbles/787857.wav",
-   "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
+   "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/740544.wav",
-   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav"
+   "dry": "sfx-quality/ref/fs/gravel/34175.wav",
+   "ir": "compute/ref/echothief/unzipped/**/RacquetballCourt.wav",
+   "seconds": 5
   },
   {
-   "dry": "sfx-quality/ref/fs/pebbles/740544.wav",
-   "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav"
+   "dry": "sfx-quality/ref/fs/gravel/34175.wav",
+   "ir": "compute/ref/openair/stairway-university-york/stairwell_ortf.wav",
+   "seconds": 5
   }
  ],
  "smg-burst": [
@@ -367,48 +387,55 @@
    "dry": "sfx-quality/ref/fs/bottle-break/212698.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/bottle-break/376462.wav"
+   "dry": "sfx-quality/ref/fs/bottle-break/199401.wav"
   },
   {
-   "dry": "sfx-quality/ref/fs/bottle-break/199401.wav"
+   "dry": "sfx-quality/ref/fs/bottle-break/202093.wav"
   }
  ],
  "crate-drop": [
   {
-   "dry": "sfx-quality/ref/fs/wood-crate/443958.wav",
+   "dry": "sfx-quality/ref/fs/wood-crate/667655.wav",
    "seconds": 4
   },
   {
-   "dry": "sfx-quality/ref/fs/wood-crate/456977.wav",
+   "dry": "sfx-quality/ref/fs/wood-crate/667654.wav",
+   "seconds": 4
+  },
+  {
+   "dry": "sfx-quality/ref/fs/wood-crate/443958.wav",
    "seconds": 4
   }
  ],
  "crate-slide-concrete": [
   {
-   "dry": "sfx-quality/ref/fs/slide/104351.wav",
+   "dry": "sfx-quality/ref/fs/slide/690010.wav",
    "seconds": 4
   },
   {
-   "dry": "sfx-quality/ref/fs/slide/166118.wav",
+   "dry": "sfx-quality/ref/fs/scrape/455673.wav",
    "seconds": 4
   },
   {
-   "dry": "sfx-quality/ref/fs/slide/167372.wav",
+   "dry": "sfx-quality/ref/fs/scrape/859228.wav",
    "seconds": 4
   }
  ],
  "crate-slide-metal": [
   {
-   "dry": "sfx-quality/ref/fs/scrape/328529.wav",
-   "seconds": 4
+   "dry": "sfx-quality/ref/fs/slide/690010.wav",
+   "seconds": 4,
+   "note": "surface differs: on concrete, not steel"
   },
   {
-   "dry": "sfx-quality/ref/fs/scrape/342941.wav",
-   "seconds": 4
+   "dry": "sfx-quality/ref/fs/scrape/455673.wav",
+   "seconds": 4,
+   "note": "surface differs: on concrete, not steel"
   },
   {
-   "dry": "sfx-quality/ref/fs/scrape/406705.wav",
-   "seconds": 4
+   "dry": "sfx-quality/ref/fs/scrape/859228.wav",
+   "seconds": 4,
+   "note": "surface differs: on concrete, not steel"
   }
  ],
  "rain-tile-shelter": [

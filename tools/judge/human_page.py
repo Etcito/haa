@@ -76,6 +76,8 @@ def main():
             matched(src, os.path.join(a.dir, "human", rel), target)
             players.append(f'<figure><figcaption>{e(label)}</figcaption><audio controls preload="none" src="{e(rel)}"></audio></figure>')
         why = r.get("undecided") or "the model cannot hear this kind of sound (blind spot)"
+        if r.get("ref_note"):
+            why += f"; references: {r['ref_note']}"
         parts.append(f"""
 <section data-name="{e(n)}">
   <h2>{e(n)}</h2>

@@ -99,7 +99,27 @@ def load_mono(path, sr=48000):
     return y.astype(np.float32)
 
 
+def build_mix(spec, root):
+    """Many real recordings overlapped as the scenario plays them (30 balls thrown 0.1 s apart): `count` copies, each
+    a recording's first `clip` s, onsets `start` + k x `spacing` (+ up to 50 ms), gains -6..0 dB, seeded."""
+    rng = np.random.default_rng(spec.get("seed", 7))
+    clips = [load_mono(os.path.join(root, f))[: int(spec.get("clip", 2.0) * 48000)] for f in spec["mix"]]
+    out = np.zeros(int(spec.get("seconds", 9) * 48000) + 48000, dtype=np.float32)
+    for k in range(spec["count"]):
+        c = clips[k % len(clips)]
+        c = c / (np.abs(c).max() + 1e-9) * 10 ** (rng.uniform(-6, 0) / 20)
+        at = int((spec.get("start", 0.5) + k * spec.get("spacing", 0.1) + rng.uniform(0, 0.05)) * 48000)
+        n = min(len(c), len(out) - at)
+        if n > 0:
+            out[at:at + n] += c[:n]
+    return out
+
+
 def build_ref(spec, root, seconds):
+    if "mix" in spec:
+        y = build_mix(spec, root)
+        y = y / (np.abs(y).max() + 1e-9) * 10 ** (-3 / 20)
+        return np.stack([y, y], 1)
     dry = load_mono(os.path.join(root, spec["dry"]))
     if "start" in spec:
         dry = dry[int(spec["start"] * 48000):]
@@ -253,6 +273,11 @@ def invalid_take(c):
     return None
 
 
+_SPECS = json.load(open(os.path.join(HERE, "refs.json")))
+REF_NOTES = {k: "; ".join(sorted({x["note"] for x in v if isinstance(x, dict) and x.get("note")})) or None
+             for k, v in _SPECS.items() if isinstance(v, list)}
+
+
 def summarize(caps, wav, ref, det, clap, listen, ref_listen=()):
     by = {}
     for r in listen:
@@ -295,6 +320,7 @@ def summarize(caps, wav, ref, det, clap, listen, ref_listen=()):
         rows.append({
             "invalid": bad, "undecided": undecided, "ref_model": ref_model, "ref_clap": ref_clap, "ours_model": ours_model,
             "refs": [os.path.basename(p) for p in refs],
+            "ref_note": REF_NOTES.get(n),
             "name": n, "intent": c["intent"], "capture": c, "detectors": d, "ref_detectors": det.get(refs[0], {}) if refs else {},
             "has_ref": bool(refs), "clap": clap.get(wav[n], {}), "blind": blind, "heard": heard, "rate": rate_texts,
             "score": round(float(np.mean(scores)), 1) if scores else None, "scores": scores,
@@ -325,6 +351,8 @@ def write_table(rows, path, index):
             lines.append(f"| {r['name']} | INVALID take ({r['invalid']}): not scored, capture again on a quiet machine | | | | | | {cap} | {c.get('summary', '-')} |")
             continue
         named = f"{r['ref_model'] if r['ref_model'] is not None else '-'} / {r['ours_model'] if r['ours_model'] is not None else '-'}"
+        if r.get("ref_note"):
+            named += f" (references: {r['ref_note']})"
         if r.get("undecided"):
             lines.append(f"| {r['name']} | {named}: judge cannot decide ({r['undecided']}) | {heard} | | | {flags} | {clap_cell(r)} | {cap} | {c.get('summary', '-')} |")
             continue
