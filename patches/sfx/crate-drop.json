@@ -1,7 +1,7 @@
 {
   "haa": 1,
   "id": "crate-drop",
-  "title": "Wooden crate dropped on concrete (fitted to the owner pick)",
+  "title": "Crate dropped",
   "inputs": [
     {
       "name": "energy",
@@ -16,7 +16,7 @@
   ],
   "graph": {
     "mode": "timeline",
-    "duration": 0.8110416666666667,
+    "duration": 0.11104166666666666,
     "loop": false,
     "nodes": [
       {
@@ -27,12 +27,12 @@
         "y": 40.0,
         "params": {
           "delay": 0,
-          "duration": 0.00172561,
-          "level": 1.06532,
-          "negative": 0.488762,
-          "noise": 0.449835,
-          "noiseDecay": 0.615322,
-          "tone": 200.0
+          "duration": 0.000567423,
+          "level": 2.14079,
+          "negative": 0.191923,
+          "noise": 0.390615,
+          "noiseDecay": 0.028156,
+          "tone": 204.774
         }
       },
       {
@@ -42,15 +42,15 @@
         "x": 300.0,
         "y": 40.0,
         "params": {
-          "decay": 1.18133,
+          "decay": 2.96234,
           "direct": 0.1,
-          "gain": 2.01145,
-          "low": 0.0,
-          "modes": "[[43.7561,0.554063,2.69239],[143.804,0.005,15.5027],[565.491,4.0,-71.8406]]",
-          "size": 1.14364,
-          "wood": 0.15641,
-          "woodDecay": 0.29826,
-          "woodFreq": 784.93,
+          "gain": 3.75928,
+          "low": 0.768752,
+          "modes": "[[43.8381,0.0990241,-0.533466],[143.822,0.0972292,3.07266],[565.665,0.012309,-46.7392]]",
+          "size": 1.35093,
+          "wood": 0.293129,
+          "woodDecay": 0.0456502,
+          "woodFreq": 484.947,
           "woodModes": 48,
           "woodWidth": 3
         }
@@ -62,60 +62,60 @@
         "x": 40.0,
         "y": 240.0,
         "params": {
-          "amount": 1.0
+          "amount": 0.797921
         },
         "curve": [
           [
             0.0,
-            0.438966
+            0.629218
           ],
           [
-            0.119427,
-            0.0621058
+            0.846377,
+            0.0500547
           ],
           [
-            0.138418,
-            0.00633621
+            0.84969,
+            0.0947948
           ],
           [
-            0.176996,
-            0.0343645
+            0.85642,
+            0.294809
           ],
           [
-            0.229564,
-            0.0537669
+            0.865591,
+            0.0
           ],
           [
-            0.293942,
-            0.0400623
+            0.876822,
+            0.0566457
           ],
           [
-            0.368823,
-            0.0754766
+            0.889886,
+            0.0374835
           ],
           [
-            0.453299,
-            0.0326614
+            0.904623,
+            0.014279
           ],
           [
-            0.546689,
-            0.037662
+            0.920916,
+            0.0115294
           ],
           [
-            0.648458,
-            0.0219043
+            0.938671,
+            0.0213567
           ],
           [
-            0.758169,
-            0.0124575
+            0.95781,
+            0.00365241
           ],
           [
-            0.875454,
-            0.0100989
+            0.978272,
+            0.0841906
           ],
           [
             1.0,
-            0.000999355
+            0.0114446
           ]
         ]
       },
@@ -126,11 +126,11 @@
         "x": 300.0,
         "y": 240.0,
         "params": {
-          "bandwidth": 10.0,
-          "frequency": 403.009,
+          "bandwidth": 7.2836,
+          "frequency": 345.761,
           "level": 0.0,
-          "tilt": -6.7977,
-          "width": 0.00842079
+          "tilt": -8.30502,
+          "width": 0.0
         }
       },
       {
@@ -144,17 +144,60 @@
         }
       },
       {
-        "id": "fit-equalizer-1",
-        "type": "equalizer",
-        "label": "3-band equalizer",
-        "x": 400.0,
-        "y": 130.0,
+        "id": "fit-noise-1",
+        "type": "noise",
+        "label": "Noise",
+        "x": 80.0,
+        "y": 240.0,
         "params": {
-          "frequency": 1420.43,
-          "high": -6.37394,
-          "low": -2.12849,
-          "mid": 11.7404
+          "color": "pink",
+          "level": 0.143406,
+          "width": 0.209337
         }
+      },
+      {
+        "id": "fit-gain-1",
+        "type": "gain",
+        "label": "Gain / mixer",
+        "x": 240.0,
+        "y": 240.0,
+        "params": {
+          "gain": 0.20725
+        }
+      },
+      {
+        "id": "fit-curve-1",
+        "type": "curve",
+        "label": "Automation curve",
+        "x": 240.0,
+        "y": 360.0,
+        "params": {
+          "amount": 0.327406,
+          "clock": "patch",
+          "retrigger": 0.0
+        },
+        "curve": [
+          [
+            0.0,
+            0.0284312
+          ],
+          [
+            0.00243789,
+            0.871465
+          ],
+          [
+            0.31965,
+            0.132988
+          ],
+          [
+            0.890228,
+            0.0
+          ],
+          [
+            1.0,
+            0.0951416
+          ]
+        ]
       },
       {
         "id": "in-energy",
@@ -178,7 +221,7 @@
       {
         "id": "c2",
         "from": "body",
-        "to": "fit-equalizer-1",
+        "to": "out",
         "target": "audio",
         "amount": 1.0
       },
@@ -192,13 +235,27 @@
       {
         "id": "c4",
         "from": "tail",
-        "to": "fit-equalizer-1",
+        "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
         "id": "fit-c1",
-        "from": "fit-equalizer-1",
+        "from": "fit-noise-1",
+        "to": "fit-gain-1",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c2",
+        "from": "fit-curve-1",
+        "to": "fit-gain-1",
+        "target": "gain",
+        "amount": 1.0
+      },
+      {
+        "id": "fit-c3",
+        "from": "fit-gain-1",
         "to": "out",
         "target": "audio",
         "amount": 1.0
@@ -208,7 +265,7 @@
         "from": "in-energy",
         "to": "out",
         "target": "gain",
-        "amount": 0.542323
+        "amount": 0.353426
       }
     ]
   },

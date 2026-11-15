@@ -244,13 +244,13 @@ fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
 // fit: haa-fit (the Decompose fitter) natively, one thread, on a target WAV.
 // ---------------------------------------------------------------------------
 const FIT_USAGE: &str =
-    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact] [--stroke] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
+    "usage: haa fit <target.wav> --template <patch.json> [--template ...] [--impact [--keep-room]] [--stroke] [--options <json|file>] --out <result.json> [--patch <best.json>] [--render <best.wav>] [--sfx <id> --title <text> [--loudness <dB>]]";
 
 fn fit(args: &[String]) -> i32 {
     let mut target: Option<String> = None;
     let mut templates: Vec<String> = Vec::new();
     let mut options = String::from("{}");
-    let (mut impact, mut stroke) = (false, false);
+    let (mut impact, mut stroke, mut keep_room) = (false, false, false);
     let (mut sfx_id, mut title, mut loudness): (Option<String>, Option<String>, Option<f64>) = (None, None, None);
     let (mut out, mut patch_out, mut render_out): (Option<String>, Option<String>, Option<String>) = (None, None, None);
     let mut i = 0;
@@ -260,6 +260,8 @@ fn fit(args: &[String]) -> i32 {
             stroke = true;
         } else if arg == "--impact" {
             impact = true;
+        } else if arg == "--keep-room" {
+            keep_room = true;
         } else if let Some((flag, inline)) = split_option(arg) {
             let value = match inline {
                 Some(v) => v.to_string(),
@@ -303,6 +305,18 @@ fn fit(args: &[String]) -> i32 {
     let (pcm, rate) = match wav::decode_wav_mono(&bytes) {
         Ok(x) => x,
         Err(e) => return fail(format!("{target}: {e}")),
+    };
+    // --impact fits the source alone: a recording's room tail is the world reverb's to play
+    // (haa_fit::room). --keep-room fits the recording as it is.
+    let pcm = if impact && !keep_room {
+        let (dry, room) = haa_fit::room::separate(&pcm, rate as f64);
+        match room {
+            Ok(r) => println!("[haa] room: {} (target cut to {:.3} s)", r.json(), dry.len() as f64 / rate as f64),
+            Err(why) => println!("[haa] room: none ({why}), the target is fitted whole"),
+        }
+        dry
+    } else {
+        pcm
     };
     let mut texts = Vec::new();
     for t in &templates {
@@ -356,10 +370,22 @@ fn fit(args: &[String]) -> i32 {
     let mut best = fitter.best_patch_json();
     // --sfx: the fitted patch as a scene preset (an energy input scales its level), at --loudness.
     if let (Some(id), Some(text)) = (&sfx_id, &best) {
-        let level = match (loudness, haa_core::render::render(text, &render_opts)) {
-            (Some(want), Ok(r)) => 10f64.powf((want - loudest_db(&r.left, &r.right, r.sample_rate, 0.05)) / 20.0),
-            (Some(_), Err(issues)) => return report_issues(&issues),
-            (None, _) => 1.0,
+        // The level of a take depends on its noise (each take of a preset has its own seed): a short
+        // one-shot's loudest 50 ms varied 5 dB over 8 seeds (round 16, the crate drop), and seed 0 alone
+        // set every take's level off by up to that. The level is set on the mean power of 8 takes.
+        let level = match loudness {
+            Some(want) => {
+                let mut power = 0.0;
+                for seed in 0..TAKES {
+                    match haa_core::render::render(text, &RenderOptions { seed, ..render_opts.clone() }) {
+                        Ok(r) => power += 10f64.powf(loudest_db(&r.left, &r.right, r.sample_rate, 0.05) / 10.0),
+                        Err(issues) => return report_issues(&issues),
+                    }
+                }
+                let mean_db = 10.0 * (power / TAKES as f64).log10();
+                10f64.powf((want - mean_db) / 20.0)
+            }
+            None => 1.0,
         };
         let wrap = if stroke { haa_fit::impact::slide_preset } else { haa_fit::impact::sfx_preset };
         // The fit was judged at the target's level (peakDb); at --loudness the voice limiter can engage
@@ -408,6 +434,9 @@ fn fit(args: &[String]) -> i32 {
     println!("[haa] fit done: best {} -> {out}", fitter.best_loss());
     0
 }
+
+/// Takes (seeds) whose mean loudness sets a fitted preset's level (`haa fit --sfx --loudness`).
+const TAKES: u32 = 8;
 
 /// The loudest moving-window mean power of (L+R)/2 over `window` s, dB.
 fn loudest_db(left: &[f32], right: &[f32], sample_rate: u32, window: f64) -> f64 {

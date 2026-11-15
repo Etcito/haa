@@ -12,6 +12,7 @@
 //! - `mutate`: add/remove one catalog node;
 //! - `fit`: the staged search (`Fitter`), stepped by the host;
 //! - `impact`: the struck-object template measured from a one-shot sample (modes, excitation);
+//! - `room`: the direct sound of a recording without its room (the world's reverb plays that);
 //! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note).
 
 pub mod cmaes;
@@ -22,6 +23,7 @@ pub mod impact;
 pub mod loss;
 pub mod mutate;
 pub mod params;
+pub mod room;
 pub mod spectral;
 
 pub use fit::{FitOptions, Fitter, fit};
