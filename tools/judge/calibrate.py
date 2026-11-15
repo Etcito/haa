@@ -51,6 +51,47 @@ def base_rates(ctl):
     return {c: (heard(texts, c) / len(texts) if texts else 0.0) for c in classes}, len(texts)
 
 
+def owner_section(judged):
+    """The owner's verdicts by ear (owner_verdicts.json) against the judge's on the same build."""
+    from compare import verdict
+    ov = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "owner_verdicts.json")))
+    p = os.path.join(judged, ov["build"], "judge.json")
+    if not os.path.exists(p):
+        return [f"(owner verdicts: build {ov['build']} not judged here)"]
+    rows = {r["name"]: r for r in json.load(open(p))["rows"]}
+    lines = ["", f"## The owner by ear ({ov['build']})", "",
+             "| scenario | owner | his words | model (real/ours named) | detector flags | agree |", "|---|---|---|---|---|---|"]
+    tally = {"agree": 0, "disagree": 0, "undecided": 0}
+    for n, o in ov["verdicts"].items():
+        r = rows.get(n)
+        if not r:
+            continue
+        m = verdict(r)
+        flags = [f for f in r["detectors"].get("flags", [])]
+        named = f"{r.get('ref_model')}/{r.get('ours_model')}"
+        own = o["verdict"]
+        worse = own == "worse" or (own == "-" and o.get("defects"))
+        if m in ("cannot decide", "invalid", "-"):
+            agree = "model undecided"
+            tally["undecided"] += 1
+        elif own == "as real":
+            agree = "yes" if m == "named like the real ones" else "NO (model rejects what he passes)"
+        else:
+            # A detector agrees only when it flags his own defect (sature, bell...), not any flag.
+            his = {"sature": {"sature"}, "bell": {"bell", "organ"}, "echo too loud": {"too long"}}
+            mine = set().union(*[his.get(d, set()) for d in o.get("defects", [])]) if o.get("defects") else set()
+            agree = "yes" if m in ("not named", "partly named") or (mine & set(flags)) else "NO (model passes what he rejects)"
+        if agree.startswith("yes"):
+            tally["agree"] += 1
+        elif agree.startswith("NO"):
+            tally["disagree"] += 1
+        lines.append(f"| {n} | {own} | {o['words'] or '-'} | {m} ({named}) | {', '.join(flags) or '-'} | {agree} |")
+        _ = worse
+    lines += ["", f"Agreement with the owner by ear: {tally['agree']} agree, {tally['disagree']} disagree, {tally['undecided']} where the model "
+                  "cannot decide. His general remark: " + ov.get("general", "")]
+    return lines
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--judged", default="/mnt/q/temp_nomorechat/haa/judge")
@@ -115,6 +156,7 @@ def main():
     lines += ["", f"Reproduced: {sum(1 for r in judged if r['reproduced'])}/{len(judged)} of the owner's verdicts "
                   f"(model {sum(1 for r in judged if r.get('model'))}, detectors {sum(1 for r in judged if r.get('flags'))}); "
                   f"{len(rows) - len(judged)} invalid takes to retake."]
+    lines += owner_section(a.judged)
     open(a.out, "w").write("\n".join(lines) + "\n")
     json.dump(rows, open(a.out.replace(".md", ".json"), "w"), indent=1)
     print("\n".join(lines))

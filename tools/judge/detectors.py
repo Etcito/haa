@@ -31,6 +31,11 @@ THRESHOLDS = {
     "ringing_s": 0.6,          # real: median 0.05, p95 0.48; 2/17 real metal hits over (1.1 s)
     "lf_hang_s": 1.2,          # with lf_tail_db >= 5: a low band that holds after a small object's impact
     "lf_tail_db": 5.0,
+    # "Saturation inside the sound" (the owner, 2026-11-15, on captures with no underrun and no limiter): impacts both
+    # very impulsive (event kurtosis) and gritty in their decay's high band (low spectral flatness 2-8 kHz). A
+    # candidate from his 3 saturating captures against his 6 passed ones and 17 real impacts; thin margins.
+    "sat_kurt": 5.0,
+    "sat_flat": 0.16,
 }
 
 # Which detector speaks for which scenario (by name prefix): a reverb tail's tonality only where there is a room,
@@ -39,6 +44,8 @@ APPLIES = {
     "organ": ("shot-hall", "shot-big", "shot-vault", "shot-shed", "grenade-explode-big", "ball-hall", "ball-big", "walk-concrete"),
     "thunder": ("ball-", "balls-", "grenade-land", "pebbles", "crate-"),
     "bell": ("ball-", "balls-", "grenade-land", "pebbles", "crate-", "walk-"),
+    # Not metal or glass: real metal, glass and casings ring by nature and tripped it (11/76 real impacts, none of 16 balls).
+    "grit": ("ball-", "balls-", "crate-", "pebbles"),
 }
 
 
@@ -58,6 +65,8 @@ def flags_for(name, r, meta=None, ref=None):
     # In a valid take (a quiet machine: run_judge.invalid_take), every audio underrun is the owner's first "ça sature"
     # (the audio thread overrunning), as are blocks frozen while a mix worker was behind, silenced voices, clipping and
     # the master limiter engaging (more than 0.5 dB of gain reduction).
+    if on("grit") and r.get("sat_kurt", 0) >= THRESHOLDS["sat_kurt"] and r.get("sat_flat", 1) <= THRESHOLDS["sat_flat"]:
+        f.append("sature (in the sound)")
     if meta and (meta.get("underruns", 0) > 0 or meta.get("thinned", 0) > 0 or meta.get("silenced", 0) > 0
                  or (meta.get("limiterMinDb") or 0) <= -0.5) or r.get("clipped", 0) > 0:
         f.append("sature")
@@ -221,13 +230,39 @@ def crackle(x, sr):
     return int(clipped), float(ev / (len(m) / sr))
 
 
+def saturation_in_sound(m, sr):
+    """Median over the impacts (peaks 120 ms apart, over 5 % of the loudest): the kurtosis of the 40 ms around each
+    peak, and the spectral flatness of 2-8 kHz in its decay (5-150 ms after)."""
+    from scipy.signal import find_peaks
+    from scipy.stats import kurtosis
+    m = m / (np.abs(m).max() + 1e-12)
+    w = int(0.01 * sr)
+    env = np.sqrt(np.convolve(m ** 2, np.ones(w) / w, "same")) + 1e-9
+    pk, _ = find_peaks(env, height=env.max() * 0.05, distance=int(0.12 * sr))
+    ks, fl = [], []
+    for p in pk[:40]:
+        a, b = p + int(0.005 * sr), p + int(0.15 * sr)
+        if b >= len(m) or p < 2 * w:
+            continue
+        ks.append(kurtosis(m[p - 2 * w:p + 2 * w]))
+        s2 = np.abs(np.fft.rfft(m[a:b] * np.hanning(b - a))) ** 2
+        f2 = np.fft.rfftfreq(b - a, 1 / sr)
+        band = s2[(f2 > 2000) & (f2 < 8000)] + 1e-20
+        fl.append(float(np.exp(np.mean(np.log(band))) / np.mean(band)))
+    if not ks:
+        return 0.0, 1.0
+    return float(np.median(ks)), float(np.median(fl))
+
+
 def measure(path):
     m, x, sr = mono(path)
     tt, tf = tail_tonality(m, sr)
     rs, rf = ringing(m, sr)
     hang, lft = lf_measures(m, sr)
     clipped, cps = crackle(x, sr)
+    sk, sfl = saturation_in_sound(m, sr)
     r = {
+        "sat_kurt": round(sk, 2), "sat_flat": round(sfl, 3),
         "tail_tonality_db": round(tt, 1), "tail_tonality_hz": round(tf), "ringing_s": round(rs, 2), "ringing_hz": round(rf),
         "lf_hang_s": round(hang, 2), "lf_tail_db": round(lft, 1), "decay_s": round(decay(m, sr), 2), "audible_s": round(audible(m, sr), 2),
         "clipped": clipped, "clicks_per_s": round(cps, 2), "peak_dbfs": round(float(20 * np.log10(np.abs(x).max() + 1e-12)), 1),

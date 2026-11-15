@@ -18,6 +18,7 @@ import os
 import numpy as np
 import soundfile as sf
 
+SPECS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "refs.json")))
 BLIND_SPOTS = ("walk-", "shot-", "casings", "smg", "shotgun")
 TARGET_DB = -23.0
 
@@ -66,13 +67,20 @@ def main():
     parts = []
     for r in pick:
         n = r["name"]
-        clips = [("ours", os.path.join(a.dir, "captures", n + ".wav"))] + [(f"real {k + 1}", os.path.join(a.dir, "refs", f)) for k, f in enumerate(r["refs"][:3])]
+        # Each reference says where it comes from: the owner's own pick (a target) or a game sound library.
+        specs = SPECS.get(n, []) if isinstance(SPECS.get(n), list) else []
+        def label(k):
+            sp = specs[k] if k < len(specs) else {}
+            if sp.get("target"):
+                return f"real {k + 1}: your pick"
+            return f"real {k + 1}" + (": game SFX" if "game" in sp.get("source", "") else "")
+        clips = [("ours", os.path.join(a.dir, "captures", n + ".wav"))] + [(label(k), os.path.join(a.dir, "refs", f)) for k, f in enumerate(r["refs"][:3])]
         clips = [(label, src) for label, src in clips if os.path.exists(src)]
         # One level for the whole scenario: -23 dBFS active RMS, or lower if a clip's peaks would pass -1 dBFS there.
         target = min([TARGET_DB] + [reachable_db(src) for _, src in clips])
         players = []
         for label, src in clips:
-            rel = f"{n}/{label.replace(' ', '-')}.wav"
+            rel = f"{n}/{label.split(':')[0].replace(' ', '-')}.wav"
             matched(src, os.path.join(a.dir, "human", rel), target)
             players.append(f'<figure><figcaption>{e(label)}</figcaption><audio controls preload="none" src="{e(rel)}"></audio></figure>')
         why = r.get("undecided") or "the model cannot hear this kind of sound (blind spot)"
@@ -87,6 +95,8 @@ def main():
   <div class="verdict">
     <label><input type="radio" name="v-{e(n)}" value="as real"> as good as the real ones</label>
     <label><input type="radio" name="v-{e(n)}" value="worse"> worse</label>
+    <label><input type="checkbox" class="flag" value="echo before shot"> echo before the shot</label>
+    <label><input type="checkbox" class="flag" value="distant"> distant</label>
     <input type="text" class="note" placeholder="what it sounds like (a word or two)">
   </div>
 </section>""")
@@ -123,12 +133,19 @@ for (const s of document.querySelectorAll('section[data-name]')) {{
     r.checked = r.value === v.verdict;
     r.addEventListener('change', () => {{ saved[n] = {{ ...saved[n], verdict: r.value }}; store(); }});
   }}
+  for (const c of s.querySelectorAll('input.flag')) {{
+    c.checked = (v.flags || []).includes(c.value);
+    c.addEventListener('change', () => {{
+      saved[n] = {{ ...saved[n], flags: [...s.querySelectorAll('input.flag')].filter((x) => x.checked).map((x) => x.value) }};
+      store();
+    }});
+  }}
   const t = s.querySelector('.note');
   t.value = v.note || '';
   t.addEventListener('input', () => {{ saved[n] = {{ ...saved[n], note: t.value }}; store(); }});
 }}
 document.getElementById('copy').addEventListener('click', () => {{
-  const lines = Object.entries(saved).map(([n, v]) => n + ': ' + (v.verdict || '-') + (v.note ? ' (' + v.note + ')' : ''));
+  const lines = Object.entries(saved).map(([n, v]) => n + ': ' + (v.verdict || '-') + ((v.flags || []).length ? ' [' + v.flags.join(', ') + ']' : '') + (v.note ? ' (' + v.note + ')' : ''));
   const out = document.getElementById('out');
   out.value = lines.join('\\n');
   out.select();

@@ -1,0 +1,28 @@
+{
+  "_": "The owner's verdicts by ear on the judge's by-ear page (his words verbatim). verdict: as real | worse | - (no mark, a defect named). defects: the classes his words name. pick: the real reference he named as the target.",
+  "build": "haa-46ad65f_studio-5f3575e",
+  "verdicts": {
+    "ball-metal": {"verdict": "worse", "words": "it sounds like a pie. real 1 is way better, forget the others", "defects": ["wrong material"], "pick": 1},
+    "ball-outdoor": {"verdict": "-", "words": "it saturate, it should sound like real 3", "defects": ["sature"], "pick": 3},
+    "balls-30": {"verdict": "worse", "words": "it sound like they are thrown on wood and it saturate. real 1 is not matching the description", "defects": ["sature", "wrong surface"], "bad_refs": [1]},
+    "casings": {"verdict": "worse", "words": "separate the shot and the case, the references are all bads", "defects": ["mixed events"], "bad_refs": "all"},
+    "crate-drop": {"verdict": "worse", "words": "sounds like rubber band, best is real3 but it has the sound twice", "defects": ["rubber band"], "pick": 3, "pick_note": "single hit"},
+    "crate-slide-concrete": {"verdict": "worse", "words": "it sounds like a gun shot. real1 is super nice but it's 2 move", "defects": ["gunshot"], "pick": 1, "pick_note": "one stroke"},
+    "crate-slide-metal": {"verdict": "worse", "words": "sound like bell", "defects": ["bell"]},
+    "grenade-land-outdoor": {"verdict": "-", "words": "it's mostly saturation, best is real3 but it sound like on wook, not concrete", "defects": ["sature"], "pick": 3, "pick_note": "but on wood"},
+    "pebbles-hall": {"verdict": "-", "words": "the echo is louder than the real impact, all example are sand not pebble", "defects": ["echo too loud"], "bad_refs": "all"},
+    "rain-hall": {"verdict": "as real", "words": ""},
+    "rain-wood-shelter": {"verdict": "as real", "words": "ours more like heavy rain"},
+    "shot-big-cluttered": {"verdict": "worse", "words": "can't make the difference with cluttered. references have way too much echo", "defects": ["rooms alike"], "bad_refs": "all"},
+    "shot-big-empty": {"verdict": "worse", "words": "can't make the difference with cluttered. references have way too much echo", "defects": ["rooms alike"], "bad_refs": "all"},
+    "shot-hall": {"verdict": "as real", "words": "ricochet too much, too systematic"},
+    "shot-outdoor": {"verdict": "worse", "words": "echo before the actual shot", "defects": ["echo before shot"]},
+    "shot-shed": {"verdict": "worse", "words": "distant petard, not a gun", "defects": ["distant", "toy"]},
+    "shotgun": {"verdict": "-", "words": "reloading should be a different sound, both sound distant", "defects": ["distant"]},
+    "walk-concrete-hall": {"verdict": "as real", "words": ""},
+    "walk-snow": {"verdict": "as real", "words": ""},
+    "walk-wood": {"verdict": "as real", "words": ""},
+    "walk-metal": {"verdict": "-", "words": "sounds like wood not metal", "defects": ["wrong material"]}
+  },
+  "general": "I think the samples should be taken from existing video game, not random banks."
+}
