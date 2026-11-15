@@ -1,0 +1,82 @@
+#!/bin/bash
+# judge: capture the 3D scene's real output for a commit and judge it (blind descriptions, ratings, A/B with real
+# recordings, defect detectors), into $JUDGE_OUT/<haa>_<studio>/ with table.md and index.html.
+#
+#   tools/judge/judge                                   this haa checkout and its sibling ../haa-studio
+#   tools/judge/judge --haa <rev> --studio <rev>        those commits (temporary worktrees; the capture harness is
+#                                                       injected into a studio checkout that predates it)
+#   options: --only a,b   --runs N (default 3)   --no-listen   --skip-capture   --tries N
+#
+# Needs: the judge venv (JUDGE_PY, default /root/nmc/venvs/judge/bin/python: torch, transformers, bitsandbytes,
+# librosa, soundfile, scipy), kong and node on PATH, the playwright Chromium. Outputs default to
+# /mnt/q/temp_nomorechat/haa/judge. Nothing it writes is committed or deployed.
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HAA="$(cd "$HERE/../.." && pwd)"
+STUDIO="$(cd "$HAA/../haa-studio" 2>/dev/null && pwd || true)"
+PY="${JUDGE_PY:-/root/nmc/venvs/judge/bin/python}"
+OUT_ROOT="${JUDGE_OUT:-/mnt/q/temp_nomorechat/haa/judge}"
+WT_ROOT="${JUDGE_WT:-/root/nmc/temp/judge/wt}"
+export PATH="${NMC_ENGINES:-/root/nmc/engines}/bin:$PATH"
+HAA_REV="" STUDIO_REV="" ONLY="" RUNS=3 TRIES=3 LISTEN=1 CAPTURE=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --haa) HAA_REV="$2"; shift 2 ;;
+    --studio) STUDIO_REV="$2"; shift 2 ;;
+    --only) ONLY="$2"; shift 2 ;;
+    --runs) RUNS="$2"; shift 2 ;;
+    --tries) TRIES="$2"; shift 2 ;;
+    --no-listen) LISTEN=0; shift ;;
+    --skip-capture) CAPTURE=0; shift ;;
+    *) echo "judge: unknown option $1" >&2; exit 2 ;;
+  esac
+done
+
+if [ -n "$HAA_REV$STUDIO_REV" ]; then
+  HAA_REV="$(git -C "$HAA" rev-parse --short "${HAA_REV:-HEAD}")"
+  STUDIO_REV="$(git -C "$STUDIO" rev-parse --short "${STUDIO_REV:-HEAD}")"
+  W="$WT_ROOT/${HAA_REV}_${STUDIO_REV}"
+  if [ ! -d "$W/haa-studio" ]; then
+    mkdir -p "$W"
+    git -C "$HAA" worktree add -q --detach "$W/haa" "$HAA_REV"
+    git -C "$STUDIO" worktree add -q --detach "$W/haa-studio" "$STUDIO_REV"
+    NG="$(cd "$STUDIO/../NodeGraph" && pwd)"
+    git -C "$NG" worktree add -q --detach "$W/NodeGraph" HEAD
+    [ -d "$NG/dist" ] && cp -r "$NG/dist" "$W/NodeGraph/"
+  fi
+  # The capture harness, from this checkout, into a studio that predates it.
+  S="$W/haa-studio"
+  if [ ! -f "$S/src/ui/panels/scene/scene-judge.ts" ] || [ ! -f "$S/scripts/scene-judge.ts" ]; then
+    cp "$STUDIO/src/ui/panels/scene/scene-judge.ts" "$S/src/ui/panels/scene/"
+    cp "$STUDIO/scripts/scene-judge.ts" "$S/scripts/"
+    "$PY" - "$S/src/ui/panels/scene/ScenePanel.vue" <<'EOF'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+if "installJudge" not in s:
+    s = s.replace("<script setup lang=\"ts\">\n", "<script setup lang=\"ts\">\nimport { installJudge } from './scene-judge';\n", 1)
+    s = re.sub(r"(\n(\s*)\(window as unknown as \{ __haaScene\?: SceneWorld \}\)\.__haaScene = (\w+);\n)", r"\1\2installJudge(\3);\n", s, count=1)
+    if "installJudge(" not in s.split("import { installJudge }")[1]:
+        sys.exit("judge: could not find where the scene is created in ScenePanel.vue")
+open(p, "w").write(s)
+EOF
+  fi
+  (cd "$W/haa" && kong rules >/dev/null && kong use >/dev/null && npm run build >/dev/null)
+  (cd "$S" && kong rules >/dev/null && kong use >/dev/null)
+  HAA_DIR="$W/haa" STUDIO_DIR="$S"
+else
+  HAA_DIR="$HAA" STUDIO_DIR="$STUDIO"
+  HAA_REV="$(git -C "$HAA" rev-parse --short HEAD)"
+  STUDIO_REV="$(git -C "$STUDIO" rev-parse --short HEAD)"
+fi
+
+OUT="$OUT_ROOT/haa-${HAA_REV}_studio-${STUDIO_REV}"
+mkdir -p "$OUT"
+if [ "$CAPTURE" = 1 ]; then
+  (cd "$STUDIO_DIR" && npx tsx scripts/scene-judge.ts --out "$OUT/captures" --tries "$TRIES" ${ONLY:+--only "$ONLY"}) 2>&1 | grep --line-buffered -v '^\[page warning\]' >&2
+fi
+ARGS=(--captures "$OUT/captures" --out "$OUT" --runs "$RUNS")
+[ -n "$ONLY" ] && ARGS+=(--only "$ONLY")
+[ "$LISTEN" = 0 ] && ARGS+=(--no-listen)
+"$PY" "$HERE/run_judge.py" "${ARGS[@]}"
+echo "$OUT"
