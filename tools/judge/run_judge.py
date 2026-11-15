@@ -202,7 +202,9 @@ def main():
         lp = os.path.join(a.out, "listen.json")
         listen = json.load(open(lp)) if os.path.exists(lp) else []
         done = {(x["id"], x["mode"]) for x in listen}
-        if jobs and not (a.reuse and all((j["id"], j["mode"]) in done for j in jobs)):
+        if a.reuse:
+            jobs = [j for j in jobs if (j["id"], j["mode"]) not in done]
+        if jobs:
             json.dump(jobs, open(jp, "w"), indent=1)
             run([PY, os.path.join(HERE, "listen.py"), jp, lp + ".new", "--runs", str(a.runs)])
             new = json.load(open(lp + ".new"))
@@ -239,7 +241,8 @@ def main():
 def invalid_take(c):
     """A take captured on a busy machine (audio underruns, a slow scene load) says nothing about the sound: it is
     shown, never scored (the listening model does not hear it)."""
-    busy = max(8.0, 0.4 * (c.get("cpus") or 20))
+    # 0.6 x the CPUs: the other agents keep a 20-thread machine near 8, and takes there had 0-6 underruns.
+    busy = max(8.0, 0.6 * (c.get("cpus") or 20))
     load = max(c.get("loadAvg") or [0])
     if c.get("underruns", 0) >= 10:
         return f"{c['underruns']} underruns" + (f", load {load}" if load else "")
