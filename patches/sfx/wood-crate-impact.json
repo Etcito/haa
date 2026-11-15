@@ -408,7 +408,7 @@
           "frequency": 20,
           "modes": 72,
           "decay": 0.05,
-          "damping": 0.6,
+          "damping": 1.5,
           "contact": 2e-05,
           "force": 0,
           "position": 0.3,
@@ -837,8 +837,8 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 15.55,
-          "outMax": 0.21
+          "outMin": 5.95,
+          "outMax": 0.05
         },
         "curve": [
           [

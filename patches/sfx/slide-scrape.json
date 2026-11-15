@@ -634,7 +634,7 @@
           "frequency": 20,
           "modes": 48,
           "decay": 0.05,
-          "damping": 1.0,
+          "damping": 4.0,
           "contact": 0.0005,
           "force": 0,
           "position": 0.3,
@@ -1218,7 +1218,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.006762867999999999
+          "gain": 0.009873787279999999
         }
       },
       {
@@ -1282,6 +1282,105 @@
           "delay": 0.0,
           "level": 0
         }
+      },
+      {
+        "id": "m-grit",
+        "type": "map",
+        "label": "Speed -> grit scratches per second",
+        "x": 280,
+        "y": 740,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 1,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 3000
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.02,
+            0.15
+          ],
+          [
+            0.1,
+            0.4
+          ],
+          [
+            0.3,
+            0.7
+          ],
+          [
+            1,
+            1
+          ]
+        ]
+      },
+      {
+        "id": "grit",
+        "type": "crackle",
+        "label": "Fine grit (scratch of the dragged corner)",
+        "x": 540,
+        "y": 740,
+        "params": {
+          "kind": "click",
+          "rate": 0,
+          "rise": 0.0,
+          "fall": 0,
+          "frequency": 3500,
+          "spread": 2.0,
+          "sizePitch": 0.3,
+          "decay": 0.0008,
+          "contact": 0.0002,
+          "range": 18,
+          "exponent": 1.3,
+          "modes": 2,
+          "regularity": 0.0,
+          "clump": 0.6,
+          "delay": 0.0,
+          "level": 0
+        }
+      },
+      {
+        "id": "m-mat-dec",
+        "type": "map",
+        "label": "Material -> shorter ring (a steel deck under a crate does not ring)",
+        "x": 280,
+        "y": 860,
+        "params": {
+          "in": 0,
+          "inMin": 0,
+          "inMax": 8,
+          "scale": "lin",
+          "outMin": 0,
+          "outMax": 1
+        },
+        "curve": [
+          [
+            0,
+            0
+          ],
+          [
+            0.0625,
+            0
+          ],
+          [
+            0.125,
+            1
+          ],
+          [
+            0.1875,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
       }
     ],
     "connections": [
@@ -1430,7 +1529,7 @@
         "from": "m-ring1",
         "to": "body",
         "target": "decay",
-        "amount": 1.0
+        "amount": 0.3
       },
       {
         "id": "e22-in-shape-body-shape",
@@ -1515,6 +1614,48 @@
         "to": "direct",
         "target": "audio",
         "amount": 1.0
+      },
+      {
+        "id": "g-in-speed-m-grit-in",
+        "from": "in-speed",
+        "to": "m-grit",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "g-m-grit-grit-rate",
+        "from": "m-grit",
+        "to": "grit",
+        "target": "rate",
+        "amount": 1.0
+      },
+      {
+        "id": "g-lv-size-grit-level",
+        "from": "lv-size",
+        "to": "grit",
+        "target": "level",
+        "amount": 1.0
+      },
+      {
+        "id": "g-grit-out-audio",
+        "from": "grit",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e-in-material-m-mat-dec",
+        "from": "in-material",
+        "to": "m-mat-dec",
+        "target": "in",
+        "amount": 1.0
+      },
+      {
+        "id": "e-m-mat-dec-body-decay",
+        "from": "m-mat-dec",
+        "to": "body",
+        "target": "decay",
+        "amount": -2.0
       }
     ]
   },

@@ -359,7 +359,7 @@
           "position": 0.3,
           "vary": 1.0,
           "click": 0.9,
-          "rattle": 0,
+          "rattle": 0.0,
           "glide": 0,
           "bounces": 1,
           "bounceTime": 0.02,
@@ -450,13 +450,38 @@
         }
       },
       {
+        "id": "settle",
+        "type": "crackle",
+        "label": "Settling taps (decaying)",
+        "x": 540,
+        "y": 500,
+        "params": {
+          "kind": "click",
+          "rate": 300,
+          "rise": 0,
+          "fall": 0.25,
+          "frequency": 2500,
+          "spread": 2.0,
+          "sizePitch": 0.3,
+          "decay": 0.0015,
+          "contact": 0.0002,
+          "range": 18,
+          "exponent": 1.5,
+          "modes": 2,
+          "regularity": 0,
+          "clump": 0.5,
+          "delay": 0.02,
+          "level": 0
+        }
+      },
+      {
         "id": "out",
         "type": "output",
         "label": "Output",
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 1.0
+          "gain": 0.5
         }
       }
     ],
@@ -553,29 +578,43 @@
         "amount": 0.3
       },
       {
-        "id": "e14-body-out-audio",
+        "id": "e14-lv-settle-level",
+        "from": "lv",
+        "to": "settle",
+        "target": "level",
+        "amount": 0.2
+      },
+      {
+        "id": "e15-body-out-audio",
         "from": "body",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e15-tick-out-audio",
+        "id": "e16-tick-out-audio",
         "from": "tick",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e16-thud-out-audio",
+        "id": "e17-thud-out-audio",
         "from": "thud",
         "to": "out",
         "target": "audio",
         "amount": 1.0
       },
       {
-        "id": "e17-knock-out-audio",
+        "id": "e18-knock-out-audio",
         "from": "knock",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "e19-settle-out-audio",
+        "from": "settle",
         "to": "out",
         "target": "audio",
         "amount": 1.0

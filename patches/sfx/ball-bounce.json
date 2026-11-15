@@ -1143,7 +1143,35 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.79
+          "gain": 0.36340000000000006
+        }
+      },
+      {
+        "id": "thump",
+        "type": "blast",
+        "label": "Low thump (the ball's air and the slab pushed, ~20 ms)",
+        "x": 540,
+        "y": 740,
+        "params": {
+          "duration": 0.018,
+          "negative": 0.35,
+          "noise": 0,
+          "noiseDecay": 0.03,
+          "tone": 9000,
+          "delay": 0.006,
+          "level": 0.0
+        }
+      },
+      {
+        "id": "thump-lp",
+        "type": "filter",
+        "label": "Thump low-pass",
+        "x": 800,
+        "y": 740,
+        "params": {
+          "cutoff": 100.0,
+          "resonance": 3.0,
+          "mode": "bandpass"
         }
       }
     ],
@@ -1286,7 +1314,7 @@
         "from": "shell-level",
         "to": "shell",
         "target": "level",
-        "amount": 0.325
+        "amount": 0.0975
       },
       {
         "id": "e21-in-thickness-m-h-in",
@@ -1356,7 +1384,7 @@
         "from": "m-ring1",
         "to": "shell",
         "target": "decay",
-        "amount": 0.55
+        "amount": 0.165
       },
       {
         "id": "e31-in-shape-shell-shape",
@@ -1370,7 +1398,7 @@
         "from": "slap-level",
         "to": "slap",
         "target": "level",
-        "amount": 0.04
+        "amount": 0.008
       },
       {
         "id": "e33-puff-lp-out-audio",
@@ -1389,6 +1417,27 @@
       {
         "id": "e35-slap-out-audio",
         "from": "slap",
+        "to": "out",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "t-lv-thump-level",
+        "from": "lv",
+        "to": "thump",
+        "target": "level",
+        "amount": 3.0
+      },
+      {
+        "id": "t-thump-thump-lp",
+        "from": "thump",
+        "to": "thump-lp",
+        "target": "audio",
+        "amount": 1.0
+      },
+      {
+        "id": "t-thump-lp-out",
+        "from": "thump-lp",
         "to": "out",
         "target": "audio",
         "amount": 1.0

@@ -223,7 +223,7 @@
       {
         "id": "m-hard-lv",
         "type": "map",
-        "label": "Striker hardness -> level",
+        "label": "Striker hardness -> level (a soft ball or boot barely rings the floor)",
         "x": 280,
         "y": 380,
         "params": {
@@ -231,17 +231,21 @@
           "inMin": 0,
           "inMax": 1,
           "scale": "lin",
-          "outMin": 0.1,
+          "outMin": 0.0,
           "outMax": 1.0
         },
         "curve": [
           [
             0,
-            0
+            0.02
           ],
           [
-            0.4,
-            0.3333
+            0.35,
+            0.06
+          ],
+          [
+            0.45,
+            0.5
           ],
           [
             1,
@@ -1064,7 +1068,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.7783
+          "gain": 0.38915
         }
       }
     ],

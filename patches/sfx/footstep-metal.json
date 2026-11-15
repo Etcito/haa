@@ -395,8 +395,8 @@
           "frequency": 20,
           "modes": 64,
           "decay": 0.05,
-          "damping": 0.7,
-          "contact": 0.00333333,
+          "damping": 0.4,
+          "contact": 0.0005,
           "force": 0,
           "position": 0.3,
           "vary": 0.8,
@@ -994,7 +994,7 @@
         "x": 1060,
         "y": 20,
         "params": {
-          "gain": 0.6402
+          "gain": 0.492954
         }
       }
     ],
