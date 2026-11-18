@@ -29,10 +29,13 @@
 //! - `haa_phone_align(logits_ptr, logits_len, vocab_ptr, vocab_len, req_ptr, req_len) -> u32`: a line's English
 //!   words timed on its audio from the recogniser's logits (G2P, forced alignment, the heard phones winning), JSON
 //!   length (0 on a bad vocabulary or request).
+//! - `haa_artic_curves(ema_ptr, ema_len, req_ptr, req_len) -> u32`: a phrase's articulator curves for the chimera
+//!   `articulate` mode from SPARC's EMA (flat f32 rows of 12 at 50 Hz), with no text, JSON length (0 on a bad request).
 
 use std::sync::Mutex;
 
 use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p};
+use haa_fit::articulatory::{ARTIC_INPUTS, artic_curves};
 use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, render_lead, tokens};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
@@ -345,4 +348,39 @@ pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr
         })
         .to_string(),
     )
+}
+
+/// A phrase's articulator curves with no text: SPARC's raw EMA of a clip (flat f32 rows of 12, 50 Hz, row 0 at
+/// `offset` s) and a request `{"offset", "start", "end": the phrase (patch s), "hop": the curves' frame (s), "level":
+/// [amplitude 0..1 per hop frame from start], "maxPerSyllable": 6, "lead": s the articulators are played early}`.
+/// SPARC's lowpass, the calibrated map to the chimera `articulate` inputs, the phrase's syllables from its sonority, and
+/// per input at most `maxPerSyllable` keyframes per syllable (haa-fit `articulatory::artic_curves`). JSON length, 0 on a
+/// bad request: `{"syllables": [cut s], "inputs": {name: [[s, value], ...]}, "frames": {name: [value per hop frame]},
+/// "opening": [per hop frame], "points": total keyframes}`.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_artic_curves(ema_ptr: MemPtr, ema_len: u32, req_ptr: MemPtr, req_len: u32) -> u32 {
+    // SAFETY: host buffers per the ABI.
+    let (ema, req) = unsafe { (f32_at(ema_ptr, ema_len), bytes_at(req_ptr, req_len)) };
+    let Some(req) = serde_json::from_slice::<Value>(req).ok() else { return 0 };
+    let num = |k: &str, d: f64| req.get(k).and_then(Value::as_f64).unwrap_or(d);
+    let level: Vec<f32> = req.get("level").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect());
+    let (start, end, hop) = (num("start", 0.0), num("end", 0.0), num("hop", 0.01));
+    if !(hop > 0.0) || !(end > start) || ema.len() < 12 {
+        return 0;
+    }
+    let c = artic_curves(ema, num("offset", 0.0), start, end, hop, &level, num("maxPerSyllable", 6.0).max(1.0) as usize, num("lead", 0.0));
+    let r = |x: f64| (x * 1e4).round() / 1e4;
+    let mut inputs = serde_json::Map::new();
+    let mut frames = serde_json::Map::new();
+    for (i, (name, _, _)) in ARTIC_INPUTS.iter().enumerate() {
+        inputs.insert(name.to_string(), Value::Array(c.keys[i].iter().map(|&k| serde_json::json!([r(start + k as f64 * hop), r(c.frames[i][k])])).collect()));
+        frames.insert(name.to_string(), Value::Array(c.frames[i].iter().map(|&v| serde_json::json!(r(v))).collect()));
+    }
+    let out = serde_json::json!({
+        "syllables": c.bounds.iter().map(|&b| r(start + b as f64 * hop)).collect::<Vec<_>>(),
+        "inputs": inputs, "frames": frames,
+        "opening": c.opening.iter().map(|&v| r(v)).collect::<Vec<_>>(),
+        "points": c.keys.iter().map(Vec::len).sum::<usize>(),
+    });
+    set_len(out.to_string())
 }

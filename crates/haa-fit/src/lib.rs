@@ -17,6 +17,7 @@
 //! - `phonemes`: the diction judge (greedy CTC phones from a recogniser's logits, phoneme error rate), and lyrics
 //!   timed on the audio (CTC forced alignment, the heard phones winning over the text's).
 
+pub mod articulatory;
 pub mod cmaes;
 pub mod eval;
 pub mod fft;

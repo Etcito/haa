@@ -6,7 +6,9 @@
 //! (`1.20 I have changed my name so often`): each line is planned once into the physical voice's
 //! phoneme gestures (its articulatory targets from the phoneme tables), while the pitch, the level
 //! and the speaking rate come from the node's inputs (a note sequence or an intonation curve, a
-//! level curve, a rate curve that stretches the vowels).
+//! level curve, a rate curve that stretches the vowels). In `articulate` mode nothing is planned: the articulator
+//! inputs (jaw, tongue body, tongue tip, lips, ...) are the tract's targets, so measured articulator curves play it
+//! directly, while voicing, frication and closure act as in `voice` mode.
 //!
 //! CHIMERA is MIT-licensed; its crate is a sibling checkout (see `Cargo.toml`).
 //! Blocks: the engine renders 128 frames at a time into an internal buffer; `process_sample`
@@ -88,12 +90,15 @@ const GLOTTAL_GAP: usize = 48;
 const WALL_MASS: usize = 49;
 const SINUS: usize = 50;
 const FOSSA: usize = 51;
+const TIP_UP: usize = 52;
+const TIP_FRONT: usize = 53;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
 const WHISTLE: usize = 3;
 const SING: usize = 4;
 const LYRICS: usize = 5;
+const ARTICULATE: usize = 6;
 const ENGLISH: usize = 0;
 const IPA: usize = 1;
 /// Frames rendered per engine call; matches the graph block.
@@ -115,7 +120,7 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
         ParamDef {
             key: "mode",
             kind: ParamKind::Enum {
-                values: &["speech", "beatbox", "voice", "whistle", "sing", "lyrics"],
+                values: &["speech", "beatbox", "voice", "whistle", "sing", "lyrics", "articulate"],
                 default: SPEECH,
             },
             unit: "",
@@ -426,6 +431,8 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
         // or lowered (< 0, a longer, darker tract), the jaw more open (> 0: F1 up, carrying the tongue) or closed, the tongue body higher
         // (> 0: F1 down) or lower and further forward (> 0: F2 up) or back, the lips more rounded (> 0: every formant
         // down, F2 most) and wider open, the epilarynx narrowed (a ring around 3 kHz, "twang").
+        // `articulate` mode has no plan and no formant steering: its targets are the neutral posture plus these inputs
+        // (and tipUp, tipFront), so curves on them place the tract absolutely, articulator by articulator.
         ParamDef {
             key: "larynx",
             kind: ParamKind::Number { min: -1.6, max: 1.6, default: 0.0, step: 0.01, scale: Scale::Lin },
@@ -564,6 +571,21 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             key: "fossa",
             kind: ParamKind::Number { min: 0.2, max: 3.0, default: 1.0, step: 0.01, scale: Scale::Lin },
             unit: "×", label_en: "Piriform fossae size", label_fr: "Taille des sinus piriformes",
+            modulatable: true, smooth: true,
+        },
+        // `voice`, `lyrics` and `articulate` modes: the tongue tip raised (> 0, toward the alveolar ridge) or lowered
+        // from where it rests behind the lower incisors (it follows the jaw and the tongue body), and moved forward
+        // (> 0) or back, added to its targets like the articulator inputs above (0 = none, as before).
+        ParamDef {
+            key: "tipUp",
+            kind: ParamKind::Number { min: -2.0, max: 4.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Tongue tip up", label_fr: "Pointe de la langue relevée",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "tipFront",
+            kind: ParamKind::Number { min: -2.0, max: 2.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Tongue tip front", label_fr: "Pointe de la langue avancée",
             modulatable: true, smooth: true,
         },
     ],
@@ -1386,12 +1408,20 @@ impl ChimeraNode {
                 self.engine.set_beat_playing(false);
                 self.speech_end = None;
                 self.beat_end = None;
-            } else if mode == VOICE {
+            } else if mode == VOICE || mode == ARTICULATE {
                 // A sustained Chimera vowel, no score: the pitch/gain curves play it like an
                 // instrument, but the sound is the engine's voice (tract + folds), not a flute.
+                // `articulate`: the neutral posture, which the articulator inputs move (no text vowel).
                 let vowel = if text.is_empty() { "a" } else { text };
                 let body = BodyMix::new(female, child);
-                if let Some(artic) = vowel_artic(vowel, body) {
+                if mode == ARTICULATE {
+                    let mut neutral = ArticPatch::default();
+                    for k in ArticKey::ALL {
+                        neutral.set(k, NEUTRAL.get(k));
+                    }
+                    self.engine.set_artic(&neutral, Some(true));
+                    self.text_vowel = neutral;
+                } else if let Some(artic) = vowel_artic(vowel, body) {
                     self.engine.set_artic(&artic, None);
                     self.text_vowel = artic;
                 }
@@ -1525,11 +1555,12 @@ impl Node for ChimeraNode {
             if self.mode == LYRICS {
                 self.play_lyrics(ctx.seconds, at(RATE, 1.0));
             }
-            if self.mode == VOICE || self.mode == LYRICS {
+            let freeform = self.mode == VOICE || self.mode == ARTICULATE;
+            if freeform || self.mode == LYRICS {
                 // under ~1/3 voicing the folds part (voiceless abduction: aspiration); above, they vibrate with an
-                // amplitude that follows the voicing, so a voiced sound fades into a voiceless one (voice mode; in
-                // lyrics mode the planned consonants part the folds)
-                if self.mode == VOICE {
+                // amplitude that follows the voicing, so a voiced sound fades into a voiceless one (voice and
+                // articulate modes; in lyrics mode the planned consonants part the folds)
+                if freeform {
                     patch.voiced = Some(voicing >= 0.35);
                 }
                 patch.brightness = Some(at(BRIGHTNESS, 0.25).clamp(0.0, 1.0));
@@ -1565,21 +1596,26 @@ impl Node for ChimeraNode {
                 off[ArticKey::Velum.index()] = at(VELUM, 0.0).clamp(0.0, 1.4);
                 off[ArticKey::Root.index()] = at(TONGUE_ROOT, 0.0).clamp(-2.0, 2.0);
                 off[ArticKey::LipWidth.index()] = at(LIP_WIDTH, 0.0).clamp(-1.0, 1.0);
+                off[ArticKey::TtY.index()] = at(TIP_UP, 0.0).clamp(-2.0, 4.0);
+                off[ArticKey::TtX.index()] = at(TIP_FRONT, 0.0).clamp(-2.0, 2.0);
             }
             self.engine.set_source(&patch);
-            if self.mode == VOICE {
+            if freeform {
                 self.engine.voice_mut().glottis.params.amplitude *= voicing;
+                // articulate: no formant target, the neutral posture under the articulator inputs
+                let formants = self.mode == VOICE;
+                let f = |i: usize| if formants { at(i, 0.0) } else { 0.0 };
                 self.steer(
-                    at(VOWEL_F1, 0.0),
-                    at(VOWEL_F2, 0.0),
-                    at(VOWEL_F3, 0.0),
+                    f(VOWEL_F1),
+                    f(VOWEL_F2),
+                    f(VOWEL_F3),
                     at(FRICATION, 0.0),
                     at(FRIC_PLACE, 1.0),
                     at(CLOSURE, 0.0),
                 );
             }
             self.engine.render(&mut self.buffer);
-            if self.mode == VOICE || self.mode == LYRICS {
+            if freeform || self.mode == LYRICS {
                 let tract = at(TRACT, 1.0).clamp(0.7, 1.4);
                 self.presence.process(&mut self.buffer, at(PRESENCE, 0.0).clamp(-12.0, 18.0), tract, self.sample_rate);
             }
@@ -2151,5 +2187,41 @@ mod tests {
         assert_eq!(said, vec!["i", "have"]);
         assert_eq!(phones.iter().map(|(p, w)| (p.as_str(), *w)).collect::<Vec<_>>(), vec![("aɪ", 0), ("h", 1), ("ə", 1), ("v", 1)]);
         assert!(ipa_sayable("ɑː") && !ipa_sayable("5") && !ipa_sayable(""));
+    }
+
+    #[test]
+    fn articulate_mode_follows_the_tongue_tip_and_tip_defaults_preserve_lyrics() {
+        let defaults: Vec<f64> = DEF.params[..TIP_UP]
+            .iter()
+            .map(|p| match p.kind {
+                crate::catalog::ParamKind::Number { default, .. } => default,
+                crate::catalog::ParamKind::Enum { default, .. } => default as f64,
+                crate::catalog::ParamKind::Bool { default } => f64::from(u8::from(default)),
+                crate::catalog::ParamKind::Text { .. } => 0.0,
+            })
+            .collect();
+        // a lyrics patch written before tipUp / tipFront existed plays the same as one that sets them to 0
+        let mut old = defaults.clone();
+        old[MODE] = LYRICS as f64;
+        let mut texts: Vec<Option<String>> = vec![None; TIP_FRONT + 1];
+        texts[TEXT] = Some("0.1 i have changed".into());
+        let mut explicit = old.clone();
+        explicit.extend([0.0, 0.0]);
+        let lyrics = run(&init(&old, &texts[..TIP_UP]), 48_000);
+        assert!(rms(&lyrics) > 0.005);
+        assert_eq!(lyrics, run(&init(&explicit, &texts), 48_000));
+        // articulate mode holds the neutral posture plus its inputs: raising the tip to the ridge changes the sound
+        let mut held = defaults;
+        held[MODE] = ARTICULATE as f64;
+        held[PITCH] = 130.0;
+        held[PRESSURE] = 9.0;
+        held.extend([0.0, 0.0]);
+        let neutral = run(&init(&held, &texts), 24_000);
+        held[TIP_UP] = 4.0;
+        let tip = run(&init(&held, &texts), 24_000);
+        assert!(neutral.iter().chain(tip.iter()).all(|x| x.is_finite() && x.abs() <= 1.5));
+        assert!(rms(&neutral[12_000..]) > 0.005, "neutral rms {}", rms(&neutral[12_000..]));
+        let diff: Vec<f64> = neutral.iter().zip(&tip).map(|(a, b)| a - b).collect();
+        assert!(rms(&diff[12_000..]) > 0.1 * rms(&neutral[12_000..]), "tip up changed the sound by {}", rms(&diff[12_000..]));
     }
 }

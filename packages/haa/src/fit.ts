@@ -370,6 +370,7 @@ interface PhoneExports {
   haa_fit_free_f32(ptr: number, frames: number): void;
   haa_phone_per(refPtr: number, refLen: number, hypPtr: number, hypLen: number, vocabPtr: number, vocabLen: number): number;
   haa_phone_align(logitsPtr: number, logitsLen: number, vocabPtr: number, vocabLen: number, reqPtr: number, reqLen: number): number;
+  haa_artic_curves(emaPtr: number, emaLen: number, reqPtr: number, reqLen: number): number;
 }
 
 /**
@@ -474,6 +475,63 @@ function phoneCall(module: WebAssembly.Module, vocabJson: string, logits: Float3
   } finally {
     e.haa_fit_free_f32(a, logits.length);
     e.haa_free(v, vocab.length);
+    e.haa_free(r, req.length);
+  }
+}
+
+/** The chimera `articulate` inputs {@link articCurves} writes, in order. */
+export const ARTIC_INPUTS = ["jaw", "tongueHeight", "tongueFront", "lipRound", "lipOpen", "lipSpread", "tipUp", "tipFront"] as const;
+export type ArticInput = (typeof ARTIC_INPUTS)[number];
+
+/** What {@link articCurves} asks for one phrase (seconds on the patch clock). */
+export interface ArticRequest {
+  /** seconds of the EMA's row 0 (the clip's start) */
+  offset: number;
+  start: number;
+  end: number;
+  /** the curves' frame (s) */
+  hop: number;
+  /** amplitude 0..1 per hop frame from `start` (the syllables' sonority) */
+  level: number[];
+  /** keyframes per syllable per articulator, at most */
+  maxPerSyllable: number;
+  /** seconds the articulators are played early (the tract lags its targets) */
+  lead: number;
+}
+
+/** One phrase's articulator curves (see {@link articCurves}). */
+export interface ArticCurves {
+  /** syllable cuts (s), the phrase's start and end included */
+  syllables: number[];
+  /** per input, its keyframes [s, value in the node's units] */
+  inputs: Record<ArticInput, [number, number][]>;
+  /** per input, its value per hop frame from `start` (before the keyframes) */
+  frames: Record<ArticInput, number[]>;
+  /** how open the mouth is per hop frame (SPARC's z units) */
+  opening: number[];
+  /** keyframes over every input */
+  points: number;
+}
+
+/**
+ * A phrase's articulator curves with no text, from SPARC's raw EMA of a clip (12 coordinates per 20 ms row: tongue
+ * dorsum, blade, tip, lower incisor, upper and lower lip, x and y): SPARC's 10 Hz lowpass, the calibrated map to the
+ * chimera `articulate` inputs, the syllables from the sonority, and per input a few keyframes per syllable. All in
+ * Rust (haa-fit `articulatory`).
+ */
+export function articCurves(module: WebAssembly.Module, ema: Float32Array, request: ArticRequest): ArticCurves {
+  const e = new WebAssembly.Instance(module, {}).exports as unknown as PhoneExports;
+  const req = encodeUtf8(JSON.stringify(request));
+  const a = e.haa_fit_alloc_f32(ema.length);
+  if (ema.length > 0) new Float32Array(e.memory.buffer, a, ema.length).set(ema);
+  const r = e.haa_alloc(req.length);
+  try {
+    new Uint8Array(e.memory.buffer, r, req.length).set(req);
+    const len = e.haa_artic_curves(a, ema.length, r, req.length);
+    if (len === 0) throw new Error("[haa] articulator curves: the request needs start < end, hop > 0 and one EMA row");
+    return JSON.parse(decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len))) as ArticCurves;
+  } finally {
+    e.haa_fit_free_f32(a, ema.length);
     e.haa_free(r, req.length);
   }
 }
