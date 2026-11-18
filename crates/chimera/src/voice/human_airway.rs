@@ -45,6 +45,10 @@ pub struct HumanAirway {
     /// oral tube is never shorter than its node count times this. (The node counts are sized for
     /// 0.93; the beatbox's raised larynx already reaches 0.954, stably, and stays as it was.)
     pub dx_stable: f64,
+    /// the pharynx and oral tubes simulated this much longer than the anatomy (1 = as drawn): a
+    /// longer vocal tract lowers every formant by the same ratio (a lower larynx, a bigger body), a
+    /// shorter one raises them. Read at each control step; never under what the time step allows.
+    pub length_scale: f64,
     /// noise gains (tunable)
     pub noise_gain: NoiseGains,
     /// max area change rate (cm²/s, body-scaled): a physiological guard against geometric jumps
@@ -147,6 +151,7 @@ impl HumanAirway {
             ph_len: 8.8,
             or_len: 8.3,
             dx_stable: (C_SOUND / fs) / 0.97,
+            length_scale: 1.0,
             noise_gain: NoiseGains { glottis: 3.2e-6, constriction: 2.2e-6, teeth: 3.0e-6 },
             max_area_rate: 45.0,
             area_rate_gain: 40.0,
@@ -268,8 +273,8 @@ impl HumanAirway {
         // (against the teeth) and the UI's overlays map sections to places in the head with them.
         self.ph_len = ph_len;
         self.or_len = or_len;
-        let ph_sim = js_max(ph_len, self.n_ph as f64 * self.dx_stable);
-        let or_sim = js_max(or_len, self.n_or as f64 * self.dx_stable);
+        let ph_sim = js_max(ph_len * self.length_scale, self.n_ph as f64 * self.dx_stable);
+        let or_sim = js_max(or_len * self.length_scale, self.n_or as f64 * self.dx_stable);
         self.net.set_tube_targets(self.pharynx, &self.ph_areas, Some(ph_sim), Some(&self.ph_min));
         self.net.set_tube_targets(self.oral, &self.or_areas, Some(or_sim), Some(&self.or_min));
         self.net.set_port_target(self.velum_port, f.velum_port);

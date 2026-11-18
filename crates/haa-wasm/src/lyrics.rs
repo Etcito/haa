@@ -2,12 +2,12 @@
 //!
 //! `haa_lyrics_timing(ptr, len)`: request JSON `{"text", "language": "english"|"ipa", "female", "child",
 //! "rate": [[seconds, rate], ...], "hop", "seconds"}` (the node's rate input over the patch, linear between points;
-//! none = 1). The result JSON is `{"lines": [{"start", "end", "words": [{"word", "start", "end"}]}]}` in patch
-//! seconds, the node's own plan (G2P, durations, vowel-stretching rate) integrated in Rust; with `hop` and `seconds`,
-//! also `"tau"` (per frame, the playing line's score time, -1 where none plays) and `"vowel"` (1 in a held sound: a
-//! vowel, a nasal, a lateral).
+//! none = 1). The result JSON is `{"lines": [{"start", "end", "words": [{"word", "start", "end"}], "phones": [{"ipa",
+//! "start", "end"}]}]}` in patch seconds, the node's own plan (G2P, durations, vowel-stretching rate) integrated in
+//! Rust; with `hop` and `seconds`, also `"tau"` (per frame, the playing line's score time, -1 where none plays) and
+//! `"vowel"` (1 in a held sound: a vowel, a nasal, a lateral).
 
-use haa_core::nodes::chimera::{lyric_held, lyric_speed, lyrics_timing, plan_lyrics, LyricLine, LYRIC_LEAD};
+use haa_core::nodes::chimera::{lyric_held, lyric_speed, lyrics_phone_timing, lyrics_timing, plan_lyrics, LyricLine, LYRIC_LEAD};
 use serde_json::Value;
 
 use crate::{set_result, MemPtr};
@@ -83,15 +83,18 @@ fn track(lines: &[LyricLine], rate: &[[f64; 2]], hop: f64, seconds: f64) -> (Vec
 fn timing_json(req: &Request) -> String {
     let lines = plan_lyrics(&req.text, req.ipa, req.female, req.child, 120.0);
     let timed = lyrics_timing(&lines, |t| rate_at(&req.rate, t));
+    let phones = lyrics_phone_timing(&lines, |t| rate_at(&req.rate, t));
     let r = |v: f64| if v.is_finite() { (v * 1000.0).round() / 1000.0 } else { -1.0 };
     let lines_json = serde_json::Value::Array(
         timed
             .into_iter()
-            .map(|(start, end, words)| {
+            .zip(phones)
+            .map(|((start, end, words), phones)| {
                 serde_json::json!({
                     "start": r(start),
                     "end": r(end),
                     "words": words.into_iter().map(|(w, a, b)| serde_json::json!({ "word": w, "start": r(a), "end": r(b) })).collect::<Vec<_>>(),
+                    "phones": phones.into_iter().map(|(p, a, b)| serde_json::json!({ "ipa": p, "start": r(a), "end": r(b) })).collect::<Vec<_>>(),
                 })
             })
             .collect(),

@@ -64,6 +64,8 @@ const BRIGHTNESS: usize = 24;
 const VIBRATO_DEPTH: usize = 25;
 const VIBRATO_RATE: usize = 26;
 const GLIDE: usize = 27;
+const TRACT: usize = 28;
+const PRESENCE: usize = 29;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
@@ -373,6 +375,21 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             unit: "s", label_en: "Pitch glide", label_fr: "Glissé de hauteur",
             modulatable: false, smooth: false,
         },
+        // `voice` and `lyrics` modes, the timbre a singer adds to the body: the tract's length against the body's (> 1
+        // longer: every formant lower by that ratio; < 1 shorter, higher), and the singer's formant, a peak of the
+        // radiated sound around 3.3 kHz (scaled with the tract) whose gain is this many dB (0 = none).
+        ParamDef {
+            key: "tract",
+            kind: ParamKind::Number { min: 0.7, max: 1.4, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Tract length", label_fr: "Longueur du conduit",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "presence",
+            kind: ParamKind::Number { min: -12.0, max: 18.0, default: 0.0, step: 0.1, scale: Scale::Lin },
+            unit: "dB", label_en: "Presence (singer's formant)", label_fr: "Présence (formant du chanteur)",
+            modulatable: true, smooth: true,
+        },
     ],
     create,
 };
@@ -435,6 +452,7 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
         lyric_next: 0,
         lyric_now: None,
         last_seconds: 0.0,
+        presence: Presence::default(),
     };
     node.plan(init);
     Box::new(node)
@@ -487,6 +505,51 @@ struct ChimeraNode {
     lyric_next: usize,
     lyric_now: Option<(usize, f64)>,
     last_seconds: f64,
+    /// `voice` and `lyrics` modes: the singer's formant on the rendered block.
+    presence: Presence,
+}
+
+/// The singer's formant as a peaking filter (RBJ biquad, Q 1.4, centre 3.3 kHz / tract) on the voice's output:
+/// coefficients per block, state across blocks. At 0 dB it passes the block untouched.
+#[derive(Default)]
+struct Presence {
+    /// (gain dB, tract) the coefficients were made for
+    at: (f64, f64),
+    /// b0, b1, b2, a1, a2 (a0 = 1)
+    c: [f64; 5],
+    z: [f64; 2],
+}
+
+impl Presence {
+    const HZ: f64 = 3300.0;
+    const Q: f64 = 1.4;
+
+    fn process(&mut self, block: &mut [f32], gain_db: f64, tract: f64, sample_rate: f64) {
+        if gain_db.abs() < 0.01 {
+            self.z = [0.0; 2];
+            self.at = (0.0, 0.0);
+            return;
+        }
+        if (gain_db - self.at.0).abs() > 1e-3 || (tract - self.at.1).abs() > 1e-4 {
+            self.at = (gain_db, tract);
+            let f = (Self::HZ / tract.max(0.1)).min(0.45 * sample_rate);
+            let a = 10f64.powf(gain_db / 40.0);
+            let w = core::f64::consts::TAU * f / sample_rate;
+            let alpha = w.sin() / (2.0 * Self::Q);
+            let a0 = 1.0 + alpha / a;
+            self.c = [(1.0 + alpha * a) / a0, -2.0 * w.cos() / a0, (1.0 - alpha * a) / a0, -2.0 * w.cos() / a0, (1.0 - alpha / a) / a0];
+        }
+        let [b0, b1, b2, a1, a2] = self.c;
+        let [mut z1, mut z2] = self.z;
+        for s in block.iter_mut() {
+            let x = *s as f64;
+            let y = b0 * x + z1;
+            z1 = b1 * x - a1 * y + z2;
+            z2 = b2 * x - a2 * y;
+            *s = y as f32;
+        }
+        self.z = if z1.is_finite() && z2.is_finite() { [z1, z2] } else { [0.0; 2] };
+    }
 }
 
 /// `lyrics` mode: one line planned at rate 1, its score time 0 the line's start minus [`LYRIC_LEAD`].
@@ -497,6 +560,8 @@ pub struct LyricLine {
     /// (t0, t1, held) of each planned segment, on the line's score time: held for a vowel, a nasal or a lateral (the
     /// sounds a singer holds, which a rate under 1 stretches)
     pub spans: Vec<(f64, f64, bool)>,
+    /// the IPA of each span
+    pub phones: Vec<String>,
     /// each word said and its (t0, t1) on the line's score time
     pub words: Vec<(String, f64, f64)>,
 }
@@ -559,7 +624,8 @@ pub fn plan_lyrics(text: &str, ipa: bool, female: f64, child: f64, pitch: f64) -
         let start = start.unwrap_or(next_start);
         next_start = start + plan.end - LYRIC_LEAD + LYRIC_PAUSE;
         let spans = plan.segments.iter().map(|s| (s.t0, s.t1, matches!(s.kind.as_str(), "vowel" | "nasal" | "lateral"))).collect();
-        lines.push(LyricLine { start, gestures: plan.gestures, spans, words: words_t });
+        let phones = plan.segments.iter().map(|s| s.ipa.clone()).collect();
+        lines.push(LyricLine { start, gestures: plan.gestures, spans, phones, words: words_t });
     }
     lines.sort_by(|a, b| a.start.total_cmp(&b.start));
     lines
@@ -601,6 +667,32 @@ pub fn lyrics_timing(lines: &[LyricLine], rate_at: impl Fn(f64) -> f64) -> Vec<(
             }
             let words = line.words.iter().enumerate().map(|(i, w)| (w.0.clone(), at[2 * i], at[2 * i + 1])).collect();
             (line.start, at[targets.len() - 1], words)
+        })
+        .collect()
+}
+
+/// When a lyrics line says each of its sounds, as [`lyrics_timing`] times its words: per line, (IPA, start, end) in
+/// patch seconds (NaN where the plan never reaches it).
+pub fn lyrics_phone_timing(lines: &[LyricLine], rate_at: impl Fn(f64) -> f64) -> Vec<Vec<(String, f64, f64)>> {
+    let dt = 0.001;
+    lines
+        .iter()
+        .map(|line| {
+            // score times in order, and where each lands
+            let mut order: Vec<(f64, usize)> = line.spans.iter().enumerate().flat_map(|(i, s)| [(s.0, 2 * i), (s.1, 2 * i + 1)]).collect();
+            order.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let mut at = vec![f64::NAN; order.len()];
+            let (mut t, mut tau) = (line.start - LYRIC_LEAD, 0.0);
+            let mut q = 0;
+            while q < order.len() && t < line.start + 120.0 {
+                while q < order.len() && tau >= order[q].0 {
+                    at[order[q].1] = t;
+                    q += 1;
+                }
+                tau += lyric_speed(line, tau, rate_at(t)) * dt;
+                t += dt;
+            }
+            line.phones.iter().enumerate().map(|(i, p)| (p.clone(), at[2 * i], at[2 * i + 1])).collect()
         })
         .collect()
 }
@@ -1008,6 +1100,7 @@ impl Node for ChimeraNode {
                 patch.vibrato_depth = Some(at(VIBRATO_DEPTH, 0.0).clamp(0.0, 200.0));
                 patch.vibrato_rate = Some(at(VIBRATO_RATE, 5.5).clamp(2.0, 10.0));
                 patch.glide = Some(at(GLIDE, 0.06).clamp(0.002, 0.3));
+                self.engine.voice_mut().airway.length_scale = at(TRACT, 1.0).clamp(0.7, 1.4);
             }
             self.engine.set_source(&patch);
             if self.mode == VOICE {
@@ -1022,6 +1115,10 @@ impl Node for ChimeraNode {
                 );
             }
             self.engine.render(&mut self.buffer);
+            if self.mode == VOICE || self.mode == LYRICS {
+                let tract = at(TRACT, 1.0).clamp(0.7, 1.4);
+                self.presence.process(&mut self.buffer, at(PRESENCE, 0.0).clamp(-12.0, 18.0), tract, self.sample_rate);
+            }
             self.pos = 0;
         }
         let gain = params[GAIN].clamp(0.0, 2.0);
@@ -1069,6 +1166,7 @@ impl Node for ChimeraNode {
         self.lyric_next = 0;
         self.lyric_now = None;
         self.last_seconds = 0.0;
+        self.presence = Presence::default();
         // Timeline restart cancels the score. Restore the prepared phrase without reparsing text.
         if self.mode == SPEECH || self.mode == SING {
             let offset = self.engine.schedule(&self.planned_gestures, self.planned_lead, true);
@@ -1289,6 +1387,52 @@ mod tests {
         let ri = band(ti, 600.0, 900.0) / band(ti, 200.0, 450.0);
         let ra = band(ta, 600.0, 900.0) / band(ta, 200.0, 450.0);
         assert!(ra > 3.0 * ri, "open/close energy ratio /a/ {ra} vs /i/ {ri}");
+    }
+
+    #[test]
+    fn tract_length_lowers_the_formants_and_presence_lifts_the_singers_formant_band() {
+        // a held /a/ at 130 Hz: a 25% longer tract moves its F2 down; +12 dB of presence lifts 2.5-4.5 kHz
+        let mut params = [0.0; 30];
+        params[..19].copy_from_slice(&[2.0, 0.0, 130.0, 9.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.05, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0, 750.0, 1250.0]);
+        params[VOICING] = 1.0;
+        params[FRIC_PLACE] = 1.0;
+        params[BRIGHTNESS] = 0.25;
+        params[VIBRATO_RATE] = 5.5;
+        params[GLIDE] = 0.06;
+        params[TRACT] = 1.0;
+        let texts: [Option<String>; 30] = Default::default();
+        // energy of each 130 Hz harmonic under 6 kHz, on the second half
+        let harmonics = |y: &[f64]| -> Vec<(f64, f64)> {
+            let y = &y[24_000..];
+            (1..46)
+                .map(|h| {
+                    let f = 130.0 * h as f64;
+                    let (mut re, mut im) = (0.0, 0.0);
+                    for (i, x) in y.iter().enumerate() {
+                        let ph = core::f64::consts::TAU * f * i as f64 / 48_000.0;
+                        re += x * ph.cos();
+                        im += x * ph.sin();
+                    }
+                    (f, re * re + im * im)
+                })
+                .collect()
+        };
+        // the /a/'s second formant: its loudest harmonic between 900 and 1800 Hz
+        let f2 = |hs: &[(f64, f64)]| hs.iter().filter(|(f, _)| (900.0..1800.0).contains(f)).fold((0.0, 0.0), |m, h| if h.1 > m.1 { *h } else { m }).0;
+        let share = |hs: &[(f64, f64)]| {
+            let band: f64 = hs.iter().filter(|(f, _)| (2500.0..4500.0).contains(f)).map(|(_, e)| e).sum();
+            10.0 * (band / hs.iter().map(|(_, e)| e).sum::<f64>()).log10()
+        };
+        let base = run(&init(&params, &texts), 48_000);
+        params[TRACT] = 1.25;
+        let long = run(&init(&params, &texts), 48_000);
+        params[TRACT] = 1.0;
+        params[PRESENCE] = 12.0;
+        let present = run(&init(&params, &texts), 48_000);
+        assert!(base.iter().chain(&long).chain(&present).all(|x| x.is_finite() && x.abs() <= 1.5));
+        let (hb, hl, hp) = (harmonics(&base), harmonics(&long), harmonics(&present));
+        assert!(f2(&hl) < 0.95 * f2(&hb), "F2: long tract {} vs {}", f2(&hl), f2(&hb));
+        assert!(share(&hp) > share(&hb) + 6.0, "2.5-4.5 kHz share: presence {} vs {}", share(&hp), share(&hb));
     }
 
     #[test]

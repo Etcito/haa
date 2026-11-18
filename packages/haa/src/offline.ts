@@ -130,11 +130,12 @@ export interface LyricsTimingRequest {
   seconds?: number;
 }
 
-/** One timed line: patch seconds of its start, its end and each word (-1 where the plan never reaches it). */
+/** One timed line: patch seconds of its start, its end, each word and each sound (-1 where the plan never reaches it). */
 export interface LyricsTimedLine {
   start: number;
   end: number;
   words: { word: string; start: number; end: number }[];
+  phones: { ipa: string; start: number; end: number }[];
 }
 
 /** The timed lines, and with `hop` / `seconds` per frame the playing line's score time (-1: none) and vowel flag (1/0). */
