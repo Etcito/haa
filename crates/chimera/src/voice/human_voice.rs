@@ -40,13 +40,29 @@ pub struct VoiceSource {
     /// the model can, so there is little room to darken and a lot to brighten.
     #[serde(default = "default_brightness")]
     pub brightness: f64,
+    /// added to the open quotient the tension gives (0.78 - 0.36 tension), -0.4..0.4: the share of each cycle the
+    /// folds stand open, apart from how pressed they are. Lower = a longer closed phase (stronger upper harmonics
+    /// against H1), higher = a breathier, H1-heavy pulse. 0 leaves it to tension.
+    #[serde(default)]
+    pub oq_offset: f64,
+    /// added to the closure sharpness tension and brightness give, -1..1: how abruptly the folds close (the source's
+    /// spectral tilt: > 0 more energy in the upper harmonics) apart from the rest of the brightness. 0 = none.
+    #[serde(default)]
+    pub sharpness_offset: f64,
+    /// added to the pulse's skew (the opening phase's share of the open phase), -0.3..0.3. 0 = none.
+    #[serde(default)]
+    pub skew_offset: f64,
+    /// added to the posterior glottal gap breathiness gives (cm², 0..0.08 before the body's scale): air that leaks
+    /// through the closed phase, damping the tract and lifting H1, apart from the breath noise. 0 = none.
+    #[serde(default)]
+    pub gap_offset: f64,
 }
 
 fn default_brightness() -> f64 {
     DEFAULT_SOURCE.brightness
 }
 
-pub const DEFAULT_SOURCE: VoiceSource = VoiceSource { f0: 110.0, glide: 0.06, pressure: 8.0, breathiness: 0.15, tension: 0.5, fry: 0.0, roughness: 0.1, vibrato_depth: 0.0, vibrato_rate: 6.0, drift: 5.0, voiced: true, brightness: 0.25 };
+pub const DEFAULT_SOURCE: VoiceSource = VoiceSource { f0: 110.0, glide: 0.06, pressure: 8.0, breathiness: 0.15, tension: 0.5, fry: 0.0, roughness: 0.1, vibrato_depth: 0.0, vibrato_rate: 6.0, drift: 5.0, voiced: true, brightness: 0.25, oq_offset: 0.0, sharpness_offset: 0.0, skew_offset: 0.0, gap_offset: 0.0 };
 
 /// `Partial<VoiceSource>`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -76,6 +92,14 @@ pub struct SourcePatch {
     pub voiced: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub brightness: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oq_offset: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sharpness_offset: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skew_offset: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gap_offset: Option<f64>,
 }
 
 impl SourcePatch {
@@ -87,13 +111,13 @@ impl SourcePatch {
         macro_rules! set {
             ($($f:ident),*) => { $( if let Some(x) = self.$f { s.$f = x; } )* };
         }
-        set!(f0, glide, pressure, breathiness, tension, fry, roughness, vibrato_depth, vibrato_rate, drift, voiced, brightness);
+        set!(f0, glide, pressure, breathiness, tension, fry, roughness, vibrato_depth, vibrato_rate, drift, voiced, brightness, oq_offset, sharpness_offset, skew_offset, gap_offset);
     }
     pub fn merge(&mut self, o: &SourcePatch) {
         macro_rules! set {
             ($($f:ident),*) => { $( if o.$f.is_some() { self.$f = o.$f; } )* };
         }
-        set!(f0, glide, pressure, breathiness, tension, fry, roughness, vibrato_depth, vibrato_rate, drift, voiced, brightness);
+        set!(f0, glide, pressure, breathiness, tension, fry, roughness, vibrato_depth, vibrato_rate, drift, voiced, brightness, oq_offset, sharpness_offset, skew_offset, gap_offset);
     }
     pub fn from_source(s: &VoiceSource) -> Self {
         SourcePatch {
@@ -109,6 +133,10 @@ impl SourcePatch {
             drift: Some(s.drift),
             voiced: Some(s.voiced),
             brightness: Some(s.brightness),
+            oq_offset: Some(s.oq_offset),
+            sharpness_offset: Some(s.sharpness_offset),
+            skew_offset: Some(s.skew_offset),
+            gap_offset: Some(s.gap_offset),
         }
     }
 }
@@ -332,8 +360,8 @@ impl HumanVoice {
         // Most voices, women's and trained singers' included, leave a small posterior gap between
         // the arytenoids through the closed phase (Södersten & Lindestad 1990). It leaks a little
         // air and damps the tract, which lifts H1 and the band below 500 Hz.
-        g.chink = (0.008 + 0.03 * s.breathiness) * k2;
-        g.open_quotient = 0.78 - 0.36 * s.tension;
+        g.chink = (0.008 + 0.03 * s.breathiness + s.gap_offset.max(0.0)) * k2;
+        g.open_quotient = clamp(0.78 - 0.36 * s.tension + s.oq_offset, 0.25, 0.98);
         // The folds close along their length and depth over a return phase, not all at once, so
         // a sung or spoken voice closes softly (0.22 at tension 0.55): an abrupt closure put
         // 3-8 dB too much energy above 2 kHz. Pressing harder than that brings the abrupt closure
@@ -342,8 +370,8 @@ impl HumanVoice {
         // the model allows, 1 about as abruptly as a pressed voice.
         let bright = s.brightness - DEFAULT_SOURCE.brightness;
         let by_tension = 0.4 * s.tension + 1.375 * js_max(0.0, s.tension - 0.6);
-        g.closure_sharpness = clamp(by_tension + 0.8 * bright, 0.0, 1.0);
-        g.skew = 0.56 + 0.16 * s.tension + 0.2 * bright;
+        g.closure_sharpness = clamp(by_tension + 0.8 * bright + s.sharpness_offset, 0.0, 1.0);
+        g.skew = clamp(0.56 + 0.16 * s.tension + 0.2 * bright + s.skew_offset, 0.2, 0.95);
         g.fry = s.fry;
         // Jitter of a healthy, trained voice at the default roughness (0.1): about 0.45 %, well
         // under the clinical threshold (MDVP: 1.04 %).

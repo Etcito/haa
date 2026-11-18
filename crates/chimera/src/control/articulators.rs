@@ -67,6 +67,9 @@ pub struct ArticulatorBank {
     omega: [f64; N_ARTIC],
     /// effective targets used in the last step (base blended with gestures), for telemetry
     pub effective: HumanArtic,
+    /// added to every target after the gestures are blended, before the range clamp (0 = none): a speaker's or
+    /// singer's own habit over every planned sound (a lower larynx, a more open jaw)
+    pub offset: [f64; N_ARTIC],
 }
 
 impl Default for ArticulatorBank {
@@ -77,7 +80,7 @@ impl Default for ArticulatorBank {
 
 impl ArticulatorBank {
     pub fn new() -> Self {
-        let mut b = ArticulatorBank { x: NEUTRAL, v: [0.0; N_ARTIC], target: NEUTRAL, tip_free: true, speed: [1.0; N_ARTIC], omega: ARTIC_SPECS.map(|s| 2.0 * PI * s.hz), effective: NEUTRAL };
+        let mut b = ArticulatorBank { x: NEUTRAL, v: [0.0; N_ARTIC], target: NEUTRAL, tip_free: true, speed: [1.0; N_ARTIC], omega: ARTIC_SPECS.map(|s| 2.0 * PI * s.hz), effective: NEUTRAL, offset: [0.0; N_ARTIC] };
         let tip = rest_tip(NEUTRAL.jaw, NEUTRAL.tb_x, NEUTRAL.tb_y);
         b.x.tt_x = tip.x;
         b.target.tt_x = tip.x;
@@ -131,6 +134,7 @@ impl ArticulatorBank {
                     sp *= b.speed;
                 }
             }
+            tgt += self.offset[i];
             let s = ARTIC_SPECS[i];
             if tgt < s.min {
                 tgt = s.min;

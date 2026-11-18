@@ -20,7 +20,7 @@ use ::chimera::control::score::{ControlKey, Gesture};
 use ::chimera::phonetics::beatbox::parse_beat;
 use ::chimera::phonetics::english::EnglishG2P;
 use ::chimera::phonetics::ipa::tokenize_ipa;
-use ::chimera::anatomy::human::{rest_tip, ArticKey, ArticPatch, NEUTRAL};
+use ::chimera::anatomy::human::{jaw_carry, rest_tip, ArticKey, ArticPatch, NEUTRAL};
 use ::chimera::phonetics::inventory::phoneme;
 use ::chimera::phonetics::planner::{expand, plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
 use ::chimera::phonetics::{Intonation, Segment};
@@ -67,6 +67,27 @@ const GLIDE: usize = 27;
 const TRACT: usize = 28;
 const PRESENCE: usize = 29;
 const NASAL: usize = 30;
+const LARYNX: usize = 31;
+const JAW: usize = 32;
+const TONGUE_HEIGHT: usize = 33;
+const TONGUE_FRONT: usize = 34;
+const LIP_ROUND: usize = 35;
+const LIP_OPEN: usize = 36;
+const EPILARYNX: usize = 37;
+const OPEN_QUOTIENT: usize = 38;
+const FRY: usize = 39;
+const ROUGHNESS: usize = 40;
+const WALLS: usize = 41;
+const ASPIRATION: usize = 42;
+const VELUM: usize = 43;
+const CLOSURE_SHARPNESS: usize = 44;
+const SKEW: usize = 45;
+const TONGUE_ROOT: usize = 46;
+const LIP_WIDTH: usize = 47;
+const GLOTTAL_GAP: usize = 48;
+const WALL_MASS: usize = 49;
+const SINUS: usize = 50;
+const FOSSA: usize = 51;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
@@ -398,6 +419,151 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             key: "nasal",
             kind: ParamKind::Number { min: 0.0, max: 0.6, default: 0.0, step: 0.01, scale: Scale::Lin },
             unit: "cm²", label_en: "Nasality", label_fr: "Nasalité",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes, the singer's own habit over every sound the plan (or the formant steering) asks
+        // for, added to its articulator targets (0 = none, every existing patch unchanged): the larynx raised (> 0)
+        // or lowered (< 0, a longer, darker tract), the jaw more open (> 0: F1 up, carrying the tongue) or closed, the tongue body higher
+        // (> 0: F1 down) or lower and further forward (> 0: F2 up) or back, the lips more rounded (> 0: every formant
+        // down, F2 most) and wider open, the epilarynx narrowed (a ring around 3 kHz, "twang").
+        ParamDef {
+            key: "larynx",
+            kind: ParamKind::Number { min: -1.6, max: 1.6, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Larynx height", label_fr: "Hauteur du larynx",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "jaw",
+            kind: ParamKind::Number { min: -1.5, max: 1.5, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Jaw opening", label_fr: "Ouverture de la mâchoire",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "tongueHeight",
+            kind: ParamKind::Number { min: -2.0, max: 2.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Tongue height", label_fr: "Hauteur de la langue",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "tongueFront",
+            kind: ParamKind::Number { min: -2.0, max: 2.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Tongue front", label_fr: "Avancée de la langue",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "lipRound",
+            kind: ParamKind::Number { min: -1.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Lip rounding", label_fr: "Arrondi des lèvres",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "lipOpen",
+            kind: ParamKind::Number { min: -1.5, max: 1.5, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm", label_en: "Lip opening", label_fr: "Ouverture des lèvres",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "epilarynx",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Epilarynx narrowing (twang)", label_fr: "Resserrement de l'épilarynx (twang)",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes, the folds' pulse apart from tension: the open quotient moved from what the
+        // tension gives (< 0 a longer closed phase: upper harmonics up against H1; > 0 an H1-heavy pulse), vocal fry
+        // (a slow, double-pulsed creak) and roughness (jitter, shimmer, period doubling above 0.5; 0.1 is the model's
+        // healthy voice). Then the tract's soft walls' damping (1 = as built; < 1 narrower, stronger formants) and the
+        // breath noise of the glottal jet (1 = as built, 0 none).
+        ParamDef {
+            key: "openQuotient",
+            kind: ParamKind::Number { min: -0.4, max: 0.4, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Open quotient shift", label_fr: "Décalage du quotient d'ouverture",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "fry",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Vocal fry", label_fr: "Voix craquée (fry)",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "roughness",
+            kind: ParamKind::Number { min: 0.0, max: 1.0, default: 0.1, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Roughness", label_fr: "Raucité",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "walls",
+            kind: ParamKind::Number { min: 0.1, max: 6.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Wall damping", label_fr: "Amortissement des parois",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "aspiration",
+            kind: ParamKind::Number { min: 0.0, max: 8.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Aspiration noise", label_fr: "Bruit d'aspiration",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes: the soft palate lowered over every sound (cm² of velopharyngeal port added to
+        // the plan's: the nose coupled to the vowels, a low pole and a zero near F1), how abruptly the folds close (the
+        // source's tilt) and the opening phase's share of the pulse apart from brightness, the tongue root advanced
+        // (> 0, a wider pharynx: F1 down) or retracted, the lips spread (> 0) wider. 0 = none, as before.
+        ParamDef {
+            key: "velum",
+            kind: ParamKind::Number { min: 0.0, max: 1.4, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm²", label_en: "Soft palate lowered", label_fr: "Voile du palais abaissé",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "closureSharpness",
+            kind: ParamKind::Number { min: -1.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Glottal closure sharpness", label_fr: "Netteté de la fermeture glottique",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "skew",
+            kind: ParamKind::Number { min: -0.3, max: 0.3, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Pulse skew", label_fr: "Asymétrie de l'impulsion",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "tongueRoot",
+            kind: ParamKind::Number { min: -2.0, max: 2.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Tongue root advance", label_fr: "Avancée de la racine de la langue",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "lipSpread",
+            kind: ParamKind::Number { min: -1.0, max: 1.0, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "", label_en: "Lip spreading", label_fr: "Étirement des lèvres",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes: the posterior gap between the arytenoids through the closed phase, added to the
+        // one breath gives (air leaking all cycle long: the tract damped, H1 lifted, no extra noise). 0 = as before.
+        ParamDef {
+            key: "glottalGap",
+            kind: ParamKind::Number { min: 0.0, max: 0.08, default: 0.0, step: 0.001, scale: Scale::Lin },
+            unit: "cm²", label_en: "Glottal gap", label_fr: "Fente glottique",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes, the body's side chambers and walls (1 = as built): the soft walls' mass, the
+        // maxillary sinuses' opening to the nose (0 sealed: their pole and zero near the nasal resonances), the
+        // piriform fossae's size (the dip above 4 kHz, the upper formants' place).
+        ParamDef {
+            key: "wallMass",
+            kind: ParamKind::Number { min: 0.3, max: 3.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Wall mass", label_fr: "Masse des parois",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "sinus",
+            kind: ParamKind::Number { min: 0.0, max: 4.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Sinus opening", label_fr: "Ouverture des sinus",
+            modulatable: true, smooth: true,
+        },
+        ParamDef {
+            key: "fossa",
+            kind: ParamKind::Number { min: 0.2, max: 3.0, default: 1.0, step: 0.01, scale: Scale::Lin },
+            unit: "×", label_en: "Piriform fossae size", label_fr: "Taille des sinus piriformes",
             modulatable: true, smooth: true,
         },
     ],
@@ -1112,6 +1278,33 @@ impl Node for ChimeraNode {
                 patch.glide = Some(at(GLIDE, 0.06).clamp(0.002, 0.3));
                 self.engine.voice_mut().airway.length_scale = at(TRACT, 1.0).clamp(0.7, 1.4);
                 self.engine.voice_mut().airway.nasal_leak = at(NASAL, 0.0).clamp(0.0, 0.6);
+                patch.oq_offset = Some(at(OPEN_QUOTIENT, 0.0).clamp(-0.4, 0.4));
+                patch.fry = Some(at(FRY, 0.0).clamp(0.0, 1.0));
+                patch.roughness = Some(at(ROUGHNESS, 0.1).clamp(0.0, 1.0));
+                patch.sharpness_offset = Some(at(CLOSURE_SHARPNESS, 0.0).clamp(-1.0, 1.0));
+                patch.skew_offset = Some(at(SKEW, 0.0).clamp(-0.3, 0.3));
+                patch.gap_offset = Some(at(GLOTTAL_GAP, 0.0).clamp(0.0, 0.08));
+                let voice = self.engine.voice_mut();
+                voice.airway.wall_loss = at(WALLS, 1.0).clamp(0.1, 6.0);
+                voice.airway.aspiration = at(ASPIRATION, 1.0).clamp(0.0, 8.0);
+                voice.airway.wall_mass = at(WALL_MASS, 1.0).clamp(0.3, 3.0);
+                voice.airway.sinus_coupling = at(SINUS, 1.0).clamp(0.0, 4.0);
+                voice.airway.fossa_area = at(FOSSA, 1.0).clamp(0.2, 3.0);
+                let off = &mut voice.artic.offset;
+                off[ArticKey::Larynx.index()] = at(LARYNX, 0.0).clamp(-1.6, 1.6);
+                // the jaw carries the tongue body (the calibrated tongue targets are absolute: a jaw alone barely
+                // changes a vowel)
+                let jaw = at(JAW, 0.0).clamp(-1.5, 1.5);
+                let carry = jaw_carry(jaw);
+                off[ArticKey::Jaw.index()] = jaw;
+                off[ArticKey::TbY.index()] = at(TONGUE_HEIGHT, 0.0).clamp(-2.0, 2.0) + carry.y;
+                off[ArticKey::TbX.index()] = at(TONGUE_FRONT, 0.0).clamp(-2.0, 2.0) + carry.x;
+                off[ArticKey::LipProt.index()] = at(LIP_ROUND, 0.0).clamp(-1.0, 1.0);
+                off[ArticKey::LipAp.index()] = at(LIP_OPEN, 0.0).clamp(-1.5, 1.5);
+                off[ArticKey::Epilarynx.index()] = at(EPILARYNX, 0.0).clamp(0.0, 1.0);
+                off[ArticKey::Velum.index()] = at(VELUM, 0.0).clamp(0.0, 1.4);
+                off[ArticKey::Root.index()] = at(TONGUE_ROOT, 0.0).clamp(-2.0, 2.0);
+                off[ArticKey::LipWidth.index()] = at(LIP_WIDTH, 0.0).clamp(-1.0, 1.0);
             }
             self.engine.set_source(&patch);
             if self.mode == VOICE {
@@ -1444,6 +1637,63 @@ mod tests {
         let (hb, hl, hp) = (harmonics(&base), harmonics(&long), harmonics(&present));
         assert!(f2(&hl) < 0.95 * f2(&hb), "F2: long tract {} vs {}", f2(&hl), f2(&hb));
         assert!(share(&hp) > share(&hb) + 6.0, "2.5-4.5 kHz share: presence {} vs {}", share(&hp), share(&hb));
+    }
+
+    #[test]
+    fn voice_habit_inputs_change_nothing_at_their_defaults_and_move_f1_and_h1_h2() {
+        // a held /e/ at 130 Hz in voice mode: the new inputs at their defaults render the same samples as a patch
+        // written before them; a closer jaw (carrying the tongue) moves F1's band (400-650 Hz) down under 330 Hz; a
+        // shorter open phase (open quotient -0.25) lifts H2 against H1
+        let mut params = [0.0; 52];
+        params[..17].copy_from_slice(&[2.0, 0.0, 130.0, 9.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.05, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0]);
+        params[VOICING] = 1.0;
+        params[FRIC_PLACE] = 1.0;
+        params[BRIGHTNESS] = 0.25;
+        params[VIBRATO_RATE] = 5.5;
+        params[GLIDE] = 0.06;
+        params[TRACT] = 1.0;
+        let mut texts: Vec<Option<String>> = vec![None; 52];
+        texts[TEXT] = Some("e".into());
+        let harmonics = |y: &[f64]| -> Vec<f64> {
+            let y = &y[24_000..];
+            (1..16)
+                .map(|h| {
+                    let f = 130.0 * h as f64;
+                    let (mut re, mut im) = (0.0, 0.0);
+                    for (i, x) in y.iter().enumerate() {
+                        let ph = core::f64::consts::TAU * f * i as f64 / 48_000.0;
+                        re += x * ph.cos();
+                        im += x * ph.sin();
+                    }
+                    re * re + im * im
+                })
+                .collect()
+        };
+        let share = |e: &[f64], lo: f64, hi: f64| -> f64 {
+            let band: f64 = e.iter().enumerate().filter(|(h, _)| (lo..hi).contains(&(130.0 * (*h + 1) as f64))).map(|(_, p)| p).sum();
+            10.0 * (band / e.iter().sum::<f64>()).log10()
+        };
+        let old = run(&init(&params[..31], &texts[..31]), 48_000);
+        params[ROUGHNESS] = 0.1;
+        params[WALLS] = 1.0;
+        params[ASPIRATION] = 1.0;
+        params[WALL_MASS] = 1.0;
+        params[SINUS] = 1.0;
+        params[FOSSA] = 1.0;
+        let base = run(&init(&params, &texts), 48_000);
+        assert_eq!(old, base, "the new inputs at their defaults changed the render");
+        params[JAW] = -0.8;
+        let high = run(&init(&params, &texts), 48_000);
+        params[JAW] = 0.0;
+        params[OPEN_QUOTIENT] = -0.25;
+        let pressed = run(&init(&params, &texts), 48_000);
+        assert!(high.iter().chain(&pressed).all(|x| x.is_finite() && x.abs() <= 1.5));
+        let (eb, eh, ep) = (harmonics(&base), harmonics(&high), harmonics(&pressed));
+        let (f1_base, f1_high) = (share(&eb, 400.0, 650.0), share(&eh, 400.0, 650.0));
+        let (low_base, low_high) = (share(&eb, 200.0, 330.0), share(&eh, 200.0, 330.0));
+        assert!(f1_high < f1_base - 2.0 && low_high > low_base + 2.0, "jaw closed: 400-650 Hz {f1_base:.1} -> {f1_high:.1} dB, 200-330 Hz {low_base:.1} -> {low_high:.1} dB");
+        let h21 = |e: &[f64]| 10.0 * (e[1] / e[0]).log10();
+        assert!(h21(&ep) > h21(&eb) + 2.0, "open quotient -0.25: H2-H1 {:.1} -> {:.1} dB", h21(&eb), h21(&ep));
     }
 
     #[test]

@@ -450,6 +450,17 @@ pub fn rest_tip(jaw: f64, tb_x: f64, tb_y: f64) -> Vec2 {
     v(x + 0.3 * (tb_x - NEUTRAL.tb_x), y + 0.35 * (tb_y - NEUTRAL.tb_y))
 }
 
+/// How far (template cm, x forward, y up) a jaw opened by `djaw` cm more carries the tongue body: the mandible's
+/// rotation about the same pivot as [`rest_tip`], applied to the neutral tongue body. The tongue body targets are
+/// absolute (the calibrated vowels hold them), so a jaw moved alone barely changes a vowel; a jaw that carries the
+/// tongue, as the floor of the mouth does, opens or closes it (F1 up or down, most in front and mid vowels).
+pub fn jaw_carry(djaw: f64) -> Vec2 {
+    let (cx, cy) = (-2.5, 10.5);
+    let ang = -djaw / 9.84;
+    let (dx, dy) = (NEUTRAL.tb_x - cx, NEUTRAL.tb_y - cy);
+    v(dx * cos(ang) - dy * sin(ang) - dx, dx * sin(ang) + dy * cos(ang) - dy)
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct GridSample {
     pub inner: Vec2,

@@ -667,6 +667,19 @@ impl AirwayNetwork {
         self.amin_target[node] = self.area_target[node];
     }
 
+    /// Yielding-wall parameters of every node of a tube built with walls (a rigid tube stays rigid). Takes effect at
+    /// the next step; the walls keep their displacement and velocity. Allocates nothing.
+    pub fn set_tube_walls(&mut self, t: Tube, w: WallParams) {
+        for i in 0..t.n {
+            let k = t.node(i);
+            if self.has_wall[k] {
+                self.wall_m[k] = w.mass;
+                self.wall_r[k] = w.resistance;
+                self.wall_k[k] = w.stiffness;
+            }
+        }
+    }
+
     pub fn set_port_target(&mut self, branch: usize, area: f64) {
         self.port_area_target[branch] = js_max(0.0, area);
     }

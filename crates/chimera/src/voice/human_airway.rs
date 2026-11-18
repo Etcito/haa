@@ -52,6 +52,30 @@ pub struct HumanAirway {
     /// a velopharyngeal port (cm², body-scaled) held open under whatever the velum does: a voice that sings or
     /// speaks a little through the nose, oral vowels included. 0 = the velum alone decides.
     pub nasal_leak: f64,
+    /// the soft walls' damping (pharynx, oral cavity, piriform fossae) against the anatomy's (1 = as built): lower
+    /// gives narrower, stronger formants (a tenser, more resonant tract), higher wider and weaker ones. Read at each
+    /// control step.
+    pub wall_loss: f64,
+    /// the glottal aspiration noise against the model's (1 = as built; 0 none): the breath noise a jet through the
+    /// folds makes, apart from how far apart they stand (breathiness).
+    pub aspiration: f64,
+    /// the soft walls' mass against the anatomy's (1 = as built): heavier walls lower the closed tract's wall
+    /// resonance (the floor under F1) and damp the low formants less. Read at each control step.
+    pub wall_mass: f64,
+    /// the maxillary sinuses' ostia area against the anatomy's (1 = as built, 0 = sealed): a wider opening couples
+    /// the sinuses harder to the nose and moves their pole and zero up (a nasal voice's low resonances).
+    pub sinus_coupling: f64,
+    /// the piriform fossae's cross-section against the anatomy's (1 = as built): larger fossae dig a deeper,
+    /// lower dip in the 4-5 kHz region and pull the formants above 2.5 kHz down.
+    pub fossa_area: f64,
+    /// the wall loss and mass the soft tubes carry now, the sinus coupling and fossa size applied now
+    wall_loss_now: f64,
+    wall_mass_now: f64,
+    sinus_now: f64,
+    fossa_now: f64,
+    /// the ostia's port (branch) and their built area
+    sinus_port: usize,
+    ostia_area: f64,
     /// noise gains (tunable)
     pub noise_gain: NoiseGains,
     /// max area change rate (cm²/s, body-scaled): a physiological guard against geometric jumps
@@ -133,7 +157,7 @@ impl HumanAirway {
         let ostia = 0.2 * k * k;
         let neck = 0.5 * k + 1.7 * sqrt(0.5 * ostia / core::f64::consts::PI);
         let sinus = net.add_cavity("sinus", 40.0 * k * k * k, None);
-        net.add_port(nasal.node(js_round(n_na as f64 * 0.45) as usize), sinus, PortSpec::new(ostia, neck).kinetic(0.0, 0.0).no_half_sections());
+        let sinus_port = net.add_port(nasal.node(js_round(n_na as f64 * 0.45) as usize), sinus, PortSpec::new(ostia, neck).kinetic(0.0, 0.0).no_half_sections());
         let rad_lips = net.add_radiation(oral.last_node());
         let rad_nose = net.add_radiation(nasal.last_node());
         net.finalize();
@@ -163,6 +187,17 @@ impl HumanAirway {
             dx_stable: (C_SOUND / fs) / 0.97,
             length_scale: 1.0,
             nasal_leak: 0.0,
+            wall_loss: 1.0,
+            aspiration: 1.0,
+            wall_mass: 1.0,
+            sinus_coupling: 1.0,
+            fossa_area: 1.0,
+            wall_loss_now: 1.0,
+            wall_mass_now: 1.0,
+            sinus_now: 1.0,
+            fossa_now: 1.0,
+            sinus_port,
+            ostia_area: ostia,
             noise_gain: NoiseGains { glottis: 3.2e-6, constriction: 2.2e-6, teeth: 3.0e-6 },
             max_area_rate: 45.0,
             area_rate_gain: 40.0,
@@ -288,6 +323,28 @@ impl HumanAirway {
         let or_sim = js_max(or_len * self.length_scale, self.n_or as f64 * self.dx_stable);
         self.net.set_tube_targets(self.pharynx, &self.ph_areas, Some(ph_sim), Some(&self.ph_min));
         self.net.set_tube_targets(self.oral, &self.or_areas, Some(or_sim), Some(&self.or_min));
+        if (self.wall_loss - self.wall_loss_now).abs() > 1e-6 || (self.wall_mass - self.wall_mass_now).abs() > 1e-6 {
+            let loss = self.wall_loss.clamp(0.05, 20.0);
+            let mass = self.wall_mass.clamp(0.1, 10.0);
+            let w = crate::physics::WallParams { resistance: WALL_SOFT.resistance * loss, mass: WALL_SOFT.mass * mass, ..WALL_SOFT };
+            for t in [self.pharynx, self.oral, self.fossa] {
+                self.net.set_tube_walls(t, w);
+            }
+            self.wall_loss_now = self.wall_loss;
+            self.wall_mass_now = self.wall_mass;
+        }
+        if (self.sinus_coupling - self.sinus_now).abs() > 1e-6 {
+            self.net.set_port_target(self.sinus_port, self.ostia_area * self.sinus_coupling.clamp(0.0, 8.0));
+            self.sinus_now = self.sinus_coupling;
+        }
+        if (self.fossa_area - self.fossa_now).abs() > 1e-6 {
+            let k = self.body.scale;
+            let a = 0.9 * k * k * self.fossa_area.clamp(0.1, 4.0);
+            for i in 0..self.fossa.n {
+                self.net.set_node_area_target(self.fossa.node(i), a);
+            }
+            self.fossa_now = self.fossa_area;
+        }
         self.net.set_port_target(self.velum_port, f.velum_port + js_max(0.0, self.nasal_leak) * self.body.scale * self.body.scale);
         self.update_noise(&f);
         self.frame = Some(f);
@@ -300,7 +357,7 @@ impl HumanAirway {
         let mut list = core::mem::take(&mut self.noise_list);
         list.clear();
         // aspiration: jet from the glottis hits the epilarynx/ventricular region
-        list.push(NoiseSpec::new(self.glottis_port, self.branch_of(self.pharynx, 1), self.branch_of(self.trachea, self.trachea.n as isize - 2), g.glottis).band(3500.0, 300.0));
+        list.push(NoiseSpec::new(self.glottis_port, self.branch_of(self.pharynx, 1), self.branch_of(self.trachea, self.trachea.n as isize - 2), g.glottis * self.aspiration.max(0.0)).band(3500.0, 300.0));
         // narrowest open point in pharynx+oral (global position index p over concatenated tubes)
         let (n_ph, n_or) = (self.n_ph, self.n_or);
         let mut min_a = f64::INFINITY;
