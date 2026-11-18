@@ -2,7 +2,11 @@
 //!
 //! This is the real thing, not an approximation: the node owns a `chimera::Engine` and renders
 //! it into HAA's graph. `text` is IPA for speech (`sa va`, `bɔ̃ʒuʁ`) or a beatbox pattern
-//! (`B t tss B`) depending on `mode`.
+//! (`B t tss B`) depending on `mode`. In `lyrics` mode it is timed lyrics, one phrase per line
+//! (`1.20 I have changed my name so often`): each line is planned once into the physical voice's
+//! phoneme gestures (its articulatory targets from the phoneme tables), while the pitch, the level
+//! and the speaking rate come from the node's inputs (a note sequence or an intonation curve, a
+//! level curve, a rate curve that stretches the vowels).
 //!
 //! CHIMERA is MIT-licensed; its crate is a sibling checkout (see `Cargo.toml`).
 //! Blocks: the engine renders 128 frames at a time into an internal buffer; `process_sample`
@@ -12,14 +16,14 @@
 
 use ::chimera::anatomy::human::BodyMix;
 use ::chimera::engine::Engine;
-use ::chimera::control::score::Gesture;
+use ::chimera::control::score::{ControlKey, Gesture};
 use ::chimera::phonetics::beatbox::parse_beat;
 use ::chimera::phonetics::english::EnglishG2P;
 use ::chimera::phonetics::ipa::tokenize_ipa;
 use ::chimera::anatomy::human::{rest_tip, ArticKey, ArticPatch, NEUTRAL};
 use ::chimera::phonetics::inventory::phoneme;
-use ::chimera::phonetics::planner::{plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
-use ::chimera::phonetics::Intonation;
+use ::chimera::phonetics::planner::{expand, plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
+use ::chimera::phonetics::{Intonation, Segment};
 use ::chimera::phonetics::sing::{plan_song, SongOptions, SungNote};
 use ::chimera::phonetics::syllables::lyrics_to_syllables;
 use ::chimera::sources::valves::Whistle;
@@ -65,6 +69,7 @@ const SPEECH: usize = 0;
 const VOICE: usize = 2;
 const WHISTLE: usize = 3;
 const SING: usize = 4;
+const LYRICS: usize = 5;
 const ENGLISH: usize = 0;
 const IPA: usize = 1;
 /// Frames rendered per engine call; matches the graph block.
@@ -86,7 +91,7 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
         ParamDef {
             key: "mode",
             kind: ParamKind::Enum {
-                values: &["speech", "beatbox", "voice", "whistle", "sing"],
+                values: &["speech", "beatbox", "voice", "whistle", "sing", "lyrics"],
                 default: SPEECH,
             },
             unit: "",
@@ -134,11 +139,14 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             modulatable: true,
             smooth: true,
         },
+        // speech and sing plan at this rate (0.5-2); `lyrics` plays its lines at it, modulated by a rate curve: a
+        // vowel (or a nasal, a lateral) is played this much faster (> 1) or slower (< 1), another consonant never slower
+        // than its own length
         ParamDef {
             key: "rate",
             kind: ParamKind::Number {
-                min: 0.5,
-                max: 2.0,
+                min: 0.1,
+                max: 4.0,
                 default: 1.0,
                 step: 0.01,
                 scale: Scale::Lin,
@@ -146,8 +154,8 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             unit: "×",
             label_en: "Rate",
             label_fr: "Débit",
-            modulatable: false,
-            smooth: false,
+            modulatable: true,
+            smooth: true,
         },
         ParamDef {
             key: "female",
@@ -423,6 +431,10 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
         consonants: [ArticPatch::default(); 4],
         parts: Vec::new(),
         steer_at: [f64::NAN; 6],
+        lyrics: Vec::new(),
+        lyric_next: 0,
+        lyric_now: None,
+        last_seconds: 0.0,
     };
     node.plan(init);
     Box::new(node)
@@ -469,6 +481,144 @@ struct ChimeraNode {
     parts: Vec<(f64, ArticPatch)>,
     /// (F1, F2, F3, frication, place, closure) the tract was last steered to.
     steer_at: [f64; 6],
+    /// `lyrics` mode: the planned lines, the next one to schedule, the line playing (index, its score offset),
+    /// and the patch time of the last block (a smaller one is a restart).
+    lyrics: Vec<LyricLine>,
+    lyric_next: usize,
+    lyric_now: Option<(usize, f64)>,
+    last_seconds: f64,
+}
+
+/// `lyrics` mode: one line planned at rate 1, its score time 0 the line's start minus [`LYRIC_LEAD`].
+pub struct LyricLine {
+    /// patch time (s) of the line's first segment
+    pub start: f64,
+    pub gestures: Vec<Gesture>,
+    /// (t0, t1, held) of each planned segment, on the line's score time: held for a vowel, a nasal or a lateral (the
+    /// sounds a singer holds, which a rate under 1 stretches)
+    pub spans: Vec<(f64, f64, bool)>,
+    /// each word said and its (t0, t1) on the line's score time
+    pub words: Vec<(String, f64, f64)>,
+}
+
+/// A planned utterance's breath lead: its first segment starts this long after the plan's origin.
+pub const LYRIC_LEAD: f64 = 0.06;
+/// The pause before a line written without its start time (s).
+const LYRIC_PAUSE: f64 = 0.3;
+
+/// Plans `lyrics` text (see [`lyric_lines`]): per line, English G2P (or IPA words) into the physical voice's phoneme
+/// gestures at rate 1, its pitch and vibrato gestures dropped (the pitch input sings the line), sorted by start.
+pub fn plan_lyrics(text: &str, ipa: bool, female: f64, child: f64, pitch: f64) -> Vec<LyricLine> {
+    ::chimera::init();
+    let body = BodyMix::new(female.clamp(0.0, 1.0), child.clamp(0.0, 1.0));
+    let mut lines = Vec::new();
+    let mut next_start = LYRIC_PAUSE;
+    for (start, words) in lyric_lines(text) {
+        // the segments, and the words they say (each word's last segment marks its end)
+        let (segments, said): (Vec<Segment>, Vec<String>) = if ipa {
+            let mut segs = Vec::new();
+            let mut said = Vec::new();
+            for w in words.split_whitespace() {
+                let mut ws = tokenize_ipa(w);
+                if let Some(last) = ws.last_mut() {
+                    last.word_end = Some(true);
+                    segs.append(&mut ws);
+                    said.push(w.to_string());
+                }
+            }
+            (segs, said)
+        } else {
+            let phrases = english_g2p().to_phrases(words);
+            let said = phrases.iter().flat_map(|p| p.words.iter().cloned()).collect();
+            (phrases.into_iter().flat_map(|p| p.segments).collect(), said)
+        };
+        if segments.is_empty() {
+            continue;
+        }
+        let mut plan = plan_utterance(&segments, &PlanOptions {
+            body, t0: 0.0, rate: Some(1.0), f0: Some(pitch), intonation: Some(Intonation::Flat), accent: Some(0.0),
+            ..Default::default()
+        });
+        plan.gestures.retain(|g| !g.targets.has(ControlKey::F0) && !g.targets.has(ControlKey::VIBRATO));
+        // word spans: the planner splits a diphthong into two timed parts
+        let mut words_t = Vec::new();
+        let (mut k, mut w0, mut wi) = (0usize, f64::NAN, 0usize);
+        for seg in &segments {
+            let parts = expand(&seg.ipa).map_or(1, |p| p.len().max(1));
+            let (Some(first), Some(last)) = (plan.segments.get(k), plan.segments.get(k + parts - 1)) else { break };
+            if w0.is_nan() {
+                w0 = first.t0;
+            }
+            k += parts;
+            if seg.word_end == Some(true) {
+                words_t.push((said.get(wi).cloned().unwrap_or_else(|| format!("w{}", wi + 1)), w0, last.t1));
+                wi += 1;
+                w0 = f64::NAN;
+            }
+        }
+        let start = start.unwrap_or(next_start);
+        next_start = start + plan.end - LYRIC_LEAD + LYRIC_PAUSE;
+        let spans = plan.segments.iter().map(|s| (s.t0, s.t1, matches!(s.kind.as_str(), "vowel" | "nasal" | "lateral"))).collect();
+        lines.push(LyricLine { start, gestures: plan.gestures, spans, words: words_t });
+    }
+    lines.sort_by(|a, b| a.start.total_cmp(&b.start));
+    lines
+}
+
+/// How fast a line's score runs at `rate` when it stands at score time `tau`: `rate` in a held sound (a vowel, a nasal,
+/// a lateral), never slower than 1 in another consonant, a pause or a breath (a held note stretches what a singer holds).
+pub fn lyric_speed(line: &LyricLine, tau: f64, rate: f64) -> f64 {
+    let r = if rate.is_finite() { rate.clamp(0.1, 4.0) } else { 1.0 };
+    if lyric_held(line, tau) { r } else { r.max(1.0) }
+}
+
+/// Whether a line's score time `tau` is inside one of its held sounds (a vowel, a nasal, a lateral).
+pub fn lyric_held(line: &LyricLine, tau: f64) -> bool {
+    let i = line.spans.partition_point(|s| s.1 <= tau);
+    matches!(line.spans.get(i), Some(&(t0, t1, true)) if tau >= t0 && tau < t1)
+}
+
+/// When each word of each line is said (patch seconds) if the node plays them at `rate_at(t)`: the score clock of
+/// [`lyric_speed`] integrated every millisecond from the line's scheduling. Per line: (start, end, words).
+pub fn lyrics_timing(lines: &[LyricLine], rate_at: impl Fn(f64) -> f64) -> Vec<(f64, f64, Vec<(String, f64, f64)>)> {
+    let dt = 0.001;
+    lines
+        .iter()
+        .map(|line| {
+            let end_tau = line.spans.last().map_or(0.0, |s| s.1);
+            let mut targets: Vec<f64> = line.words.iter().flat_map(|w| [w.1, w.2]).collect();
+            targets.push(end_tau);
+            let mut at = vec![f64::NAN; targets.len()];
+            let (mut t, mut tau) = (line.start - LYRIC_LEAD, 0.0);
+            let mut q = 0;
+            while q < targets.len() && t < line.start + 120.0 {
+                while q < targets.len() && tau >= targets[q] {
+                    at[q] = t;
+                    q += 1;
+                }
+                tau += lyric_speed(line, tau, rate_at(t)) * dt;
+                t += dt;
+            }
+            let words = line.words.iter().enumerate().map(|(i, w)| (w.0.clone(), at[2 * i], at[2 * i + 1])).collect();
+            (line.start, at[targets.len() - 1], words)
+        })
+        .collect()
+}
+
+/// `lyrics` text as (start, words) per line: `<seconds> words`, or words alone (the line follows the previous one).
+fn lyric_lines(text: &str) -> Vec<(Option<f64>, &str)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .map(|l| {
+            let (head, rest) = l.split_once(char::is_whitespace).unwrap_or((l, ""));
+            match head.parse::<f64>() {
+                Ok(t) if t.is_finite() && (0.0..=3_600.0).contains(&t) => (Some(t), rest.trim()),
+                _ => (None, l),
+            }
+        })
+        .filter(|(_, words)| !words.is_empty())
+        .collect()
 }
 
 /// The calibrated vowels of a body mix: formants blended by the body weights, articulation from `vowel_artic`.
@@ -568,6 +718,28 @@ impl ChimeraNode {
 }
 
 impl ChimeraNode {
+    /// `lyrics` mode, once per block: schedule the lines the patch time `now` reached, and play the score at the speed
+    /// [`lyric_speed`] gives `rate` there.
+    fn play_lyrics(&mut self, now: f64, rate: f64) {
+        if now + 1e-9 < self.last_seconds {
+            // the timeline restarted or looped
+            self.engine.stop_speech();
+            self.lyric_next = 0;
+            self.lyric_now = None;
+        }
+        self.last_seconds = now;
+        while self.lyric_next < self.lyrics.len() && now >= self.lyrics[self.lyric_next].start - LYRIC_LEAD {
+            let off = self.engine.schedule(&self.lyrics[self.lyric_next].gestures, 0.0, false);
+            self.lyric_now = Some((self.lyric_next, off));
+            self.lyric_next += 1;
+        }
+        let eff = match self.lyric_now {
+            Some((i, off)) => lyric_speed(&self.lyrics[i], self.engine.score_time() - off, rate),
+            None => 1.0,
+        };
+        self.engine.set_score_rate(eff);
+    }
+
     fn plan(&mut self, init: &NodeInit<'_>) {
         let mode = init.params.get(MODE).copied().unwrap_or(0.0).round() as usize;
         let text = init
@@ -666,6 +838,20 @@ impl ChimeraNode {
                 self.engine.set_gate(0.0); // The score owns phrase breath, including its lead-in and release.
                 self.speech_end = Some(offset + self.planned_end + 0.08);
                 self.beat_end = None;
+            } else if mode == LYRICS {
+                // Each line becomes one breath group of the physical voice's phoneme gestures (G2P or IPA), timed at
+                // rate 1; its pitch gestures are dropped (the pitch input sings it) and it is scheduled when the
+                // patch reaches the line's start.
+                self.engine.set_beat_playing(false);
+                self.engine.stop_speech();
+                let lines = plan_lyrics(text, language == IPA, female, child, pitch);
+                self.lyrics = lines;
+                // a live edit plays from the next line on
+                self.lyric_next = self.lyrics.partition_point(|l| l.start - LYRIC_LEAD < self.last_seconds);
+                self.lyric_now = None;
+                self.engine.set_gate(0.0); // each line's plan owns its breath
+                self.speech_end = None;
+                self.beat_end = None;
             } else if mode == WHISTLE {
                 // A standalone CHIMERA van der Pol whistle: aeroacoustic source, no vocal folds.
                 self.engine.stop_speech();
@@ -722,7 +908,7 @@ impl ChimeraNode {
 impl Node for ChimeraNode {
     fn process_sample(
         &mut self,
-        _ctx: &SampleCtx<'_>,
+        ctx: &SampleCtx<'_>,
         _input: (f64, f64),
         params: &[f64],
     ) -> NodeOut {
@@ -808,10 +994,16 @@ impl Node for ChimeraNode {
             };
             let at = |i: usize, d: f64| params.get(i).copied().unwrap_or(d);
             let voicing = at(VOICING, 1.0).clamp(0.0, 1.0);
-            if self.mode == VOICE {
+            if self.mode == LYRICS {
+                self.play_lyrics(ctx.seconds, at(RATE, 1.0));
+            }
+            if self.mode == VOICE || self.mode == LYRICS {
                 // under ~1/3 voicing the folds part (voiceless abduction: aspiration); above, they vibrate with an
-                // amplitude that follows the voicing, so a voiced sound fades into a voiceless one
-                patch.voiced = Some(voicing >= 0.35);
+                // amplitude that follows the voicing, so a voiced sound fades into a voiceless one (voice mode; in
+                // lyrics mode the planned consonants part the folds)
+                if self.mode == VOICE {
+                    patch.voiced = Some(voicing >= 0.35);
+                }
                 patch.brightness = Some(at(BRIGHTNESS, 0.25).clamp(0.0, 1.0));
                 patch.vibrato_depth = Some(at(VIBRATO_DEPTH, 0.0).clamp(0.0, 200.0));
                 patch.vibrato_rate = Some(at(VIBRATO_RATE, 5.5).clamp(2.0, 10.0));
@@ -874,6 +1066,9 @@ impl Node for ChimeraNode {
         self.whistle_flow = [[0.0; 2]; 2];
         self.buffer = [0.0; BLOCK];
         self.pos = BLOCK;
+        self.lyric_next = 0;
+        self.lyric_now = None;
+        self.last_seconds = 0.0;
         // Timeline restart cancels the score. Restore the prepared phrase without reparsing text.
         if self.mode == SPEECH || self.mode == SING {
             let offset = self.engine.schedule(&self.planned_gestures, self.planned_lead, true);
@@ -1166,6 +1361,26 @@ mod tests {
         node.reset();
         let second = render(&mut node);
         assert!(rms(&second[120_000..144_000]) > 0.003, "replay lost phrase");
+    }
+
+    #[test]
+    fn lyrics_line_starts_on_time_and_its_rate_stretches_the_vowels() {
+        let mut params = [
+            5.0, 0.0, 120.0, 8.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.1, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+            0.0, 0.25, 0.0, 5.5, 0.06,
+        ];
+        let mut texts: [Option<String>; 28] = Default::default();
+        texts[TEXT] = Some("0.5 so often".into());
+        // the start of the last 10 ms window still sounding
+        let end = |out: &[f64]| (0..out.len() / 480).rev().find(|&w| rms(&out[w * 480..(w + 1) * 480]) > 0.002).map_or(0.0, |w| w as f64 * 0.01);
+        let normal = run(&init(&params, &texts), 144_000);
+        assert!(normal.iter().all(|x| x.is_finite()));
+        assert!(rms(&normal[..19_000]) < 0.0005, "voice sounds before the line starts");
+        assert!(rms(&normal[24_000..48_000]) > 0.003, "line not sung");
+        params[RATE] = 0.4;
+        let slow = run(&init(&params, &texts), 144_000);
+        let (a, b) = (end(&normal), end(&slow));
+        assert!(b > a + 0.15, "rate 0.4 ends at {b} s, rate 1 at {a} s");
     }
 
     #[test]

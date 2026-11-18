@@ -172,10 +172,11 @@ impl Engine {
         }
     }
 
-    /// Schedule gestures planned with times relative to "now": they are shifted onto the voice
-    /// clock by `clock + lead`. Returns that offset (the plan's time 0 on the voice clock).
+    /// Schedule gestures planned with times relative to "now": they are shifted onto the score
+    /// time by `score_time + lead`. Returns that offset (the plan's time 0 on the score time,
+    /// which is the voice clock while the score rate stays 1).
     pub fn schedule(&mut self, gestures: &[Gesture], lead: f64, replace: bool) -> f64 {
-        let off = self.voice.clock + lead;
+        let off = self.voice.score_time + lead;
         self.scratch.clear();
         for g in gestures.iter().take(MAX_SCHEDULE) {
             let mut g = *g;
@@ -209,9 +210,21 @@ impl Engine {
         self.voice.denormal_states()
     }
 
-    /// The voice clock (s): the time base of scheduled gestures.
+    /// The voice clock (s): real time since the voice started.
     pub fn clock(&self) -> f64 {
         self.voice.clock
+    }
+
+    /// The score time (s): the time base of scheduled gestures (the voice clock at score rate 1).
+    pub fn score_time(&self) -> f64 {
+        self.voice.score_time
+    }
+
+    /// Seconds of score played per second of voice clock (> 0): a plan timed at rate 1 plays
+    /// slower (< 1) or faster (> 1), its gestures stretched in time, the articulators' own
+    /// dynamics unchanged.
+    pub fn set_score_rate(&mut self, rate: f64) {
+        self.voice.score_rate = if rate.is_finite() { rate.clamp(0.02, 8.0) } else { 1.0 };
     }
 
     /// Render `out.len()` samples.

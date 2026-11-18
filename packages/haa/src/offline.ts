@@ -11,6 +11,7 @@
 import type { HaaPatch, PatchIssue } from './types.ts';
 import { BLOCK, LIVE_DEFAULT_SECONDS, OFFLINE_RATE } from './types.ts';
 import { HaaEngine, patchBytes } from './engine.ts';
+import { decodeUtf8, encodeUtf8 } from './utf8.ts';
 
 export { encodeWav } from './wav.ts';
 export * from './types.ts';
@@ -112,5 +113,57 @@ export function renderPatch(
     return { left, right, sampleRate, issues };
   } finally {
     voice.free();
+  }
+}
+
+/** A `chimera` node in `lyrics` mode: its text, body and rate input, to time its words. */
+export interface LyricsTimingRequest {
+  /** the node text: one line per phrase, `<seconds> words` */
+  text: string;
+  language?: 'english' | 'ipa';
+  female?: number;
+  child?: number;
+  /** the rate input over the patch: `[seconds, rate]` points, linear between them (none: rate 1) */
+  rate?: [number, number][];
+  /** with `seconds`: also the score time per `hop` frame */
+  hop?: number;
+  seconds?: number;
+}
+
+/** One timed line: patch seconds of its start, its end and each word (-1 where the plan never reaches it). */
+export interface LyricsTimedLine {
+  start: number;
+  end: number;
+  words: { word: string; start: number; end: number }[];
+}
+
+/** The timed lines, and with `hop` / `seconds` per frame the playing line's score time (-1: none) and vowel flag (1/0). */
+export interface LyricsTiming {
+  lines: LyricsTimedLine[];
+  tau?: number[];
+  vowel?: number[];
+}
+
+/** When the node says each word: its own plan (G2P, durations, vowel-stretching rate) run in Rust (`haa_lyrics_timing`). */
+export function lyricsTiming(module: WebAssembly.Module, request: LyricsTimingRequest): LyricsTiming {
+  const exports = new WebAssembly.Instance(module, {}).exports as unknown as {
+    memory: WebAssembly.Memory;
+    haa_alloc(len: number): number;
+    haa_free(ptr: number, len: number): void;
+    haa_result_ptr(): number;
+    haa_result_len(): number;
+    haa_lyrics_timing(ptr: number, len: number): number;
+  };
+  const bytes = encodeUtf8(JSON.stringify(request));
+  const ptr = exports.haa_alloc(bytes.length);
+  new Uint8Array(exports.memory.buffer, ptr, bytes.length).set(bytes);
+  try {
+    exports.haa_lyrics_timing(ptr, bytes.length);
+    const out = new Uint8Array(exports.memory.buffer, exports.haa_result_ptr(), exports.haa_result_len());
+    const json = JSON.parse(decodeUtf8(out)) as LyricsTiming & { error?: string };
+    if (json.error || !json.lines) throw new Error(`[haa] lyrics timing: ${json.error ?? 'no lines'}`);
+    return json;
+  } finally {
+    exports.haa_free(ptr, bytes.length);
   }
 }

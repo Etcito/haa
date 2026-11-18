@@ -186,6 +186,11 @@ pub struct HumanVoice {
     /// gestural score and voice clock (s)
     pub score: GestureScore,
     pub clock: f64,
+    /// the score's own time base (s): it advances by `score_rate` per second of the voice clock, so a
+    /// scheduled plan can be played slower or faster than it was timed while the voice runs in real time
+    pub score_time: f64,
+    /// seconds of score per second of voice clock (1: the score keeps the voice clock)
+    pub score_rate: f64,
     blend: [Blended; N_CONTROL],
     base_abduction: f64,
     base_closure: f64,
@@ -250,6 +255,8 @@ impl HumanVoice {
             sub: 0,
             score: GestureScore::new(),
             clock: 0.0,
+            score_time: 0.0,
+            score_rate: 1.0,
             blend: [Blended::default(); N_CONTROL],
             base_abduction: 0.0,
             base_closure: 0.0,
@@ -301,7 +308,7 @@ impl HumanVoice {
 
     /// End the open-ended gestures with this tag now (a sung note's key was released).
     pub fn release(&mut self, tag: f64) {
-        self.score.release(tag, self.clock);
+        self.score.release(tag, self.score_time);
     }
 
     /// Cancel scheduled gestures (speech stops; the voice returns to the performer's posture).
@@ -434,7 +441,7 @@ impl HumanVoice {
     /// Control-rate update: articulator dynamics, geometry → areas, breath, pitch.
     fn control(&mut self) {
         let dt = self.ctrl_every as f64 / self.fs;
-        let t = self.clock;
+        let t = self.score_time;
         let mut breath_act = 0.0;
         let mut breath_val = 0.0;
         let mut f0_target = self.source.f0;
@@ -474,6 +481,7 @@ impl HumanVoice {
             self.score_f0 = None;
         }
         self.clock += dt;
+        self.score_time += dt * self.score_rate;
         // contact constraint on the frame computed anyway; re-apply only if a correction was made
         let x = self.artic.x;
         self.airway.apply(&x, dt);
@@ -631,7 +639,7 @@ impl HumanVoice {
         out.active.clear();
         // room for every label it can hold, so the first labelled gesture does not allocate
         out.active.reserve(4);
-        for g in self.score.active_at(self.clock) {
+        for g in self.score.active_at(self.score_time) {
             if out.active.len() == 4 {
                 break;
             }
