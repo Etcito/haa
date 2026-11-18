@@ -49,6 +49,9 @@ pub struct HumanAirway {
     /// longer vocal tract lowers every formant by the same ratio (a lower larynx, a bigger body), a
     /// shorter one raises them. Read at each control step; never under what the time step allows.
     pub length_scale: f64,
+    /// a velopharyngeal port (cm², body-scaled) held open under whatever the velum does: a voice that sings or
+    /// speaks a little through the nose, oral vowels included. 0 = the velum alone decides.
+    pub nasal_leak: f64,
     /// noise gains (tunable)
     pub noise_gain: NoiseGains,
     /// max area change rate (cm²/s, body-scaled): a physiological guard against geometric jumps
@@ -121,9 +124,16 @@ impl HumanAirway {
         // piriform fossae branch off ≈2.6 cm above the glottis
         let fossa_node = pharynx.node(((n_ph - 1) as f64).min(js_round((2.6 / 8.8) * n_ph as f64)) as usize);
         net.connect(fossa_node, fossa.first_node());
-        // maxillary sinus (Helmholtz) on the nasal cavity
-        let sinus = net.add_cavity("sinus", 14.0 * k * k * k, None);
-        net.add_port(nasal.node(js_round(n_na as f64 * 0.45) as usize), sinus, PortSpec::new(0.12 * k * k, 0.5 * k).kinetic(0.0, 0.0).no_half_sections());
+        // The maxillary sinuses (Helmholtz) on the nasal cavity. The nasal tube is both passages in one, so the sinus
+        // is both sinuses in one: 2 × 20 cm³ behind 2 ostia of 0.1 cm², 0.5 cm long plus their two end corrections
+        // (1.7 r): about 440 Hz for the male body. One 14 cm³ sinus behind 0.12 cm² × 0.5 cm rang at 730 Hz, which
+        // left the nasal resonances of a lowered velum high: the /m/ murmur's first at 320 Hz (170 Hz wide) and a
+        // nasalised vowel's extra pole at 500-530 Hz, inside a male F1's band, where a real one has it at 250-300 Hz
+        // under F1 (Fujimura 1962; Chen 1997) and the sinuses' zero dents the band above it.
+        let ostia = 0.2 * k * k;
+        let neck = 0.5 * k + 1.7 * sqrt(0.5 * ostia / core::f64::consts::PI);
+        let sinus = net.add_cavity("sinus", 40.0 * k * k * k, None);
+        net.add_port(nasal.node(js_round(n_na as f64 * 0.45) as usize), sinus, PortSpec::new(ostia, neck).kinetic(0.0, 0.0).no_half_sections());
         let rad_lips = net.add_radiation(oral.last_node());
         let rad_nose = net.add_radiation(nasal.last_node());
         net.finalize();
@@ -152,6 +162,7 @@ impl HumanAirway {
             or_len: 8.3,
             dx_stable: (C_SOUND / fs) / 0.97,
             length_scale: 1.0,
+            nasal_leak: 0.0,
             noise_gain: NoiseGains { glottis: 3.2e-6, constriction: 2.2e-6, teeth: 3.0e-6 },
             max_area_rate: 45.0,
             area_rate_gain: 40.0,
@@ -277,7 +288,7 @@ impl HumanAirway {
         let or_sim = js_max(or_len * self.length_scale, self.n_or as f64 * self.dx_stable);
         self.net.set_tube_targets(self.pharynx, &self.ph_areas, Some(ph_sim), Some(&self.ph_min));
         self.net.set_tube_targets(self.oral, &self.or_areas, Some(or_sim), Some(&self.or_min));
-        self.net.set_port_target(self.velum_port, f.velum_port);
+        self.net.set_port_target(self.velum_port, f.velum_port + js_max(0.0, self.nasal_leak) * self.body.scale * self.body.scale);
         self.update_noise(&f);
         self.frame = Some(f);
         self.frame.as_ref().unwrap()

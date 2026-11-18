@@ -66,6 +66,7 @@ const VIBRATO_RATE: usize = 26;
 const GLIDE: usize = 27;
 const TRACT: usize = 28;
 const PRESENCE: usize = 29;
+const NASAL: usize = 30;
 
 const SPEECH: usize = 0;
 const VOICE: usize = 2;
@@ -388,6 +389,15 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
             key: "presence",
             kind: ParamKind::Number { min: -12.0, max: 18.0, default: 0.0, step: 0.1, scale: Scale::Lin },
             unit: "dB", label_en: "Presence (singer's formant)", label_fr: "Présence (formant du chanteur)",
+            modulatable: true, smooth: true,
+        },
+        // `voice` and `lyrics` modes: a velopharyngeal port (cm²) left open under the velum's own gestures, for a
+        // singer who sings a little through the nose (0 = none; 0.1-0.3 a nasal voice, 0.5 a nasal vowel). The nose
+        // adds a low pole (~250-300 Hz) and the sinuses' zero (~440 Hz) dents the band above it.
+        ParamDef {
+            key: "nasal",
+            kind: ParamKind::Number { min: 0.0, max: 0.6, default: 0.0, step: 0.01, scale: Scale::Lin },
+            unit: "cm²", label_en: "Nasality", label_fr: "Nasalité",
             modulatable: true, smooth: true,
         },
     ],
@@ -1101,6 +1111,7 @@ impl Node for ChimeraNode {
                 patch.vibrato_rate = Some(at(VIBRATO_RATE, 5.5).clamp(2.0, 10.0));
                 patch.glide = Some(at(GLIDE, 0.06).clamp(0.002, 0.3));
                 self.engine.voice_mut().airway.length_scale = at(TRACT, 1.0).clamp(0.7, 1.4);
+                self.engine.voice_mut().airway.nasal_leak = at(NASAL, 0.0).clamp(0.0, 0.6);
             }
             self.engine.set_source(&patch);
             if self.mode == VOICE {
@@ -1433,6 +1444,47 @@ mod tests {
         let (hb, hl, hp) = (harmonics(&base), harmonics(&long), harmonics(&present));
         assert!(f2(&hl) < 0.95 * f2(&hb), "F2: long tract {} vs {}", f2(&hl), f2(&hb));
         assert!(share(&hp) > share(&hb) + 6.0, "2.5-4.5 kHz share: presence {} vs {}", share(&hp), share(&hb));
+    }
+
+    #[test]
+    fn nasality_moves_a_held_schwa_from_its_f1_band_to_the_noses_low_pole() {
+        // a held /ə/ at 130 Hz, oral then with 0.3 cm² of velopharyngeal port: the 400-650 Hz harmonics (F1's band)
+        // lose their share to the 200-330 Hz ones (the nose's pole)
+        let mut params = [0.0; 31];
+        params[..17].copy_from_slice(&[2.0, 0.0, 130.0, 9.0, 1.0, 0.0, 0.0, 100.0, 1.0, 0.05, 0.5, 0.0, 0.0, 0.14, 0.0, 1.0, 1.0]);
+        params[VOICING] = 1.0;
+        params[FRIC_PLACE] = 1.0;
+        params[BRIGHTNESS] = 0.25;
+        params[VIBRATO_RATE] = 5.5;
+        params[GLIDE] = 0.06;
+        params[TRACT] = 1.0;
+        let mut texts: [Option<String>; 31] = Default::default();
+        texts[TEXT] = Some("ə".into());
+        let share = |y: &[f64], lo: f64, hi: f64| -> f64 {
+            let y = &y[24_000..];
+            let e: Vec<(f64, f64)> = (1..16)
+                .map(|h| {
+                    let f = 130.0 * h as f64;
+                    let (mut re, mut im) = (0.0, 0.0);
+                    for (i, x) in y.iter().enumerate() {
+                        let ph = core::f64::consts::TAU * f * i as f64 / 48_000.0;
+                        re += x * ph.cos();
+                        im += x * ph.sin();
+                    }
+                    (f, re * re + im * im)
+                })
+                .collect();
+            let band: f64 = e.iter().filter(|(f, _)| (lo..hi).contains(f)).map(|(_, p)| p).sum();
+            10.0 * (band / e.iter().map(|(_, p)| p).sum::<f64>()).log10()
+        };
+        let oral = run(&init(&params, &texts), 48_000);
+        params[NASAL] = 0.3;
+        let nasal = run(&init(&params, &texts), 48_000);
+        assert!(oral.iter().chain(&nasal).all(|x| x.is_finite() && x.abs() <= 1.5));
+        let (f1_oral, f1_nasal) = (share(&oral, 400.0, 650.0), share(&nasal, 400.0, 650.0));
+        let (low_oral, low_nasal) = (share(&oral, 200.0, 330.0), share(&nasal, 200.0, 330.0));
+        assert!(f1_nasal < f1_oral - 2.0, "400-650 Hz share: nasal {f1_nasal:.1} dB vs oral {f1_oral:.1} dB");
+        assert!(low_nasal > low_oral + 2.0, "200-330 Hz share: nasal {low_nasal:.1} dB vs oral {low_oral:.1} dB");
     }
 
     #[test]
