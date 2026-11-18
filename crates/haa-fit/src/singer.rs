@@ -130,7 +130,7 @@ pub struct SingerOptions {
 
 impl Default for SingerOptions {
     fn default() -> Self {
-        SingerOptions { joint_evals: 200, vowel_evals: 50, per_vowel: 1, seed: 1, f_lo: 70.0, f_hi: 700.0 }
+        SingerOptions { joint_evals: 200, vowel_evals: 50, per_vowel: 2, seed: 1, f_lo: 70.0, f_hi: 700.0 }
     }
 }
 
