@@ -13,7 +13,8 @@
 //! - `fit`: the staged search (`Fitter`), stepped by the host;
 //! - `impact`: the struck-object template measured from a one-shot sample (modes, excitation);
 //! - `room`: the direct sound of a recording without its room (the world's reverb plays that);
-//! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note).
+//! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note);
+//! - `phonemes`: the diction judge (greedy CTC phones from a recogniser's logits, phoneme error rate).
 
 pub mod cmaes;
 pub mod eval;
@@ -23,6 +24,7 @@ pub mod impact;
 pub mod loss;
 pub mod mutate;
 pub mod params;
+pub mod phonemes;
 pub mod room;
 pub mod spectral;
 

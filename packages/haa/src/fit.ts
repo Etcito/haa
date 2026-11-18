@@ -349,3 +349,50 @@ export function createSpectralJudge(module: WebAssembly.Module, target: Float32A
     },
   };
 }
+
+/** What a CTC phoneme recogniser heard: [phone, first frame, end frame (exclusive)]. */
+export type HeardPhone = [string, number, number];
+
+/** The diction judge's verdict on a render against its stem. */
+export interface PhoneErrorRate {
+  reference: HeardPhone[];
+  hypothesis: HeardPhone[];
+  /** (substitutions + deletions + insertions) / reference phones, length and stress marks ignored */
+  per: { per: number; substitutions: number; deletions: number; insertions: number; reference: number };
+}
+
+interface PhoneExports {
+  memory: WebAssembly.Memory;
+  haa_alloc(len: number): number;
+  haa_free(ptr: number, len: number): void;
+  haa_result_ptr(): number;
+  haa_fit_alloc_f32(frames: number): number;
+  haa_fit_free_f32(ptr: number, frames: number): void;
+  haa_phone_per(refPtr: number, refLen: number, hypPtr: number, hypLen: number, vocabPtr: number, vocabLen: number): number;
+}
+
+/**
+ * Phoneme error rate of a render against its stem from a CTC phoneme recogniser's logits (flat rows of the
+ * vocabulary's size, e.g. wav2vec2-xlsr-53-espeak run in onnxruntime) and its `vocab.json` text; decoding and the
+ * edit distance run in Rust (haa-fit `phonemes`).
+ */
+export function phoneErrorRate(module: WebAssembly.Module, vocabJson: string, stemLogits: Float32Array, renderLogits: Float32Array): PhoneErrorRate {
+  const e = new WebAssembly.Instance(module, {}).exports as unknown as PhoneExports;
+  const put = (x: Float32Array) => {
+    const ptr = e.haa_fit_alloc_f32(x.length);
+    if (x.length > 0) new Float32Array(e.memory.buffer, ptr, x.length).set(x);
+    return ptr;
+  };
+  const bytes = encodeUtf8(vocabJson);
+  const a = put(stemLogits), b = put(renderLogits), v = e.haa_alloc(bytes.length);
+  try {
+    new Uint8Array(e.memory.buffer, v, bytes.length).set(bytes);
+    const len = e.haa_phone_per(a, stemLogits.length, b, renderLogits.length, v, bytes.length);
+    if (len === 0) throw new Error('[haa] diction judge: the vocabulary is not a {"token": id} object');
+    return JSON.parse(decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len))) as PhoneErrorRate;
+  } finally {
+    e.haa_fit_free_f32(a, stemLogits.length);
+    e.haa_fit_free_f32(b, renderLogits.length);
+    e.haa_free(v, bytes.length);
+  }
+}

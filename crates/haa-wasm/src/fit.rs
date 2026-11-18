@@ -21,10 +21,15 @@
 //! - `haa_spec_target(pcm_ptr, frames, sample_rate, notes_ptr, notes_len) -> i32`: analyses a stem
 //!   and its notes (`[{"start","end","midi"}]`) once for the spectral judge (1 ok, 0 error);
 //! - `haa_spec_score(pcm_ptr, frames) -> u32`: spectral terms of a render against that stem, JSON
-//!   length (0 without a target); `haa_spec_free()` drops the target.
+//!   length (0 without a target); `haa_spec_free()` drops the target;
+//! - `haa_phone_per(ref_ptr, ref_len, hyp_ptr, hyp_len, vocab_ptr, vocab_len) -> u32`: the diction judge. Two CTC
+//!   phoneme recognisers' logits (flat f32 rows of the vocabulary's size, the stem's first) and the recogniser's
+//!   `vocab.json`: `{"reference": [[phone, start, end], ...], "hypothesis": [...], "per": {...}}` (frames, end
+//!   exclusive), JSON length (0 when the vocabulary is not a `{"token": id}` object).
 
 use std::sync::Mutex;
 
+use haa_fit::phonemes::{Phone, ctc_greedy, parse_vocab, phone_error_rate, tokens};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
 
@@ -223,4 +228,18 @@ pub extern "C" fn haa_spec_score(pcm_ptr: MemPtr, frames: u32) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_spec_free() {
     with_spec(|spec| *spec = None);
+}
+
+/// The diction judge: the phones a CTC recogniser heard in a stem and in a render (greedy decoding of their logits,
+/// blank `<pad>` = 0) and the render's phoneme error rate against the stem (haa-fit `phonemes`). JSON length, 0 when
+/// the vocabulary is not a `{"token": id}` object.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_phone_per(ref_ptr: MemPtr, ref_len: u32, hyp_ptr: MemPtr, hyp_len: u32, vocab_ptr: MemPtr, vocab_len: u32) -> u32 {
+    // SAFETY: host buffers per the ABI.
+    let (reference, hyp, vocab) = unsafe { (f32_at(ref_ptr, ref_len), f32_at(hyp_ptr, hyp_len), bytes_at(vocab_ptr, vocab_len)) };
+    let Some(vocab) = std::str::from_utf8(vocab).ok().and_then(parse_vocab) else { return 0 };
+    let (r, h) = (ctc_greedy(reference, &vocab, 0), ctc_greedy(hyp, &vocab, 0));
+    let list = |p: &[Phone]| p.iter().map(|x| serde_json::json!([x.token, x.start, x.end])).collect::<Vec<_>>();
+    let per = phone_error_rate(&tokens(&r), &tokens(&h)).to_json();
+    set_len(serde_json::json!({ "reference": list(&r), "hypothesis": list(&h), "per": per }).to_string())
 }
