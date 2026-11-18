@@ -31,12 +31,16 @@
 //!   length (0 on a bad vocabulary or request).
 //! - `haa_artic_curves(ema_ptr, ema_len, req_ptr, req_len) -> u32`: a phrase's articulator curves for the chimera
 //!   `articulate` mode from SPARC's EMA (flat f32 rows of 12 at 50 Hz), with no text, JSON length (0 on a bad request).
+//! - `haa_singer_start(pcm_ptr, frames, sample_rate, req_ptr, req_len) -> i32`, `haa_singer_step(n) -> i32`,
+//!   `haa_singer_result() -> u32`: the singer's own vowels and timbre (haa-fit `singer`), the chimera habit inputs
+//!   fitted on a stem's vowel nuclei, stepped like the graph fit.
 
 use std::sync::Mutex;
 
 use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p};
 use haa_fit::articulatory::{ARTIC_INPUTS, artic_curves};
 use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, render_lead, tokens};
+use haa_fit::singer::{SingerFitter, singer_from_request};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
 
@@ -383,4 +387,57 @@ pub extern "C" fn haa_artic_curves(ema_ptr: MemPtr, ema_len: u32, req_ptr: MemPt
         "points": c.keys.iter().map(Vec::len).sum::<usize>(),
     });
     set_len(out.to_string())
+}
+
+static SINGER: Mutex<Option<SingerFitter>> = Mutex::new(None);
+
+fn with_singer<R>(f: impl FnOnce(&mut Option<SingerFitter>) -> R) -> R {
+    let mut s = SINGER.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    f(&mut s)
+}
+
+/// Starts the singer fit (haa-fit `singer`, replacing any previous one) of a mono stem (`pcm_ptr`, `frames` from
+/// `haa_fit_alloc_f32`, copied) and a JSON request (see `singer_from_request`). 1 started (result: `{"done",
+/// "total"}` renders), 0 error (`{"error"}`).
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_singer_start(pcm_ptr: MemPtr, frames: u32, sample_rate: f64, req_ptr: MemPtr, req_len: u32) -> i32 {
+    // SAFETY: host buffers per the ABI.
+    let (pcm, req) = unsafe { (f32_at(pcm_ptr, frames), bytes_at(req_ptr, req_len)) };
+    let Ok(req) = serde_json::from_slice::<Value>(req) else { return error("request is not JSON") };
+    match singer_from_request(pcm, sample_rate, &req) {
+        Ok(f) => {
+            let (done, total) = f.progress();
+            with_singer(|s| *s = Some(f));
+            set_result(serde_json::json!({ "done": done, "total": total }).to_string());
+            1
+        }
+        Err(reason) => {
+            with_singer(|s| *s = None);
+            error(&reason)
+        }
+    }
+}
+
+/// Runs at most `n` nucleus renders of the singer fit: 1 running, 0 done, -1 no fit; result `{"done", "total"}`.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_singer_step(n: u32) -> i32 {
+    with_singer(|s| match s.as_mut() {
+        None => -1,
+        Some(f) => {
+            let running = f.step(n as usize);
+            let (done, total) = f.progress();
+            set_result(serde_json::json!({ "done": done, "total": total }).to_string());
+            i32::from(running)
+        }
+    })
+}
+
+/// The singer fit's result JSON (statics, per-vowel values, losses, per-nucleus band residuals) into the result, its
+/// length; 0 without a fit. Drops the fit.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_singer_result() -> u32 {
+    with_singer(|s| match s.take() {
+        None => 0,
+        Some(mut f) => set_len(f.result().to_string()),
+    })
 }

@@ -535,3 +535,86 @@ export function articCurves(module: WebAssembly.Module, ema: Float32Array, reque
     e.haa_free(r, req.length);
   }
 }
+
+/** The singer fit's exports of `haa.wasm`. */
+interface SingerExports {
+  memory: WebAssembly.Memory;
+  haa_alloc(len: number): number;
+  haa_free(ptr: number, len: number): void;
+  haa_result_ptr(): number;
+  haa_result_len(): number;
+  haa_fit_alloc_f32(frames: number): number;
+  haa_fit_free_f32(ptr: number, frames: number): void;
+  haa_singer_start(pcmPtr: number, frames: number, sampleRate: number, reqPtr: number, reqLen: number): number;
+  haa_singer_step(n: number): number;
+  haa_singer_result(): number;
+}
+
+/** What {@link singerFit} fits a voice on (seconds on the stem's clock, which is the patch's). */
+export interface SingerRequest {
+  /** the voice's chimera params (female, pressure, tension, breath, brightness, presence, tract, glide, ...) */
+  base: Record<string, number | string>;
+  /** per phrase, its phones timed on the stem ([ipa, start]) and its end: the vowels' nuclei are cut from them */
+  phrases?: { phones: [string, number][]; end: number }[];
+  /** or the nuclei themselves */
+  nuclei?: { ipa: string; start: number; end: number; params?: Record<string, number> }[];
+  /** what the phrase curves play per frame (each nucleus takes their values at its middle) */
+  timbre?: { hop: number; values: Record<string, ArrayLike<number>> };
+  /** evaluations of the joint stage (each renders every nucleus) and per vowel; nuclei per vowel; seed; f0 range */
+  jointEvals?: number;
+  vowelEvals?: number;
+  perVowel?: number;
+  seed?: number;
+  fLo?: number;
+  fHi?: number;
+}
+
+/** The singer fit (see {@link singerFit}). */
+export interface SingerFit {
+  /** each habit input's static value (node units) */
+  statics: Record<string, number>;
+  /** per vowel (IPA) that keeps its own values, those of `vowelKeys` */
+  vowels: Record<string, Record<string, number>>;
+  vowelKeys: string[];
+  /** mean nucleus loss (rms band dB + 0.3 x rms harmonicity dB): inputs at their defaults, after the joint stage, final */
+  loss: { start: number; joint: number; final: number };
+  /** per nucleus kept, render minus stem per report band (dB), the inputs at their defaults and fitted */
+  nuclei: { ipa: string; start: number; end: number; before: number[]; after: number[] }[];
+  reportEdges: number[];
+  renders: number;
+}
+
+/**
+ * The singer's own vowels and timbre: the chimera voice's habit inputs (articulator offsets, velum, the folds' pulse,
+ * walls, side chambers, aspiration) fitted by CMA-ES on the stem's vowel nuclei, each rendered by the chimera node in
+ * `lyrics` mode on the stem's f0 (haa-fit `singer`): one static value per input, then per vowel quality its own
+ * articulator values where they help. Runs to the end; `onProgress(done, total)` between steps of `step` renders.
+ * Throws when no nucleus is usable.
+ */
+export function singerFit(module: WebAssembly.Module, pcm: Float32Array, sampleRate: number, request: SingerRequest, onProgress?: (done: number, total: number) => void, step = 25): SingerFit {
+  const e = new WebAssembly.Instance(module, {}).exports as unknown as SingerExports;
+  const timbre = request.timbre && { hop: request.timbre.hop, values: Object.fromEntries(Object.entries(request.timbre.values).map(([k, v]) => [k, Array.from(v)])) };
+  const req = encodeUtf8(JSON.stringify({ ...request, timbre }));
+  const a = e.haa_fit_alloc_f32(pcm.length);
+  if (pcm.length > 0) new Float32Array(e.memory.buffer, a, pcm.length).set(pcm);
+  const r = e.haa_alloc(req.length);
+  const text = (len: number) => decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len));
+  try {
+    new Uint8Array(e.memory.buffer, r, req.length).set(req);
+    if (e.haa_singer_start(a, pcm.length, sampleRate, r, req.length) !== 1) {
+      throw new Error(`[haa] singer fit: ${(JSON.parse(text(e.haa_result_len())) as { error?: string }).error ?? "bad request"}`);
+    }
+    for (;;) {
+      const running = e.haa_singer_step(step);
+      const p = JSON.parse(text(e.haa_result_len())) as { done: number; total: number };
+      onProgress?.(p.done, p.total);
+      if (running !== 1) break;
+    }
+    const len = e.haa_singer_result();
+    if (len === 0) throw new Error("[haa] singer fit: no result");
+    return JSON.parse(text(len)) as SingerFit;
+  } finally {
+    e.haa_fit_free_f32(a, pcm.length);
+    e.haa_free(r, req.length);
+  }
+}

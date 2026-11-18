@@ -28,6 +28,7 @@ pub mod mutate;
 pub mod params;
 pub mod phonemes;
 pub mod room;
+pub mod singer;
 pub mod spectral;
 
 pub use fit::{FitOptions, Fitter, fit};
