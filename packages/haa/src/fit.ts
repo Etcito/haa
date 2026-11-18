@@ -433,9 +433,35 @@ export interface PhoneAlignment {
  * disagree the audio wins (a phone substituted, dropped or inserted). All in Rust (haa-fit `phonemes::align_lyrics`).
  */
 export function phoneAlign(module: WebAssembly.Module, vocabJson: string, logits: Float32Array, words: string, frame = 0.02, offset = 0): PhoneAlignment {
+  return phoneCall(module, vocabJson, logits, { words, frame, offset }) as PhoneAlignment;
+}
+
+/** A render's phones against the stem's (see {@link renderLead}). */
+export interface RenderLead {
+  /** the phones force-aligned on the render: [phone, start s, end s] (-1 where none could be placed) */
+  written: [string, number, number][];
+  /** how much earlier (s) to play the line so the render says its phones when the stem does */
+  lead: number;
+  /** mean |render - stem| start (s) of the phones the render is heard saying as written, and how many */
+  lag: number;
+  heard: number;
+  /** the mean lag over every phone, one the render is not heard saying counted 0.12 s (lower is better) */
+  score: number;
+}
+
+/**
+ * How much earlier a line must be played: a render of phones the stem says at `phones` ([ipa, start s]) heard by the
+ * same recogniser (its logits, `frame` s per row, row 0 at `offset` s), the median lag added to `lead` (the seconds
+ * the line is played early so far). In Rust (haa-fit `phonemes::render_lead`).
+ */
+export function renderLead(module: WebAssembly.Module, vocabJson: string, logits: Float32Array, phones: [string, number][], lead: number, frame = 0.02, offset = 0): RenderLead {
+  return phoneCall(module, vocabJson, logits, { phones, lead, frame, offset }) as RenderLead;
+}
+
+function phoneCall(module: WebAssembly.Module, vocabJson: string, logits: Float32Array, request: object): unknown {
   const e = new WebAssembly.Instance(module, {}).exports as unknown as PhoneExports;
   const vocab = encodeUtf8(vocabJson);
-  const req = encodeUtf8(JSON.stringify({ words, frame, offset }));
+  const req = encodeUtf8(JSON.stringify(request));
   const a = e.haa_fit_alloc_f32(logits.length);
   if (logits.length > 0) new Float32Array(e.memory.buffer, a, logits.length).set(logits);
   const v = e.haa_alloc(vocab.length), r = e.haa_alloc(req.length);
@@ -444,7 +470,7 @@ export function phoneAlign(module: WebAssembly.Module, vocabJson: string, logits
     new Uint8Array(e.memory.buffer, r, req.length).set(req);
     const len = e.haa_phone_align(a, logits.length, v, vocab.length, r, req.length);
     if (len === 0) throw new Error('[haa] phone alignment: the vocabulary is not a {"token": id} object or the request has no words');
-    return JSON.parse(decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len))) as PhoneAlignment;
+    return JSON.parse(decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len)));
   } finally {
     e.haa_fit_free_f32(a, logits.length);
     e.haa_free(v, vocab.length);

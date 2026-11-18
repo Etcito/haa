@@ -8,8 +8,8 @@
 //! `"vowel"` (1 in a held sound: a vowel, a nasal, a lateral).
 //!
 //! `haa_lyrics_fit(ptr, len)`: the start and rate input that make each line say its sounds when the audio does.
-//! Request `{"text", "language", "female", "child", "lines": [{"phones": [[ipa, start s], ...], "end"}], "maxPoints"}`
-//! (one entry per text line, its phones as written in the text); result `{"lines": [{"start", "rate": [[seconds,
+//! Request `{"text", "language", "female", "child", "lines": [{"phones": [[ipa, start s, lead s?], ...], "end"}],
+//! "maxPoints"}` (one entry per text line, its phones as written in the text, each played `lead` s early); result `{"lines": [{"start", "rate": [[seconds,
 //! rate], ...]}], "error": mean |planned - wanted| start of the sounds (s) with that rate, "worst"}` (haa-core
 //! `lyric_rate_fit`, checked with the node's own clock).
 
@@ -141,7 +141,11 @@ fn fit_json(v: &Value) -> Option<String> {
         let phones: Vec<(String, f64)> = w
             .get("phones")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|p| Some((p.get(0)?.as_str()?.to_string(), p.get(1)?.as_f64()?))).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|p| Some((p.get(0)?.as_str()?.to_string(), p.get(1)?.as_f64()? - p.get(2).and_then(Value::as_f64).unwrap_or(0.0))))
+                    .collect()
+            })
             .unwrap_or_default();
         let end = w.get("end").and_then(Value::as_f64).unwrap_or_else(|| phones.last().map_or(line.start, |p| p.1 + 0.2));
         fits.push(lyric_rate_fit(line, &phones, end, max_points));

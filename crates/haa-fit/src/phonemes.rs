@@ -269,14 +269,16 @@ pub enum Origin {
 }
 
 /// One phone of a line as the audio says it: its token (what the voice will say), the recogniser id it is aligned
-/// with, the word of the text it belongs to, where it came from, and its frames (start, end exclusive: up to the
-/// next phone's start, the last one up to its own last frame).
+/// with, the word of the text it belongs to, where it came from (`source`: the index of the text's phone it stands
+/// for, none when inserted), and its frames (start, end exclusive: up to the next phone's start, the last one up to
+/// its own last frame).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AlignedPhone {
     pub token: String,
     pub id: usize,
     pub word: usize,
     pub origin: Origin,
+    pub source: Option<usize>,
     pub start: usize,
     pub end: usize,
 }
@@ -397,7 +399,7 @@ pub fn align_lyrics(logits: &[f32], vocab: &[String], g2p: &[(String, usize)], b
                     Some(t) => (t.clone(), Origin::Substituted(gt.clone())),
                     None => (gt.clone(), Origin::Kept),
                 };
-                seq.push(AlignedPhone { token, id: heard[hj].id, word, origin, start: heard[hj].start, end: heard[hj].end });
+                seq.push(AlignedPhone { token, id: heard[hj].id, word, origin, source: Some(gi), start: heard[hj].start, end: heard[hj].end });
             }
             (Some(gi), None) => dropped.push((g2p[gi].0.clone(), g2p[gi].1)),
             (None, Some(hj)) => {
@@ -414,7 +416,7 @@ pub fn align_lyrics(logits: &[f32], vocab: &[String], g2p: &[(String, usize)], b
                     (None, Some((b, _))) => b,
                     (None, None) => 0,
                 };
-                seq.push(AlignedPhone { token: t.clone(), id: h.id, word, origin: Origin::Inserted, start: h.start, end: h.end });
+                seq.push(AlignedPhone { token: t.clone(), id: h.id, word, origin: Origin::Inserted, source: None, start: h.start, end: h.end });
             }
             (None, None) => {}
         }
@@ -430,6 +432,24 @@ pub fn align_lyrics(logits: &[f32], vocab: &[String], g2p: &[(String, usize)], b
         seq[k].end = seq[k + 1].start.max(seq[k].start + 1);
     }
     LyricAlignment { phones: seq, dropped, heard, written }
+}
+
+/// How much earlier a line's phones must be played so a render says them when the stem does: the recogniser hears
+/// the render's phones (`render`, seconds, None where it does not hear that phone) late or early against the stem's
+/// (`stem`, the same phones, the same recogniser, so its own delay cancels). The voice's articulation lags its plan
+/// by about the same everywhere, and a phone the fit itself moved (a consonant run placed by its pace) lags on
+/// purpose: the median lag is added to the line's current `lead`, held within +-`max`. Returns the new lead and the
+/// mean |lag| (s) over the heard phones.
+pub fn render_lead(stem: &[f64], render: &[Option<f64>], lead: f64, max: f64) -> (f64, f64) {
+    let mut lag: Vec<f64> = stem.iter().zip(render).filter_map(|(s, r)| r.map(|r| r - s)).collect();
+    if lag.is_empty() {
+        return (lead, 0.0);
+    }
+    let mean = lag.iter().map(|x| x.abs()).sum::<f64>() / lag.len() as f64;
+    lag.sort_by(f64::total_cmp);
+    let h = lag.len();
+    let med = if h % 2 == 1 { lag[h / 2] } else { 0.5 * (lag[h / 2 - 1] + lag[h / 2]) };
+    ((lead + med).clamp(-max, max), mean)
 }
 
 #[cfg(test)]

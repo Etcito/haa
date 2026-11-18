@@ -33,7 +33,7 @@
 use std::sync::Mutex;
 
 use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p};
-use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, tokens};
+use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, render_lead, tokens};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
 
@@ -257,16 +257,51 @@ pub extern "C" fn haa_phone_per(ref_ptr: MemPtr, ref_len: u32, hyp_ptr: MemPtr, 
 /// [{"ipa", "word", "start", "end", "origin": "kept"|"substituted"|"inserted", "written"?}], "dropped": [{"ipa",
 /// "word"}], "heard": [[phone, start, end]], "written": [[phone, start, end]]}` in seconds (-1 where a written phone
 /// could not be placed).
+///
+/// With `"phones": [[ipa, stem start s], ...]` (a render of phones the stem says at those times) and `"lead"` (seconds
+/// the line is played early so far) in place of `words`: those phones force-aligned on the render's logits, and
+/// `{"written", "lead": the line's new lead, "lag": mean |render - stem| start (s) of the phones the render is heard saying
+/// as written, "heard": how many, "score": the mean lag with each other phone counted 0.12 s}` (haa-fit `render_lead`,
+/// leads within 0.12 s).
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr: MemPtr, vocab_len: u32, req_ptr: MemPtr, req_len: u32) -> u32 {
     // SAFETY: host buffers per the ABI.
     let (logits, vocab, req) = unsafe { (f32_at(logits_ptr, logits_len), bytes_at(vocab_ptr, vocab_len), bytes_at(req_ptr, req_len)) };
     let Some(vocab) = std::str::from_utf8(vocab).ok().and_then(parse_vocab) else { return 0 };
     let Some(req) = serde_json::from_slice::<Value>(req).ok() else { return 0 };
-    let Some(words) = req.get("words").and_then(Value::as_str) else { return 0 };
     let frame = req.get("frame").and_then(Value::as_f64).filter(|f| *f > 0.0).unwrap_or(0.02);
     let offset = req.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
     let sec = |f: usize| ((offset + f as f64 * frame) * 1000.0).round() / 1000.0;
+    if let Some(phones) = req.get("phones").and_then(Value::as_array) {
+        let given: Vec<(String, f64)> = phones.iter().filter_map(|p| Some((p.get(0)?.as_str()?.to_string(), p.get(1)?.as_f64()?))).collect();
+        let g2p: Vec<(String, usize)> = given.iter().map(|(p, _)| (p.clone(), 0)).collect();
+        let a = align_lyrics(logits, &vocab, &g2p, 0, ipa_sayable);
+        let lead = req.get("lead").and_then(Value::as_f64).unwrap_or(0.0);
+        // only the phones the render is heard saying as written time it (a phone it garbles has no time)
+        let mut at: Vec<Option<f64>> = vec![None; given.len()];
+        for p in &a.phones {
+            if let (Origin::Kept, Some(k)) = (&p.origin, p.source) {
+                at[k] = Some(offset + p.start as f64 * frame);
+            }
+        }
+        let stem: Vec<f64> = given.iter().map(|g| g.1).collect();
+        let (lead, lag) = render_lead(&stem, &at, lead, 0.12);
+        let written: Vec<Value> = given
+            .iter()
+            .zip(&a.written)
+            .map(|((p, _), s)| match s {
+                Some((s0, s1)) => serde_json::json!([p, sec(*s0), sec(*s1)]),
+                None => serde_json::json!([p, -1, -1]),
+            })
+            .collect();
+        let r = |x: f64| (x * 1e4).round() / 1e4;
+        let heard = at.iter().flatten().count();
+        // the render's score: its mean lag with a phone it garbles counted as the largest lead (0.12 s)
+        let score = (lag * heard as f64 + 0.12 * (given.len() - heard) as f64) / given.len().max(1) as f64;
+        let out = serde_json::json!({ "written": written, "lead": r(lead), "lag": r(lag), "heard": heard, "score": r(score) });
+        return set_len(out.to_string());
+    }
+    let Some(words) = req.get("words").and_then(Value::as_str) else { return 0 };
     let (g2p, said) = lyric_g2p(words);
     let a = align_lyrics(logits, &vocab, &g2p, 0, ipa_sayable);
     // the words as the voice will say them: each word's phones in order (a word the audio drops entirely is left out)

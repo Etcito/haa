@@ -1013,6 +1013,10 @@ pub fn lyric_rate_fit(line: &LyricLine, targets: &[(String, f64)], end: f64, max
             (None, None) => line.start,
         };
     }
+    // in order, each at least as long as a rate of 4 plays it
+    for k in 1..n {
+        start[k] = start[k].max(start[k - 1] + d[k - 1] / 4.0);
+    }
     let sounds = start.clone();
     // a run of other sounds (a rate cannot stretch them) with more time than planned plays at its planned pace,
     // placed where its sounds and the held sound after it start closest to the audio (the median of their wanted

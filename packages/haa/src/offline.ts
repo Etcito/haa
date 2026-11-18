@@ -176,8 +176,8 @@ export interface LyricsFitRequest {
   language?: 'english' | 'ipa';
   female?: number;
   child?: number;
-  /** per text line: [ipa, start s] of each phone in order, and when the last one ends */
-  lines: { phones: [string, number][]; end: number }[];
+  /** per text line: [ipa, start s, lead s] of each phone in order (played `lead` s early, default 0), and when the last one ends */
+  lines: { phones: ([string, number] | [string, number, number])[]; end: number }[];
   /** points per line's rate input at most (default 120) */
   maxPoints?: number;
 }
