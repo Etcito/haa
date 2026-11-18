@@ -168,3 +168,51 @@ export function lyricsTiming(module: WebAssembly.Module, request: LyricsTimingRe
     exports.haa_free(ptr, bytes.length);
   }
 }
+
+/** A `chimera` lyrics text and, per line, when the audio says each of its phones (as written in the text). */
+export interface LyricsFitRequest {
+  /** the node text: one line per phrase, `<seconds> words` (the seconds are replaced by the fitted start) */
+  text: string;
+  language?: 'english' | 'ipa';
+  female?: number;
+  child?: number;
+  /** per text line: [ipa, start s] of each phone in order, and when the last one ends */
+  lines: { phones: [string, number][]; end: number }[];
+  /** points per line's rate input at most (default 120) */
+  maxPoints?: number;
+}
+
+/** Per line its fitted start and rate input ([seconds, rate] steps), and how far the node's own clock then lands each sound from the audio. */
+export interface LyricsFit {
+  lines: { start: number; rate: [number, number][] }[];
+  /** mean and worst |planned - heard| start of the sounds (s) */
+  error: number;
+  worst: number;
+}
+
+/**
+ * The start and rate input that make each `lyrics` line say its sounds when the audio does: the node's plan fitted
+ * to the heard phone times and checked with its own clock, in Rust (`haa_lyrics_fit`).
+ */
+export function lyricsFit(module: WebAssembly.Module, request: LyricsFitRequest): LyricsFit {
+  const exports = new WebAssembly.Instance(module, {}).exports as unknown as {
+    memory: WebAssembly.Memory;
+    haa_alloc(len: number): number;
+    haa_free(ptr: number, len: number): void;
+    haa_result_ptr(): number;
+    haa_result_len(): number;
+    haa_lyrics_fit(ptr: number, len: number): number;
+  };
+  const bytes = encodeUtf8(JSON.stringify(request));
+  const ptr = exports.haa_alloc(bytes.length);
+  new Uint8Array(exports.memory.buffer, ptr, bytes.length).set(bytes);
+  try {
+    exports.haa_lyrics_fit(ptr, bytes.length);
+    const out = new Uint8Array(exports.memory.buffer, exports.haa_result_ptr(), exports.haa_result_len());
+    const json = JSON.parse(decodeUtf8(out)) as LyricsFit & { error?: number | string };
+    if (typeof json.error === 'string' || !json.lines) throw new Error(`[haa] lyrics fit: ${json.error ?? 'no lines'}`);
+    return json;
+  } finally {
+    exports.haa_free(ptr, bytes.length);
+  }
+}

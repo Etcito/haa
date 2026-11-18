@@ -14,7 +14,8 @@
 //! - `impact`: the struck-object template measured from a one-shot sample (modes, excitation);
 //! - `room`: the direct sound of a recording without its room (the world's reverb plays that);
 //! - `spectral`: the spectral judge of pitched instrument stems (spectra, harmonics and envelopes per note);
-//! - `phonemes`: the diction judge (greedy CTC phones from a recogniser's logits, phoneme error rate).
+//! - `phonemes`: the diction judge (greedy CTC phones from a recogniser's logits, phoneme error rate), and lyrics
+//!   timed on the audio (CTC forced alignment, the heard phones winning over the text's).
 
 pub mod cmaes;
 pub mod eval;

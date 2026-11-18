@@ -369,6 +369,7 @@ interface PhoneExports {
   haa_fit_alloc_f32(frames: number): number;
   haa_fit_free_f32(ptr: number, frames: number): void;
   haa_phone_per(refPtr: number, refLen: number, hypPtr: number, hypLen: number, vocabPtr: number, vocabLen: number): number;
+  haa_phone_align(logitsPtr: number, logitsLen: number, vocabPtr: number, vocabLen: number, reqPtr: number, reqLen: number): number;
 }
 
 /**
@@ -394,5 +395,59 @@ export function phoneErrorRate(module: WebAssembly.Module, vocabJson: string, st
     e.haa_fit_free_f32(a, stemLogits.length);
     e.haa_fit_free_f32(b, renderLogits.length);
     e.haa_free(v, bytes.length);
+  }
+}
+
+/** One phone of a line as the audio says it, in seconds. */
+export interface AlignedPhone {
+  /** what the voice says (IPA) */
+  ipa: string;
+  /** index of the text's word it belongs to */
+  word: number;
+  start: number;
+  /** up to the next phone's start */
+  end: number;
+  /** heard as written, heard as another phone (`written` is the text's), or heard where the text has none */
+  origin: 'kept' | 'substituted' | 'inserted';
+  written?: string;
+}
+
+/** A line's words timed on the audio by a CTC phoneme recogniser (see {@link phoneAlign}). */
+export interface PhoneAlignment {
+  /** IPA per word as the voice will say it (a word the audio drops entirely is left out) */
+  words: string[];
+  /** the text's words as the G2P read them */
+  said: string[];
+  phones: AlignedPhone[];
+  /** the text's phones the audio does not say */
+  dropped: { ipa: string; word: number }[];
+  /** what the recogniser heard (greedy), and the text's phones force-aligned as written: [phone, start s, end s] */
+  heard: [string, number, number][];
+  written: [string, number, number][];
+}
+
+/**
+ * A line's words timed on the audio: a CTC phoneme recogniser's logits of the line (flat rows of the vocabulary's
+ * size, `frame` seconds each, row 0 at `offset` s) and its `vocab.json` text. The words go through the lyrics voice's
+ * G2P, are force-aligned (Viterbi) on the posteriors and matched with what the recogniser heard; where the two
+ * disagree the audio wins (a phone substituted, dropped or inserted). All in Rust (haa-fit `phonemes::align_lyrics`).
+ */
+export function phoneAlign(module: WebAssembly.Module, vocabJson: string, logits: Float32Array, words: string, frame = 0.02, offset = 0): PhoneAlignment {
+  const e = new WebAssembly.Instance(module, {}).exports as unknown as PhoneExports;
+  const vocab = encodeUtf8(vocabJson);
+  const req = encodeUtf8(JSON.stringify({ words, frame, offset }));
+  const a = e.haa_fit_alloc_f32(logits.length);
+  if (logits.length > 0) new Float32Array(e.memory.buffer, a, logits.length).set(logits);
+  const v = e.haa_alloc(vocab.length), r = e.haa_alloc(req.length);
+  try {
+    new Uint8Array(e.memory.buffer, v, vocab.length).set(vocab);
+    new Uint8Array(e.memory.buffer, r, req.length).set(req);
+    const len = e.haa_phone_align(a, logits.length, v, vocab.length, r, req.length);
+    if (len === 0) throw new Error('[haa] phone alignment: the vocabulary is not a {"token": id} object or the request has no words');
+    return JSON.parse(decodeUtf8(new Uint8Array(e.memory.buffer, e.haa_result_ptr(), len))) as PhoneAlignment;
+  } finally {
+    e.haa_fit_free_f32(a, logits.length);
+    e.haa_free(v, vocab.length);
+    e.haa_free(r, req.length);
   }
 }

@@ -26,10 +26,14 @@
 //!   phoneme recognisers' logits (flat f32 rows of the vocabulary's size, the stem's first) and the recogniser's
 //!   `vocab.json`: `{"reference": [[phone, start, end], ...], "hypothesis": [...], "per": {...}}` (frames, end
 //!   exclusive), JSON length (0 when the vocabulary is not a `{"token": id}` object).
+//! - `haa_phone_align(logits_ptr, logits_len, vocab_ptr, vocab_len, req_ptr, req_len) -> u32`: a line's English
+//!   words timed on its audio from the recogniser's logits (G2P, forced alignment, the heard phones winning), JSON
+//!   length (0 on a bad vocabulary or request).
 
 use std::sync::Mutex;
 
-use haa_fit::phonemes::{Phone, ctc_greedy, parse_vocab, phone_error_rate, tokens};
+use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p};
+use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, tokens};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
 
@@ -242,4 +246,68 @@ pub extern "C" fn haa_phone_per(ref_ptr: MemPtr, ref_len: u32, hyp_ptr: MemPtr, 
     let list = |p: &[Phone]| p.iter().map(|x| serde_json::json!([x.token, x.start, x.end])).collect::<Vec<_>>();
     let per = phone_error_rate(&tokens(&r), &tokens(&h)).to_json();
     set_len(serde_json::json!({ "reference": list(&r), "hypothesis": list(&h), "per": per }).to_string())
+}
+
+/// The lyrics timed on the audio: a CTC phoneme recogniser's logits of one sung or spoken line (flat f32 rows of the
+/// vocabulary's size), its `vocab.json`, and a request `{"words": "english words", "frame": seconds per logits row
+/// (0.02), "offset": seconds of row 0}`. The words go through the lyrics voice's G2P, are force-aligned on the
+/// posteriors and matched with what the recogniser heard, the audio deciding each phone (haa-fit
+/// `phonemes::align_lyrics`, phones the chimera voice can say). JSON length, 0 when the vocabulary or the request is
+/// not valid. The result: `{"words": [IPA per word as the voice will say it], "said": [english words], "phones":
+/// [{"ipa", "word", "start", "end", "origin": "kept"|"substituted"|"inserted", "written"?}], "dropped": [{"ipa",
+/// "word"}], "heard": [[phone, start, end]], "written": [[phone, start, end]]}` in seconds (-1 where a written phone
+/// could not be placed).
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr: MemPtr, vocab_len: u32, req_ptr: MemPtr, req_len: u32) -> u32 {
+    // SAFETY: host buffers per the ABI.
+    let (logits, vocab, req) = unsafe { (f32_at(logits_ptr, logits_len), bytes_at(vocab_ptr, vocab_len), bytes_at(req_ptr, req_len)) };
+    let Some(vocab) = std::str::from_utf8(vocab).ok().and_then(parse_vocab) else { return 0 };
+    let Some(req) = serde_json::from_slice::<Value>(req).ok() else { return 0 };
+    let Some(words) = req.get("words").and_then(Value::as_str) else { return 0 };
+    let frame = req.get("frame").and_then(Value::as_f64).filter(|f| *f > 0.0).unwrap_or(0.02);
+    let offset = req.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
+    let sec = |f: usize| ((offset + f as f64 * frame) * 1000.0).round() / 1000.0;
+    let (g2p, said) = lyric_g2p(words);
+    let a = align_lyrics(logits, &vocab, &g2p, 0, ipa_sayable);
+    // the words as the voice will say them: each word's phones in order (a word the audio drops entirely is left out)
+    let mut by_word: Vec<(usize, String)> = Vec::new();
+    for p in &a.phones {
+        match by_word.last_mut() {
+            Some((w, text)) if *w == p.word => text.push_str(&p.token),
+            _ => by_word.push((p.word, p.token.clone())),
+        }
+    }
+    let phones: Vec<Value> = a
+        .phones
+        .iter()
+        .map(|p| {
+            let (origin, written) = match &p.origin {
+                Origin::Kept => ("kept", None),
+                Origin::Substituted(w) => ("substituted", Some(w.clone())),
+                Origin::Inserted => ("inserted", None),
+            };
+            let mut o = serde_json::json!({ "ipa": p.token, "word": p.word, "start": sec(p.start), "end": sec(p.end), "origin": origin });
+            if let Some(w) = written {
+                o["written"] = Value::String(w);
+            }
+            o
+        })
+        .collect();
+    let heard: Vec<Value> = a.heard.iter().map(|h: &Phone| serde_json::json!([h.token, sec(h.start), sec(h.end)])).collect();
+    let written: Vec<Value> = g2p
+        .iter()
+        .zip(&a.written)
+        .map(|((p, _), s)| match s {
+            Some((s0, s1)) => serde_json::json!([p, sec(*s0), sec(*s1)]),
+            None => serde_json::json!([p, -1, -1]),
+        })
+        .collect();
+    let dropped: Vec<Value> = a.dropped.iter().map(|(p, w)| serde_json::json!({ "ipa": p, "word": w })).collect();
+    set_len(
+        serde_json::json!({
+            "words": by_word.into_iter().map(|(_, t)| t).collect::<Vec<_>>(), "said": said, "phones": phones,
+            "dropped": dropped, "heard": heard, "written": written,
+        })
+        .to_string(),
+    )
 }

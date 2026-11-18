@@ -6,8 +6,14 @@
 //! "start", "end"}]}]}` in patch seconds, the node's own plan (G2P, durations, vowel-stretching rate) integrated in
 //! Rust; with `hop` and `seconds`, also `"tau"` (per frame, the playing line's score time, -1 where none plays) and
 //! `"vowel"` (1 in a held sound: a vowel, a nasal, a lateral).
+//!
+//! `haa_lyrics_fit(ptr, len)`: the start and rate input that make each line say its sounds when the audio does.
+//! Request `{"text", "language", "female", "child", "lines": [{"phones": [[ipa, start s], ...], "end"}], "maxPoints"}`
+//! (one entry per text line, its phones as written in the text); result `{"lines": [{"start", "rate": [[seconds,
+//! rate], ...]}], "error": mean |planned - wanted| start of the sounds (s) with that rate, "worst"}` (haa-core
+//! `lyric_rate_fit`, checked with the node's own clock).
 
-use haa_core::nodes::chimera::{lyric_held, lyric_speed, lyrics_phone_timing, lyrics_timing, plan_lyrics, LyricLine, LYRIC_LEAD};
+use haa_core::nodes::chimera::{lyric_held, lyric_rate_fit, lyric_speed, lyrics_phone_timing, lyrics_timing, plan_lyrics, LyricLine, LYRIC_LEAD};
 use serde_json::Value;
 
 use crate::{set_result, MemPtr};
@@ -120,6 +126,64 @@ pub extern "C" fn haa_lyrics_timing(ptr: MemPtr, len: u32) -> u32 {
         Some(req) => timing_json(&req),
         None => serde_json::json!({ "error": "expected {text, language?, female?, child?, rate?}" }).to_string(),
     };
+    let n = json.len() as u32;
+    set_result(json);
+    n
+}
+
+fn fit_json(v: &Value) -> Option<String> {
+    let req = request(v)?;
+    let mut lines = plan_lyrics(&req.text, req.ipa, req.female, req.child, 120.0);
+    let wanted = v.get("lines")?.as_array()?;
+    let max_points = v.get("maxPoints").and_then(Value::as_u64).unwrap_or(120) as usize;
+    let mut fits = Vec::new();
+    for (line, w) in lines.iter().zip(wanted) {
+        let phones: Vec<(String, f64)> = w
+            .get("phones")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(|p| Some((p.get(0)?.as_str()?.to_string(), p.get(1)?.as_f64()?))).collect())
+            .unwrap_or_default();
+        let end = w.get("end").and_then(Value::as_f64).unwrap_or_else(|| phones.last().map_or(line.start, |p| p.1 + 0.2));
+        fits.push(lyric_rate_fit(line, &phones, end, max_points));
+    }
+    // the check: the lines at their fitted starts, played at the fitted rate by the node's clock
+    for (line, f) in lines.iter_mut().zip(&fits) {
+        line.start = f.start;
+    }
+    let mut all: Vec<[f64; 2]> = fits.iter().flat_map(|f| f.rate.iter().copied()).collect();
+    all.sort_by(|a, b| a[0].total_cmp(&b[0]));
+    let timed = lyrics_phone_timing(&lines, |t| rate_at(&all, t));
+    let (mut err, mut n, mut worst) = (0.0, 0usize, 0.0f64);
+    for (phones, f) in timed.iter().zip(&fits) {
+        for ((_, a, _), want) in phones.iter().zip(&f.sounds) {
+            if a.is_finite() && want.is_finite() {
+                let e = (a - want).abs();
+                err += e;
+                worst = worst.max(e);
+                n += 1;
+            }
+        }
+    }
+    let r = |x: f64| (x * 1e4).round() / 1e4;
+    let out: Vec<Value> = fits
+        .iter()
+        .map(|f| serde_json::json!({ "start": r(f.start), "rate": f.rate.iter().map(|p| [r(p[0]), r(p[1])]).collect::<Vec<_>>() }))
+        .collect();
+    Some(serde_json::json!({ "lines": out, "error": r(err / n.max(1) as f64), "worst": r(worst) }).to_string())
+}
+
+/// Writes the fitted starts and rate JSON (or `{"error"}`) into the result and returns its length.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_lyrics_fit(ptr: MemPtr, len: u32) -> u32 {
+    let bytes: &[u8] = if ptr == 0 || len == 0 {
+        &[]
+    } else {
+        // SAFETY: the host passes a buffer from `haa_alloc` that it filled, `len` bytes long.
+        unsafe { std::slice::from_raw_parts(ptr as *const u8, len as usize) }
+    };
+    let json = serde_json::from_slice::<Value>(bytes).ok().as_ref().and_then(fit_json).unwrap_or_else(|| {
+        serde_json::json!({ "error": "expected {text, language?, female?, child?, lines: [{phones: [[ipa, start]], end}]}" }).to_string()
+    });
     let n = json.len() as u32;
     set_result(json);
     n

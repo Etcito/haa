@@ -19,7 +19,7 @@ use ::chimera::engine::Engine;
 use ::chimera::control::score::{ControlKey, Gesture};
 use ::chimera::phonetics::beatbox::parse_beat;
 use ::chimera::phonetics::english::EnglishG2P;
-use ::chimera::phonetics::ipa::tokenize_ipa;
+use ::chimera::phonetics::ipa::{skipped_ipa, tokenize_ipa};
 use ::chimera::anatomy::human::{jaw_carry, rest_tip, ArticKey, ArticPatch, NEUTRAL};
 use ::chimera::phonetics::inventory::phoneme;
 use ::chimera::phonetics::planner::{expand, plan_phrases, plan_utterance, vowel_artic, vowel_table, PhraseInput, PlanOptions};
@@ -871,6 +871,262 @@ pub fn lyrics_phone_timing(lines: &[LyricLine], rate_at: impl Fn(f64) -> f64) ->
             line.phones.iter().enumerate().map(|(i, p)| (p.clone(), at[2 * i], at[2 * i + 1])).collect()
         })
         .collect()
+}
+
+/// English words as the `lyrics` mode's G2P writes them: each phone (IPA before the planner splits a diphthong) with
+/// the index of its word, and the words.
+pub fn lyric_g2p(words: &str) -> (Vec<(String, usize)>, Vec<String>) {
+    ::chimera::init();
+    let mut phones = Vec::new();
+    let mut said = Vec::new();
+    let mut wi = 0;
+    for p in english_g2p().to_phrases(words) {
+        said.extend(p.words.iter().cloned());
+        for seg in p.segments {
+            if seg.ipa != "_" {
+                phones.push((seg.ipa.clone(), wi));
+            }
+            if seg.word_end == Some(true) {
+                wi += 1;
+            }
+        }
+    }
+    (phones, said)
+}
+
+/// Whether the voice says a piece of IPA as written: it is read as at least one sound, and every symbol has one.
+pub fn ipa_sayable(ipa: &str) -> bool {
+    tokenize_ipa(ipa).iter().any(|s| s.ipa != "_") && skipped_ipa(ipa).is_empty()
+}
+
+/// IPA (as written in a `lyrics` text) as the sounds the planner times: tokenized, diphthongs split.
+fn planned_sounds(ipa: &str) -> Vec<String> {
+    tokenize_ipa(ipa)
+        .into_iter()
+        .filter(|s| s.ipa != "_")
+        .flat_map(|s| match expand(&s.ipa) {
+            Some(parts) => parts.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+            None => vec![s.ipa],
+        })
+        .collect()
+}
+
+/// A `lyrics` line's start and rate input fitted to when its sounds are heard ([`lyric_rate_fit`]).
+pub struct LyricRateFit {
+    /// patch seconds of the line's start (its text time)
+    pub start: f64,
+    /// [seconds, rate] points over the line
+    pub rate: Vec<[f64; 2]>,
+    /// where each planned sound should start (patch s), in plan order
+    pub sounds: Vec<f64>,
+}
+
+/// The rate input that makes a `lyrics` line say its sounds when the audio does.
+///
+/// `targets`: the line's phones in order as written in its text (a diphthong one phone) with the patch second each
+/// starts; `end`: when the last one ends. Each planned sound is matched with a target (edit alignment of the sounds;
+/// a diphthong's parts share its time by their planned lengths; a sound with no target goes between its neighbours
+/// at the planned pace). Each sound then gets the rate that fills its time ([`lyric_speed`]): a held sound (vowel,
+/// nasal, lateral) stretches or shrinks; another sound is never slower than planned, so the time it cannot fill goes
+/// to the held sound before it (the consonant starts later, the next sound on time), or, before the line's first held
+/// sound, delays the line's start. A rate stays within 0.1-4.
+///
+/// Returns the line's start (patch s, to 0.01 s as the text writes it), the rate input over the line as [seconds,
+/// rate] steps, at most `max_points` points (the steps closest in rate merged first), and where each planned sound
+/// should start.
+pub fn lyric_rate_fit(line: &LyricLine, targets: &[(String, f64)], end: f64, max_points: usize) -> LyricRateFit {
+    let n = line.spans.len();
+    if n == 0 || targets.is_empty() {
+        return LyricRateFit { start: line.start, rate: Vec::new(), sounds: Vec::new() };
+    }
+    let d: Vec<f64> = (0..n).map(|k| (if k + 1 < n { line.spans[k + 1].0 } else { line.spans[k].1 }) - line.spans[k].0).map(|x| x.max(1e-3)).collect();
+    let held: Vec<bool> = line.spans.iter().map(|s| s.2).collect();
+    // the targets' sounds: (sound, target index)
+    let parts: Vec<(String, usize)> = targets.iter().enumerate().flat_map(|(i, (ipa, _))| planned_sounds(ipa).into_iter().map(move |p| (p, i))).collect();
+    // edit alignment, planned sounds (rows) against the targets' sounds (columns)
+    let (m, w) = (parts.len(), parts.len() + 1);
+    let mut c = vec![0usize; (n + 1) * w];
+    for i in 0..=n {
+        c[i * w] = i;
+    }
+    for j in 0..=m {
+        c[j] = j;
+    }
+    let cost = |i: usize, j: usize| usize::from(line.phones[i] != parts[j].0);
+    for i in 1..=n {
+        for j in 1..=m {
+            c[i * w + j] = (c[(i - 1) * w + j - 1] + cost(i - 1, j - 1)).min(c[(i - 1) * w + j] + 1).min(c[i * w + j - 1] + 1);
+        }
+    }
+    let mut target_of = vec![usize::MAX; n];
+    let (mut i, mut j) = (n, m);
+    while i > 0 && j > 0 {
+        if c[i * w + j] == c[(i - 1) * w + j - 1] + cost(i - 1, j - 1) {
+            target_of[i - 1] = parts[j - 1].1;
+            i -= 1;
+            j -= 1;
+        } else if c[i * w + j] == c[(i - 1) * w + j] + 1 {
+            i -= 1;
+        } else {
+            j -= 1;
+        }
+    }
+    // each matched sound's start: its target's start, the later parts of one target by their planned lengths
+    let mut start = vec![f64::NAN; n];
+    let mut k = 0;
+    while k < n {
+        let ti = target_of[k];
+        if ti == usize::MAX {
+            k += 1;
+            continue;
+        }
+        let mut e = k + 1;
+        while e < n && target_of[e] == ti {
+            e += 1;
+        }
+        let t0 = targets[ti].1;
+        let t1 = targets.get(ti + 1).map_or(end, |t| t.1).max(t0);
+        let total: f64 = d[k..e].iter().sum();
+        let mut acc = 0.0;
+        for q in k..e {
+            start[q] = t0 + (t1 - t0) * acc / total;
+            acc += d[q];
+        }
+        k = e;
+    }
+    // the rest between their neighbours at the planned pace
+    let known: Vec<usize> = (0..n).filter(|&k| start[k].is_finite()).collect();
+    if known.is_empty() {
+        return LyricRateFit { start: line.start, rate: Vec::new(), sounds: Vec::new() };
+    }
+    let score = |k: usize| line.spans[k].0;
+    for k in 0..n {
+        if start[k].is_finite() {
+            continue;
+        }
+        let a = known.iter().rev().find(|&&q| q < k).copied();
+        let b = known.iter().find(|&&q| q > k).copied();
+        start[k] = match (a, b) {
+            (Some(a), Some(b)) => start[a] + (start[b] - start[a]) * (score(k) - score(a)) / (score(b) - score(a)).max(1e-9),
+            (Some(a), None) => start[a] + score(k) - score(a),
+            (None, Some(b)) => start[b] - (score(b) - score(k)),
+            (None, None) => line.start,
+        };
+    }
+    let sounds = start.clone();
+    // a run of other sounds (a rate cannot stretch them) with more time than planned plays at its planned pace,
+    // placed where its sounds and the held sound after it start closest to the audio (the median of their wanted
+    // shifts): the held sound before it ends there, the one after starts there
+    let mut a = 0;
+    while a < n {
+        if held[a] {
+            a += 1;
+            continue;
+        }
+        let mut b = a;
+        while b < n && !held[b] {
+            b += 1;
+        }
+        let span: f64 = d[a..b].iter().sum();
+        if (if b < n { start[b] } else { end }) - start[a] > span {
+            let mut shifts = Vec::new();
+            let mut off = 0.0;
+            for j in a..b {
+                shifts.push(start[j] - off);
+                off += d[j];
+            }
+            if b < n {
+                shifts.push(start[b] - span);
+            }
+            shifts.sort_by(f64::total_cmp);
+            let h = shifts.len();
+            let mut c = if h % 2 == 1 { shifts[h / 2] } else { 0.5 * (shifts[h / 2 - 1] + shifts[h / 2]) };
+            // the held sounds on each side keep a quarter of their planned length
+            if a > 0 {
+                c = c.max(start[a - 1] + d[a - 1] / 4.0);
+            }
+            if b < n {
+                c = c.min(if b + 1 < n { start[b + 1] } else { end } - d[b] / 4.0 - span);
+            }
+            let mut off = 0.0;
+            for j in a..b {
+                start[j] = c + off;
+                off += d[j];
+            }
+            if b < n {
+                start[b] = c + span;
+            }
+        }
+        a = b;
+    }
+    // each sound's time (never shorter than a rate of 4 allows), then the time a consonant still cannot fill moved
+    // back (a line's last sound simply ends early)
+    let mut dur: Vec<f64> = (0..n).map(|k| if k + 1 < n { start[k + 1] - start[k] } else { end - start[k] }).collect();
+    let mut first = start[0];
+    for k in 0..n {
+        dur[k] = dur[k].max(d[k] / 4.0);
+        if !held[k] && dur[k] > d[k] {
+            let excess = dur[k] - d[k];
+            dur[k] = d[k];
+            if k + 1 == n {
+                continue;
+            }
+            // the nearest held sound before it (only consonants between)
+            match (0..k).rev().find(|&q| held[q]) {
+                Some(q) => dur[q] += excess,
+                None => first += excess,
+            }
+        }
+    }
+    // the text writes the start to 0.01 s: the first held sound takes up what the rounding moved
+    let line_start = (first * 100.0).floor() / 100.0;
+    if let Some(q) = (0..n).find(|&q| held[q]) {
+        if (0..q).all(|r| !held[r]) {
+            dur[q] += first - line_start;
+        }
+    }
+    // steps: (start, length, rate, planned length)
+    let mut steps: Vec<(f64, f64, f64, f64)> = Vec::new();
+    let mut t = line_start;
+    let mut prev_r = 1.0;
+    for k in 0..n {
+        let need = d[k] / dur[k];
+        let r = if held[k] {
+            need.clamp(0.1, 4.0)
+        } else if need > 1.0 + 1e-9 {
+            need.min(4.0)
+        } else if prev_r <= 1.0 {
+            // a consonant at its planned pace: any rate up to 1 plays it so; the previous one saves a step
+            prev_r
+        } else {
+            1.0
+        };
+        match steps.last_mut() {
+            Some(s) if (s.2 - r).abs() < 1e-6 => {
+                s.1 += dur[k];
+                s.3 += d[k];
+            }
+            _ => steps.push((t, dur[k], r, d[k])),
+        }
+        t += dur[k];
+        prev_r = r;
+    }
+    // at most max_points: merge the two neighbouring steps closest in rate
+    let cap = max_points.max(4);
+    while 2 * steps.len() + 2 > cap && steps.len() > 1 {
+        let q = (0..steps.len() - 1).min_by(|&a, &b| (steps[a].2.ln() - steps[a + 1].2.ln()).abs().total_cmp(&(steps[b].2.ln() - steps[b + 1].2.ln()).abs())).unwrap_or(0);
+        let (a, b) = (steps[q], steps[q + 1]);
+        steps[q] = (a.0, a.1 + b.1, ((a.3 + b.3) / (a.1 + b.1)).clamp(0.1, 4.0), a.3 + b.3);
+        steps.remove(q + 1);
+    }
+    // the breath lead at the planned pace, then each step held to just before the next
+    let mut pts = vec![[line_start - LYRIC_LEAD, 1.0], [line_start - 0.002, 1.0]];
+    for (s0, len, r, _) in &steps {
+        let eps = (len * 0.25).min(0.002);
+        pts.push([*s0, *r]);
+        pts.push([s0 + len - eps, *r]);
+    }
+    LyricRateFit { start: line_start, rate: pts, sounds }
 }
 
 /// `lyrics` text as (start, words) per line: `<seconds> words`, or words alone (the line follows the previous one).
@@ -1858,5 +2114,38 @@ mod tests {
         let first = node.process_sample(&ctx(0), (0.0, 0.0), &params);
         // The score is cancelled; the tract still rings out its last pressure.
         assert!(first.l.abs() < 0.25, "first sample {}", first.l);
+    }
+
+    #[test]
+    fn lyric_rate_fit_lands_each_sound_when_the_audio_says_it() {
+        // "aɪ hæv" heard later and slower than planned: aɪ at 1.0, h at 1.3, æ at 1.4, v at 1.7, ending at 1.9
+        let lines = plan_lyrics("0.5 aɪ hæv", true, 0.0, 0.0, 120.0);
+        let targets = [("aɪ", 1.0), ("h", 1.3), ("æ", 1.4), ("v", 1.7)].map(|(p, t)| (p.to_string(), t));
+        let fit = lyric_rate_fit(&lines[0], &targets, 1.9, 120);
+        assert!((fit.start - 1.0).abs() < 1e-9, "start {}", fit.start);
+        assert!(fit.rate.iter().all(|p| (0.1..=4.0).contains(&p[1])) && fit.rate.windows(2).all(|w| w[1][0] >= w[0][0]));
+        // played by the node's clock: the consonant run h (planned shorter than its time) sits between its own time and
+        // the vowel after it, every sound within 15 ms of the audio
+        let rate_at = |t: f64| {
+            let i = fit.rate.partition_point(|p| p[0] <= t);
+            if i == 0 || i == fit.rate.len() {
+                return fit.rate[i.min(fit.rate.len() - 1)][1];
+            }
+            let (a, b) = (fit.rate[i - 1], fit.rate[i]);
+            a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]).max(1e-12)
+        };
+        let mut moved = plan_lyrics("0.5 aɪ hæv", true, 0.0, 0.0, 120.0);
+        moved[0].start = fit.start;
+        let timed = lyrics_phone_timing(&moved, rate_at);
+        let starts: Vec<(&str, f64)> = timed[0].iter().map(|(p, a, _)| (p.as_str(), *a)).collect();
+        assert_eq!(starts.iter().map(|s| s.0).collect::<Vec<_>>(), vec!["a", "ɪ", "h", "æ", "v"]);
+        for (k, want) in [(0, 1.0), (2, 1.3), (3, 1.4), (4, 1.7)] {
+            assert!((starts[k].1 - want).abs() < 0.015, "{} at {:.3}, heard at {want}", starts[k].0, starts[k].1);
+        }
+        // the G2P side: words and phones as the lyrics mode writes them
+        let (phones, said) = lyric_g2p("I have");
+        assert_eq!(said, vec!["i", "have"]);
+        assert_eq!(phones.iter().map(|(p, w)| (p.as_str(), *w)).collect::<Vec<_>>(), vec![("aɪ", 0), ("h", 1), ("ə", 1), ("v", 1)]);
+        assert!(ipa_sayable("ɑː") && !ipa_sayable("5") && !ipa_sayable(""));
     }
 }
