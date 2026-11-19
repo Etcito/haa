@@ -10,6 +10,7 @@
 //! - Curves: [`retime`] (`rate_x` on given durations and curves), [`crate::widen_pitch`] (`f0_range_x`),
 //!   [`oscillator_pitch`] (`f0_shift_st`, `jitter_x`, oscillator only, like model.py's `pitch_shift`).
 
+use crate::det::Det;
 use crate::head::gaussian_noise;
 use crate::model::{Cepstra, Config};
 use crate::voice::{ENV_BANDS, Post};
@@ -38,7 +39,7 @@ impl Branch {
     fn new(fft: usize, order: usize, sample_rate: f64, limit: f64) -> Branch {
         let bins = fft / 2 + 1;
         let w: Vec<f64> = (0..bins).map(|k| PI * k as f64 / (bins - 1) as f64).collect();
-        let basis: Vec<f64> = w.iter().flat_map(|&wk| (0..order).map(move |l| (wk * l as f64).cos())).collect();
+        let basis: Vec<f64> = w.iter().flat_map(|&wk| (0..order).map(move |l| (wk * l as f64).dcos())).collect();
         // normal equations, solved by Cholesky
         let mut gram = vec![0.0; order * order];
         for k in 0..bins {
@@ -78,7 +79,7 @@ impl Branch {
             }
         }
         let hz: Vec<f64> = w.iter().map(|&wk| wk / PI * sample_rate / 2.0).collect();
-        let octaves = hz.iter().map(|&f| (f.max(50.0) / 1000.0).log2()).collect();
+        let octaves = hz.iter().map(|&f| (f.max(50.0) / 1000.0).dlog2()).collect();
         let top = (limit * 2.0 * (bins - 1) as f64) as usize;
         Branch { bins, order, basis, inverse, top, octaves, hz }
     }
@@ -122,8 +123,8 @@ pub struct Envelope {
 
 /// `env_offset_db` at `hz`: linear in log frequency between band centres, held beyond (np.interp).
 fn offset_at(offset: &[f32], hz: f64) -> f64 {
-    let x = hz.max(1.0).log2();
-    let centre = |i: usize| (150.0 * 2f64.powf((i as f64 + 0.5) / 6.0)).log2();
+    let x = hz.max(1.0).dlog2();
+    let centre = |i: usize| (150.0 * 2f64.dpowf((i as f64 + 0.5) / 6.0)).dlog2();
     if x <= centre(0) {
         return offset[0] as f64;
     }
@@ -176,9 +177,9 @@ impl Envelope {
             causal[0] += gain;
             for k in 0..hb.bins {
                 let wk = PI * k as f64 / (hb.bins - 1) as f64;
-                anti_mag[k] = (0..self.cep_anti).map(|j| row[self.cep_causal + j] as f64 * lifter(j + 1) * (wk * (j + 1) as f64).cos()).sum();
+                anti_mag[k] = (0..self.cep_anti).map(|j| row[self.cep_causal + j] as f64 * lifter(j + 1) * (wk * (j + 1) as f64).dcos()).sum();
                 let phon = if post.phonation != 0.0 {
-                    let above = (hb.hz[k].max(1.0) / (f0[t] as f64).max(1.0)).log2();
+                    let above = (hb.hz[k].max(1.0) / (f0[t] as f64).max(1.0)).dlog2();
                     post.phonation as f64 * (1.0 - above).clamp(0.0, 1.0) * db
                 } else {
                     0.0

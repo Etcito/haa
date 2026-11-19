@@ -10,6 +10,8 @@ name = "haa"
 path = "src/main.rs"
 
 [dependencies]
-haa-core = { path = "../haa-core" }
+haa-core = { path = "../haa-core", features = ["dizione"] }
+tinyvoca = { path = "../tinyvoca" }
+dizione = { path = "../dizione" }
 haa-fit = { path = "../haa-fit" }
 serde_json.workspace = true

@@ -36,6 +36,10 @@
       "types": "./dist/fit.d.ts",
       "default": "./dist/fit.js"
     },
+    "./speech": {
+      "types": "./dist/speech.d.ts",
+      "default": "./dist/speech.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"

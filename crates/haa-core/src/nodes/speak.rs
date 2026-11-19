@@ -2,7 +2,12 @@
 //!
 //! The model is the official GGUF the host loaded once with `haa_tinyvoca_load` (wasm) or `tinyvoca::install`
 //! (native): nothing is bundled. Load it before the patch; without it the node is silent.
-//! `input` is JSON, either a `perf.json` v1 performance (it has `durations`: its durations and curves are used) or
+//! `text` is plain English (built with the `dizione` feature; the phonemizer comes from the same one-file GGUF or
+//! the tiny-voca `phonemizer/` folder, see dizione::install): it is cut into utterances as tiny-voca's page cuts
+//! it (dizione::utterances: sentences, then clauses, at most `max_tokens - 12` tokens each), each utterance is
+//! synthesized with seed `seed + its index`, and the clip is limited to a 0.99 peak, as upstream `say.mjs` does.
+//! Script markup in `text` goes through [`script`] first (today `[...]` tags are taken out). When `text` is
+//! empty, `input` is used: JSON, either a `perf.json` v1 performance (it has `durations`: its durations and curves are used) or
 //! `{"tokens": [...], "stress": [...]}` (dizione ids: the model predicts the performance).
 //! A voice is only these parameters (voice.tvv.json v3 is their import/export form): `m2` blends the GGUF's M2 and
 //! F2 speakers (1 = M2, 0 = F2, a little outside extrapolates); `warp`, `tilt`, `envelope` (32 band offsets in dB,
@@ -15,18 +20,19 @@
 use crate::catalog::{Category, NodeTypeDef, ParamDef, ParamKind, Scale};
 use crate::node::{Node, NodeInit, NodeOut, SampleCtx};
 
-pub const INPUT: usize = 0;
-pub const M2: usize = 1;
-pub const WARP: usize = 2;
-pub const TILT: usize = 3;
-pub const ENVELOPE: usize = 4;
-pub const BREATH: usize = 5;
-pub const PHONATION: usize = 6;
-pub const SHIFT: usize = 7;
-pub const RANGE: usize = 8;
-pub const RATE: usize = 9;
-pub const JITTER: usize = 10;
-pub const GAIN: usize = 11;
+pub const TEXT: usize = 0;
+pub const INPUT: usize = 1;
+pub const M2: usize = 2;
+pub const WARP: usize = 3;
+pub const TILT: usize = 4;
+pub const ENVELOPE: usize = 5;
+pub const BREATH: usize = 6;
+pub const PHONATION: usize = 7;
+pub const SHIFT: usize = 8;
+pub const RANGE: usize = 9;
+pub const RATE: usize = 10;
+pub const JITTER: usize = 11;
+pub const GAIN: usize = 12;
 
 const fn number(key: &'static str, min: f64, max: f64, default: f64, step: f64, scale: Scale, unit: &'static str, en: &'static str, fr: &'static str) -> ParamDef {
     ParamDef { key, kind: ParamKind::Number { min, max, default, step, scale }, unit, label_en: en, label_fr: fr, modulatable: false, smooth: false }
@@ -45,6 +51,15 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
     uses_curve: false,
     hidden: false,
     params: &[
+        ParamDef {
+            key: "text",
+            kind: ParamKind::Text { default: "" },
+            unit: "",
+            label_en: "Text",
+            label_fr: "Texte",
+            modulatable: false,
+            smooth: false,
+        },
         ParamDef {
             key: "input",
             kind: ParamKind::Text { default: "" },
@@ -128,6 +143,81 @@ pub fn voice_params(params: &[f64], envelope: &str) -> Result<(f32, tinyvoca::Po
     ))
 }
 
+/// Script markup taken out of a `speak` text: what is said, and the tags met on the way.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Script {
+    /// The text to say, tags removed.
+    pub plain: String,
+    /// Each `[...]` tag: its byte offset in `plain` and what was inside the brackets.
+    pub tags: Vec<(usize, String)>,
+}
+
+/// Reads the script markup of a `speak` text. Today it only takes `[...]` tags out (a space is left where a tag
+/// separated two words); an unclosed `[` stays as text.
+// TODO(agent C, emotion tags): give `tags` (e.g. `[angry,5]`) a meaning per span (voice or curve edits from the
+// tag to the next one) in `speak_text`; the studio already passes the raw text here.
+pub fn script(text: &str) -> Script {
+    let mut out = Script::default();
+    let mut rest = text;
+    while let Some(open) = rest.find('[') {
+        let Some(len) = rest[open..].find(']') else { break };
+        out.plain.push_str(&rest[..open]);
+        let after = &rest[open + len + 1..];
+        out.tags.push((out.plain.len(), rest[open + 1..open + len].trim().to_string()));
+        let word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+        if word(out.plain.chars().next_back()) && word(after.chars().next()) {
+            out.plain.push(' ');
+        }
+        rest = after;
+    }
+    out.plain.push_str(rest);
+    out
+}
+
+/// Says `text` (plain English, script markup allowed) with the shared model and phonemizer for a voice
+/// `(m2, post)`: 24 kHz audio. The wasm `speak` op, the `haa speak` command and the node all run this.
+#[cfg(feature = "dizione")]
+pub fn speak_text(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<f32>, String> {
+    let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
+    let voice = model.blend_voice(m2, post)?;
+    let said = script(text);
+    let limit = model.config.max_tokens.saturating_sub(12).max(1);
+    let utterances = dizione::with_shared(|p| p.utterances(&said.plain, limit))
+        .ok_or("no phonemizer loaded (a one-file tiny-voca GGUF, or haa_dizione_*)")?
+        .map_err(|e| e.0)?;
+    let mut audio = Vec::new();
+    for (i, u) in utterances.iter().enumerate() {
+        let stress: Vec<u32> = u.stress.iter().map(|&s| s as u32).collect();
+        let options = tinyvoca::Options { seed: seed.wrapping_add(i as u32), ..Default::default() };
+        audio.extend(model.synthesize(&u.ids, &stress, &voice, &options, None)?.audio);
+    }
+    // say.mjs `limited`: the whole clip brought under a 0.99 peak
+    let peak = audio.iter().fold(0.0f32, |m, &v| m.max(v.abs()));
+    if peak > 0.99 {
+        let k = 0.99 / peak;
+        for v in &mut audio {
+            *v *= k;
+        }
+    }
+    Ok(audio)
+}
+
+/// Without the `dizione` feature there is no text front end.
+#[cfg(not(feature = "dizione"))]
+pub fn speak_text(_text: &str, _m2: f32, _post: tinyvoca::Post, _seed: u32) -> Result<Vec<f32>, String> {
+    Err("this build has no text front end (haa-core feature dizione)".into())
+}
+
+/// Renders `text` (or, when it is empty, `input`) at `sample_rate`; see the module comment.
+pub fn render_node(text: &str, input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate: f64) -> Result<Vec<f32>, String> {
+    if text.trim().is_empty() {
+        return render(input, m2, post, seed, sample_rate);
+    }
+    let audio = speak_text(text, m2, post, seed)?;
+    let from = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
+    Ok(tinyvoca::resample(&audio, from, sample_rate))
+}
+
 /// Renders `input` with the shared model for a voice `(m2, post)`, at `sample_rate`.
 pub fn render(input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate: f64) -> Result<Vec<f32>, String> {
     let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
@@ -158,23 +248,23 @@ impl Node for Speak {
 
     fn configure(&mut self, init: &NodeInit<'_>) {
         let text = |i: usize| init.texts.get(i).and_then(|t| t.as_deref()).unwrap_or("").to_string();
-        let (input, envelope) = (text(INPUT), text(ENVELOPE));
+        let (said, input, envelope) = (text(TEXT), text(INPUT), text(ENVELOPE));
         let loaded = tinyvoca::shared().is_some();
         let voice: Vec<f64> = init.params.iter().take(GAIN).copied().collect();
-        let key = format!("{loaded}\u{1}{input}\u{1}{envelope}\u{1}{voice:?}\u{1}{}\u{1}{}", init.seed, init.sample_rate);
+        let key = format!("{loaded}\u{1}{said}\u{1}{input}\u{1}{envelope}\u{1}{voice:?}\u{1}{}\u{1}{}", init.seed, init.sample_rate);
         if key == self.key {
             return;
         }
         self.key = key;
         self.sample_rate = init.sample_rate;
         self.audio.clear();
-        if input.trim().is_empty() {
+        if said.trim().is_empty() && input.trim().is_empty() {
             return;
         }
         // an input or voice the model refuses leaves the node silent; the wasm `synthesize`/`perform` ops report
         // the same error as text
         if let Ok((m2, post)) = voice_params(init.params, &envelope)
-            && let Ok(a) = render(&input, m2, post, init.seed, init.sample_rate)
+            && let Ok(a) = render_node(&said, &input, m2, post, init.seed, init.sample_rate)
         {
             self.audio = a;
         }
@@ -189,8 +279,8 @@ mod tests {
 
     #[test]
     fn silent_without_input_and_params_map_to_a_voice() {
-        let params = [0.0, 0.25, 1.1, -2.0, 0.0, 3.0, 1.0, 2.0, 1.2, 0.9, 1.5, 1.0];
-        let texts = [Some(String::new()), None, None, None, Some("1 ".repeat(32)), None, None, None, None, None, None, None];
+        let params = [0.0, 0.0, 0.25, 1.1, -2.0, 0.0, 3.0, 1.0, 2.0, 1.2, 0.9, 1.5, 1.0];
+        let texts = [Some(String::new()), Some(String::new()), None, None, None, Some("1 ".repeat(32)), None, None, None, None, None, None, None];
         let (m2, post) = voice_params(&params, texts[ENVELOPE].as_deref().unwrap()).unwrap();
         assert_eq!((m2, post.warp, post.rate_x, post.env_offset_db.len()), (0.25, 1.1, 0.9, 32));
         let mut node = (DEF.create)(&NodeInit {
@@ -218,5 +308,8 @@ mod tests {
         };
         let out = node.process_sample(&ctx, (0.0, 0.0), &params);
         assert_eq!((out.l, out.r), (0.0, 0.0));
+        let said = script("[calm] Hello[laughs]there, [angry,5]you. [open");
+        assert_eq!(said.plain, " Hello there, you. [open");
+        assert_eq!(said.tags, [(0, "calm".to_string()), (6, "laughs".to_string()), (14, "angry,5".to_string())]);
     }
 }

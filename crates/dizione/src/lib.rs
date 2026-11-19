@@ -26,12 +26,33 @@ pub mod pyre;
 pub mod sentence;
 pub mod symbols;
 pub mod tables;
+pub mod utterances;
 
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 pub use data::Data;
 pub use engine::{Part, Phonemizer};
 pub use symbols::{Phonemized, ValueError};
+
+/// The phonemizer the host loaded for this process (haa-wasm's `haa_dizione_*` or `haa_tinyvoca_load` with a
+/// one-file GGUF), shared by every `speak` node given text. Not `Sync` (it caches words), hence the lock.
+static SHARED: Mutex<Option<Phonemizer>> = Mutex::new(None);
+
+/// Installs `phonemizer` as the shared one (replacing any earlier one).
+pub fn install(phonemizer: Phonemizer) {
+    *SHARED.lock().unwrap_or_else(|p| p.into_inner()) = Some(phonemizer);
+}
+
+/// Runs `f` on the shared phonemizer; `None` when the host loaded none.
+pub fn with_shared<R>(f: impl FnOnce(&Phonemizer) -> R) -> Option<R> {
+    SHARED.lock().unwrap_or_else(|p| p.into_inner()).as_ref().map(f)
+}
+
+/// True once a shared phonemizer is installed.
+pub fn installed() -> bool {
+    SHARED.lock().unwrap_or_else(|p| p.into_inner()).is_some()
+}
 
 /// One spoken word: the phones of a word or of words said as one (a hyphenated compound, a phrase).
 #[derive(Clone, Debug, PartialEq)]

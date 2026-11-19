@@ -5,6 +5,7 @@
 //! a blend of the GGUF's two speakers plus `post` edits (voice.tvv.json v3, [`Model::voice`]) and renders a `perf.json` v1 performance ([`Model::perform`]).
 //! See NOTICE.md for what was ported from where.
 
+mod det;
 pub mod edit;
 pub mod gguf;
 pub mod head;
@@ -18,6 +19,8 @@ pub use perf::Perf;
 pub use voice::{Post, Voice, VoiceFile};
 
 use std::sync::{Arc, Mutex};
+
+use det::Det;
 
 /// The model the host loaded for this process (the wasm module's `haa_tinyvoca_load`), shared by every `speak`
 /// node. `None` until a GGUF is loaded.
@@ -52,8 +55,8 @@ pub fn resample(input: &[f32], from: f64, to: f64) -> Vec<f32> {
         for (k, &x) in input.iter().enumerate().take(last + 1).skip(first) {
             let d = k as f64 - centre;
             let arg = d * cutoff;
-            let sinc = if arg.abs() < 1e-12 { 1.0 } else { (std::f64::consts::PI * arg).sin() / (std::f64::consts::PI * arg) };
-            let window = 0.5 + 0.5 * (std::f64::consts::PI * d / reach).cos();
+            let sinc = if arg.abs() < 1e-12 { 1.0 } else { (std::f64::consts::PI * arg).dsin() / (std::f64::consts::PI * arg) };
+            let window = 0.5 + 0.5 * (std::f64::consts::PI * d / reach).dcos();
             acc += x as f64 * cutoff * sinc * window;
         }
         out.push(acc as f32);

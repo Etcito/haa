@@ -18,4 +18,4 @@ serde_json.workspace = true
 [features]
 # English text to tiny-voca tokens (src/dizione.rs): about 2.3 MB of the module (regex engines, Unicode tables, rules).
 default = ["dizione"]
-dizione = ["dep:dizione"]
+dizione = ["dep:dizione", "haa-core/dizione"]

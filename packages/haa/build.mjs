@@ -30,6 +30,7 @@ const ENTRIES = [
   { entry: 'src/sfx/trace-worker.ts', outfile: 'dist/trace-worker.js', platform: 'browser' },
   { entry: 'src/arranger.ts', outfile: 'dist/arranger.js', platform: 'neutral' },
   { entry: 'src/fit.ts', outfile: 'dist/fit.js', platform: 'neutral' },
+  { entry: 'src/speech.ts', outfile: 'dist/speech.js', platform: 'neutral' },
 ];
 
 /** Every .d.ts file under dir. */

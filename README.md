@@ -164,6 +164,13 @@ cargo test -p haa-fit --test fit -q
 - **Output:** the fitted patch (it validates and renders the fitted sound with no flags), its loss, per-template scores, the trials, the loss history, `offset` (leading silence cut from the target: place the patch there) and a target-vs-fit report (RMS envelope, spectral centroid).
 - **JS:** `@etcito/haa/fit` exports `createFitter(wasm)`; `start(pcm, rate, templates, opts)`, `step(n)` (at most `n` renders, for progress and cancelling in a Worker), `result()`, `patch()`, `describe(patch)`, `compare(a, b, rate)`, `free()`.
 
+## Speech (tiny-voca)
+
+The `speak` node says English text with tiny-voca (crates/tinyvoca, crates/dizione: Rust ports, Apache-2.0). The weights are never bundled: the host loads the official one-file GGUF (`gguf/tiny-voca-js.gguf` of the `n4ze3m/tiny-voca` Hugging Face repo, 8 MB, model and phonemizer) before the patch. A voice is only the node's params (`m2`, `warp`, `tilt`, `envelope`, `breath`, `phonation`, `shift`, `range`, `rate`, `jitter`); voice.tvv.json v3 is their import/export form.
+
+- **JS:** `@etcito/haa/speech` exports `fetchTinyVoca({ onProgress })` (pinned URL, Cache API), `createSpeech(wasm)`; `load(gguf)`, `speak(text, params)` (24 kHz, cut per sentence as upstream), `utterances(text)`, `voiceToParams` / `paramsToVoice`, `run(op, request)` for the staged ops.
+- **CLI:** `haa speak "Hello there." --tinyvoca tiny-voca-js.gguf [--voice v.tvv.json] --out hello.wav`; `haa render patch.json --tinyvoca tiny-voca-js.gguf --out x.wav` for patches with `speak` nodes. Native and wasm give the same samples (transcendentals through `libm`).
+
 ## Guitar sources and effects
 
 HAA-only nodes (no Sona counterpart) for acoustic, electric and bass guitar parts:

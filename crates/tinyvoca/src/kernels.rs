@@ -2,6 +2,8 @@
 //! Activations are row-major `[frames x channels]` f32. Weights are stored transposed (`[inputs x outputs]`) so
 //! every inner loop is a contiguous multiply-add over outputs, which LLVM vectorizes (simd128 on wasm).
 
+use crate::det::Det;
+
 /// A linear layer, `y = x W^T + b`, with `W` kept transposed: `wt[i * outputs + o] = W[o][i]`.
 #[derive(Clone)]
 pub struct Linear {
@@ -191,14 +193,14 @@ pub fn convolve(x: &[f32], count: usize, conv: &Conv) -> Vec<f32> {
 pub fn rotary(count: usize, width: usize) -> (Vec<f32>, Vec<f32>) {
     let half = width / 2;
     let inverse: Vec<f32> =
-        (0..half).map(|j| 1.0 / (10000f64.powf(((2 * j) as f32 / width as f32) as f64) as f32)).collect();
+        (0..half).map(|j| 1.0 / (10000f64.dpowf(((2 * j) as f32 / width as f32) as f64) as f32)).collect();
     let mut cos = vec![0.0; count * half];
     let mut sin = vec![0.0; count * half];
     for t in 0..count {
         for j in 0..half {
             let angle = t as f32 * inverse[j];
-            cos[t * half + j] = angle.cos();
-            sin[t * half + j] = angle.sin();
+            cos[t * half + j] = angle.dcos();
+            sin[t * half + j] = angle.dsin();
         }
     }
     (cos, sin)

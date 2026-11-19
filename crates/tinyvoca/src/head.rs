@@ -2,6 +2,7 @@
 //! complex-cepstrum filter in the STFT domain. Port of `pulseTrain`, `filtered` and `gaussianNoise` in tiny-voca
 //! `js/tiny-voca.js` (itself checked against `SourceFilter.forward`, model.py line 207). Float64 inside, like both.
 
+use crate::det::Det;
 use std::f64::consts::PI;
 
 struct Fft {
@@ -12,8 +13,8 @@ struct Fft {
 
 impl Fft {
     fn new(size: usize) -> Self {
-        let cos = (0..size / 2).map(|k| (-2.0 * PI * k as f64 / size as f64).cos()).collect();
-        let sin = (0..size / 2).map(|k| (-2.0 * PI * k as f64 / size as f64).sin()).collect();
+        let cos = (0..size / 2).map(|k| (-2.0 * PI * k as f64 / size as f64).dcos()).collect();
+        let sin = (0..size / 2).map(|k| (-2.0 * PI * k as f64 / size as f64).dsin()).collect();
         Fft { size, cos, sin }
     }
 
@@ -60,7 +61,7 @@ impl Fft {
 fn filtered(source: &[f32], size: usize, hop: usize, frames: usize, mut cepstrum: impl FnMut(usize, &mut [f64])) -> Vec<f32> {
     let half = size / 2;
     let fft = Fft::new(size);
-    let window: Vec<f64> = (0..size).map(|n| 0.5 - 0.5 * (2.0 * PI * n as f64 / size as f64).cos()).collect();
+    let window: Vec<f64> = (0..size).map(|n| 0.5 - 0.5 * (2.0 * PI * n as f64 / size as f64).dcos()).collect();
     let (mut re, mut im) = (vec![0.0; size], vec![0.0; size]);
     let (mut cr, mut ci) = (vec![0.0; size], vec![0.0; size]);
     let mut sum = vec![0.0; frames * hop + size];
@@ -78,8 +79,8 @@ fn filtered(source: &[f32], size: usize, hop: usize, frames: usize, mut cepstrum
         cepstrum(f, &mut cr);
         fft.run(&mut cr, &mut ci);
         for k in 0..=half {
-            let gain = cr[k].clamp(-14.0, 6.0).exp();
-            let (c, s) = (gain * ci[k].cos(), gain * ci[k].sin());
+            let gain = cr[k].clamp(-14.0, 6.0).dexp();
+            let (c, s) = (gain * ci[k].dcos(), gain * ci[k].dsin());
             let (a, b) = (re[k], im[k]);
             re[k] = a * c - b * s;
             im[k] = -(a * s + b * c);
@@ -102,19 +103,19 @@ fn filtered(source: &[f32], size: usize, hop: usize, frames: usize, mut cepstrum
 pub fn pulse_train(f0: &[f32], hop: usize, sample_rate: f64, limit: f64) -> Vec<f32> {
     let frames = f0.len();
     let mut out = vec![0.0; frames * hop];
-    let knots: Vec<f64> = (0..=frames).map(|i| (f0[i.min(frames - 1)] as f64).max(1.0).ln()).collect();
+    let knots: Vec<f64> = (0..=frames).map(|i| (f0[i.min(frames - 1)] as f64).max(1.0).dln()).collect();
     let mut turns = 0.0;
     for (n, sample) in out.iter_mut().enumerate() {
         let low = n / hop;
         let w = n as f64 / hop as f64 - low as f64;
-        let frequency = (knots[low] * (1.0 - w) + knots[low + 1] * w).exp();
+        let frequency = (knots[low] * (1.0 - w) + knots[low + 1] * w).dexp();
         turns += frequency / sample_rate;
         let theta = (2.0 * PI * turns) % (2.0 * PI);
         let harmonics = (limit * sample_rate / frequency).max(1.0);
         let whole = harmonics.floor();
-        let below = 2.0 * (theta / 2.0).sin();
-        let core = if below.abs() < 1e-7 { whole } else { ((whole + 0.5) * theta).sin() / below - 0.5 };
-        *sample = ((core + (harmonics - whole) * ((whole + 1.0) * theta).cos()) * (2.0 / harmonics).sqrt()) as f32;
+        let below = 2.0 * (theta / 2.0).dsin();
+        let core = if below.abs() < 1e-7 { whole } else { ((whole + 0.5) * theta).dsin() / below - 0.5 };
+        *sample = ((core + (harmonics - whole) * ((whole + 1.0) * theta).dcos()) * (2.0 / harmonics).sqrt()) as f32;
     }
     out
 }
@@ -131,11 +132,11 @@ pub fn gaussian_noise(count: usize, seed: u32) -> Vec<f32> {
     let mut out = vec![0.0; count];
     let mut i = 0;
     while i < count {
-        let radius = (-2.0 * (1.0 - uniform()).ln()).sqrt();
+        let radius = (-2.0 * (1.0 - uniform()).dln()).sqrt();
         let angle = 2.0 * PI * uniform();
-        out[i] = (radius * angle.cos()) as f32;
+        out[i] = (radius * angle.dcos()) as f32;
         if i + 1 < count {
-            out[i + 1] = (radius * angle.sin()) as f32;
+            out[i + 1] = (radius * angle.dsin()) as f32;
         }
         i += 2;
     }

@@ -13,6 +13,7 @@
 //! The voice (a blend of the M2/F2 rows) enters at `encode` and `expand`; its `post` curve edits are in
 //! [`crate::edit`]. [`Model::synthesize`] and [`Model::perform`] chain everything.
 
+use crate::det::Det;
 use crate::gguf::{self, Gguf};
 use crate::head::{self, HeadConfig};
 use crate::kernels::{self, Conv, Linear, Norm};
@@ -377,7 +378,7 @@ impl Model {
             .iter()
             .enumerate()
             .map(|(n, &id)| {
-                let length = ((raw[2 * n].clamp(0.0, 401f64.ln() as f32) as f64).exp_m1()) as f32;
+                let length = ((raw[2 * n].clamp(0.0, 401f64.dln() as f32) as f64).dexp_m1()) as f32;
                 let present = self.is_phone[id as usize] || raw[2 * n + 1] > 0.0;
                 if present { round_even(length / speed).max(1.0) as u32 } else { 0 }
             })
@@ -401,7 +402,7 @@ impl Model {
             for k in 0..d {
                 owner.push(n as u32);
                 let relative = (k as f32 + 0.5) / owned;
-                place.extend_from_slice(&[relative, 1.0 - relative, owned.ln_1p() / 4.0]);
+                place.extend_from_slice(&[relative, 1.0 - relative, owned.dln_1p() / 4.0]);
             }
         }
         let mut x = kernels::linear(&place, frames, &self.frame_position);
@@ -455,7 +456,7 @@ impl Model {
 
     /// f0 in Hz for ln(f0/200), clamped to the model's range (model.py `frequency`).
     pub fn frequency(&self, log_f0: f32) -> f32 {
-        (self.config.pitch_reference_hz * log_f0.exp()).clamp(self.config.f0_min, self.config.f0_max)
+        (self.config.pitch_reference_hz * log_f0.dexp()).clamp(self.config.f0_min, self.config.f0_max)
     }
 
     fn head_config(&self) -> HeadConfig {

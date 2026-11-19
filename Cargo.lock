@@ -92,9 +92,11 @@ dependencies = [
 name = "haa-cli"
 version = "0.2.0"
 dependencies = [
+ "dizione",
  "haa-core",
  "haa-fit",
  "serde_json",
+ "tinyvoca",
 ]
 
 [[package]]
@@ -102,6 +104,7 @@ name = "haa-core"
 version = "0.2.0"
 dependencies = [
  "chimera",
+ "dizione",
  "flate2",
  "serde",
  "serde_json",

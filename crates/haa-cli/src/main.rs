@@ -28,6 +28,7 @@ fn run(args: &[String]) -> i32 {
         Some("inputs") => inputs(&args[1..]),
         Some("render") => render(&args[1..]),
         Some("fit") => fit(&args[1..]),
+        Some("speak") => speak(&args[1..]),
         Some(other) => fail(format!("unknown command: {other}")),
         None => fail("usage: haa render <patch.json> --out <file.wav>"),
     }
@@ -98,6 +99,8 @@ fn inputs(args: &[String]) -> i32 {
 struct RenderArgs {
     patch: String,
     out: String,
+    /// A tiny-voca GGUF for `speak` nodes (`--tinyvoca`).
+    tinyvoca: Option<String>,
     options: RenderOptions,
 }
 
@@ -106,6 +109,11 @@ fn render(args: &[String]) -> i32 {
         Ok(parsed) => parsed,
         Err(reason) => return fail(reason),
     };
+    if let Some(gguf) = &parsed.tinyvoca
+        && let Err(reason) = load_tinyvoca(gguf)
+    {
+        return fail(reason);
+    }
     let source = match std::fs::read_to_string(&parsed.patch) {
         Ok(source) => source,
         Err(e) => return fail(format!("cannot read {}: {e}", parsed.patch)),
@@ -143,6 +151,7 @@ fn render(args: &[String]) -> i32 {
 fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
     let mut patch: Option<&str> = None;
     let mut out: Option<&str> = None;
+    let mut tinyvoca: Option<&str> = None;
     let mut options = RenderOptions::default();
     let mut i = 0;
     while i < args.len() {
@@ -159,6 +168,7 @@ fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
             };
             match flag {
                 "--out" => out = Some(value),
+                "--tinyvoca" => tinyvoca = Some(value),
                 "--seconds" => {
                     options.seconds = Some(parse_f64(flag, value)?);
                 }
@@ -236,8 +246,84 @@ fn parse_render_args(args: &[String]) -> Result<RenderArgs, String> {
     Ok(RenderArgs {
         patch: patch.to_string(),
         out: out.to_string(),
+        tinyvoca: tinyvoca.map(str::to_string),
         options,
     })
+}
+
+// ---------------------------------------------------------------------------
+// speak: English text through tiny-voca natively (the wasm `speak` op, the same Rust).
+// ---------------------------------------------------------------------------
+const SPEAK_USAGE: &str = "usage: haa speak <text> --tinyvoca <tiny-voca-js.gguf> [--voice <voice.tvv.json>] [--seed N] --out <file.wav | file.f32>";
+
+/// Loads a tiny-voca GGUF as the shared model, and its phonemizer when the file carries one.
+fn load_tinyvoca(path: &str) -> Result<(), String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    tinyvoca::install(tinyvoca::Model::from_gguf(&bytes)?);
+    if let Ok(p) = dizione::Phonemizer::from_gguf(&bytes) {
+        dizione::install(p);
+    }
+    Ok(())
+}
+
+fn speak(args: &[String]) -> i32 {
+    let (mut text, mut gguf, mut voice, mut out, mut seed) = (None, None, None, None, 0u32);
+    let mut i = 0;
+    while i < args.len() {
+        let arg = args[i].as_str();
+        if let Some((flag, inline)) = split_option(arg) {
+            let value = match inline.or_else(|| {
+                i += 1;
+                args.get(i).map(String::as_str)
+            }) {
+                Some(value) => value,
+                None => return fail(format!("{flag} needs a value")),
+            };
+            match flag {
+                "--tinyvoca" => gguf = Some(value),
+                "--voice" => voice = Some(value),
+                "--out" => out = Some(value),
+                "--seed" => match value.parse() {
+                    Ok(n) => seed = n,
+                    Err(_) => return fail(format!("bad --seed: {value}")),
+                },
+                other => return fail(format!("unknown option: {other}")),
+            }
+        } else if text.is_none() {
+            text = Some(arg);
+        } else {
+            return fail(format!("unexpected argument: {arg}"));
+        }
+        i += 1;
+    }
+    let (Some(text), Some(gguf), Some(out)) = (text, gguf, out) else {
+        return fail(SPEAK_USAGE);
+    };
+    if let Err(reason) = load_tinyvoca(gguf) {
+        return fail(reason);
+    }
+    let (m2, post) = match voice {
+        None => (1.0, tinyvoca::Post::default()),
+        Some(path) => match std::fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}")).and_then(|t| tinyvoca::VoiceFile::parse(&t)) {
+            Ok(file) => (file.m2_weight(), file.post),
+            Err(reason) => return fail(reason),
+        },
+    };
+    let audio = match haa_core::nodes::speak::speak_text(text, m2, post, seed) {
+        Ok(audio) => audio,
+        Err(reason) => return fail(reason),
+    };
+    let rate = tinyvoca::shared().map_or(24_000, |m| m.config.sample_rate as u32);
+    let written = if out.ends_with(".f32") {
+        std::fs::write(out, audio.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>())
+    } else {
+        wav::write_wav(Path::new(out), &audio, &audio, rate)
+    };
+    if let Err(e) = written {
+        return fail(format!("cannot write {out}: {e}"));
+    }
+    println!("[haa] wrote {out} ({} samples, {rate} Hz)", audio.len());
+    0
 }
 
 // ---------------------------------------------------------------------------

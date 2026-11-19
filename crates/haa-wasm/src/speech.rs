@@ -2,9 +2,13 @@
 //!
 //! `haa_tinyvoca_load(ptr, len) -> i32`: the bytes of an official tiny-voca GGUF (the host fetches it; nothing is
 //! bundled). 0 on success, after which the `speak` node and `haa_tinyvoca_run` use it; -1 with
-//! `{"error"}` in the result.
+//! `{"error"}` in the result. The one-file `gguf/tiny-voca-js.gguf` also carries the phonemizer (`g2p/*` tensors
+//! and the dizione tables): it is installed too, so one download gives text to speech. Result on success:
+//! `{"phonemizer": true}`, or `{"phonemizer": false, "phonemizerError"}` for a GGUF without it (an earlier
+//! phonemizer, e.g. from `haa_dizione_*`, is kept).
 //!
-//! `haa_tinyvoca_info() -> u32`: result `{"loaded", "sampleRate", "hop", "speakers", "heads":[98,36]}`.
+//! `haa_tinyvoca_info() -> u32`: result `{"loaded", "sampleRate", "hop", "speakers", "heads":[98,36], "maxTokens",
+//! "phonemizer"}`.
 //!
 //! `haa_tinyvoca_run(ptr, len) -> i32`: request JSON `{"op", ...}`, `voice` being `"M2"`/`"F2"` or a voice.tvv.json
 //! v3 object (absent = M2). Returns the result length in bytes, or -1 with `{"error"}` in the result.
@@ -18,6 +22,10 @@
 //! - `vocode {harmonic, noise, logF0, cepDelta?: {harmonic, noise}, noiseSamples?, seed?}` -> audio
 //! - `synthesize {tokens, stress, voice, speed?, pitchShift?, pitchRange?, seed?, noiseSamples?}` -> audio
 //! - `perform {perf, voice, seed?, noiseSamples?}` -> audio (perf.json v1)
+//! - `speak {text, voice? | params?, seed?}` -> audio: plain text (script markup allowed) through the phonemizer
+//!   and the model, cut per sentence (haa_core::nodes::speak::speak_text, what the `speak` node's `text` says);
+//!   `params` are the node params as `paramsToVoice` takes them
+//! - `utterances {text}` -> `[{ids, stress, symbols}]`: how `speak` cuts and phonemizes the text
 //! - `voiceToParams {voice}` -> the `speak` node params `{m2, warp, tilt, envelope, breath, phonation, shift, range,
 //!   rate, jitter}`; `paramsToVoice {params}` -> the voice.tvv.json v3 (a voice is only these graph params)
 //!
@@ -51,10 +59,37 @@ pub extern "C" fn haa_tinyvoca_load(ptr: MemPtr, len: u32) -> i32 {
     match Model::from_gguf(bytes) {
         Ok(model) => {
             tinyvoca::install(model);
-            set_result(String::new());
+            set_result(install_phonemizer(bytes).to_string());
             0
         }
         Err(e) => fail(e),
+    }
+}
+
+#[cfg(feature = "dizione")]
+fn install_phonemizer(bytes: &[u8]) -> Value {
+    match ::dizione::Phonemizer::from_gguf(bytes) {
+        Ok(p) => {
+            ::dizione::install(p);
+            json!({ "phonemizer": true })
+        }
+        Err(e) => json!({ "phonemizer": false, "phonemizerError": e }),
+    }
+}
+
+#[cfg(not(feature = "dizione"))]
+fn install_phonemizer(_bytes: &[u8]) -> Value {
+    json!({ "phonemizer": false, "phonemizerError": "built without the dizione feature" })
+}
+
+fn phonemizer_ready() -> bool {
+    #[cfg(feature = "dizione")]
+    {
+        ::dizione::installed()
+    }
+    #[cfg(not(feature = "dizione"))]
+    {
+        false
     }
 }
 
@@ -62,13 +97,15 @@ pub extern "C" fn haa_tinyvoca_load(ptr: MemPtr, len: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_tinyvoca_info() -> u32 {
     let v = match tinyvoca::shared() {
-        None => json!({ "loaded": false }),
+        None => json!({ "loaded": false, "phonemizer": phonemizer_ready() }),
         Some(m) => json!({
             "loaded": true,
             "sampleRate": m.config.sample_rate,
             "hop": m.config.hop,
             "speakers": m.config.speakers,
             "heads": [m.head_widths().0, m.head_widths().1],
+            "maxTokens": m.config.max_tokens,
+            "phonemizer": phonemizer_ready(),
         }),
     };
     let s = v.to_string();
@@ -108,6 +145,31 @@ fn voice(model: &Model, v: &Value) -> Result<Voice, String> {
             model.blend_voice(file.m2_weight(), file.post)
         }
     }
+}
+
+/// The `speak` node params (`{m2, warp, tilt, envelope, breath, phonation, shift, range, rate, jitter}`, each
+/// optional) as a voice.
+fn params_voice(p: &Value) -> Result<(f32, Post), String> {
+    let n = |k: &str, d: f64| number(p, k, d) as f32;
+    let envelope = haa_core::nodes::speak::envelope_bands(p.get("envelope").and_then(Value::as_str).unwrap_or(""))?;
+    let post = Post { warp: n("warp", 1.0), tilt_db_oct: n("tilt", 0.0), env_offset_db: envelope, breath_db: n("breath", 0.0),
+        phonation: n("phonation", 0.0), f0_shift_st: n("shift", 0.0), f0_range_x: n("range", 1.0), rate_x: n("rate", 1.0),
+        jitter_x: n("jitter", 1.0) };
+    post.check()?;
+    Ok((n("m2", 1.0), post))
+}
+
+#[cfg(feature = "dizione")]
+fn utterances(model: &Model, text: &str) -> Result<Value, String> {
+    let plain = haa_core::nodes::speak::script(text).plain;
+    let limit = model.config.max_tokens.saturating_sub(12).max(1);
+    let list = ::dizione::with_shared(|p| p.utterances(&plain, limit)).ok_or("no phonemizer loaded")?.map_err(|e| e.0)?;
+    Ok(Value::Array(list.iter().map(|u| json!({ "ids": u.ids, "stress": u.stress, "symbols": u.symbols })).collect()))
+}
+
+#[cfg(not(feature = "dizione"))]
+fn utterances(_model: &Model, _text: &str) -> Result<Value, String> {
+    Err("built without the dizione feature".into())
 }
 
 fn noise_samples(v: &Value) -> Result<Option<Vec<f32>>, String> {
@@ -164,15 +226,21 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
                 "rate": p.rate_x, "jitter": p.jitter_x }))
         }
         "paramsToVoice" => {
-            let p = v.get("params").ok_or("params: missing")?;
-            let n = |k: &str, d: f64| number(p, k, d) as f32;
-            let envelope = haa_core::nodes::speak::envelope_bands(p.get("envelope").and_then(Value::as_str).unwrap_or(""))?;
-            let post = Post { warp: n("warp", 1.0), tilt_db_oct: n("tilt", 0.0), env_offset_db: envelope, breath_db: n("breath", 0.0),
-                phonation: n("phonation", 0.0), f0_shift_st: n("shift", 0.0), f0_range_x: n("range", 1.0), rate_x: n("rate", 1.0),
-                jitter_x: n("jitter", 1.0) };
-            post.check()?;
-            Out::Json(serde_json::from_str(&VoiceFile::to_json(n("m2", 1.0), &post)).map_err(|e| e.to_string())?)
+            let (m2, post) = params_voice(v.get("params").ok_or("params: missing")?)?;
+            Out::Json(serde_json::from_str(&VoiceFile::to_json(m2, &post)).map_err(|e| e.to_string())?)
         }
+        "speak" => {
+            let text = v.get("text").and_then(Value::as_str).ok_or("text: missing")?;
+            let (m2, post) = match v.get("params") {
+                Some(p) => params_voice(p)?,
+                None => {
+                    let resolved = voice(model, v)?;
+                    (resolved.m2, resolved.post)
+                }
+            };
+            Out::Audio(haa_core::nodes::speak::speak_text(text, m2, post, seed)?)
+        }
+        "utterances" => Out::Json(utterances(model, v.get("text").and_then(Value::as_str).ok_or("text: missing")?)?),
         "vocode" => {
             let cep = Cepstra { harmonic: floats(v, "harmonic")?, noise: floats(v, "noise")? };
             let delta = match v.get("cepDelta") {

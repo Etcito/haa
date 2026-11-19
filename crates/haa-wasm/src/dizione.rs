@@ -24,7 +24,6 @@ use serde_json::{Value, json};
 use crate::{MemPtr, set_result};
 
 static FILES: Mutex<Option<HashMap<String, Vec<u8>>>> = Mutex::new(None);
-static PHONEMIZER: Mutex<Option<Phonemizer>> = Mutex::new(None);
 
 fn bytes<'a>(ptr: MemPtr, len: u32) -> &'a [u8] {
     if ptr == 0 || len == 0 {
@@ -38,7 +37,7 @@ fn bytes<'a>(ptr: MemPtr, len: u32) -> &'a [u8] {
 fn ready(built: Result<Phonemizer, String>) -> u32 {
     match built {
         Ok(p) => {
-            *PHONEMIZER.lock().unwrap_or_else(|e| e.into_inner()) = Some(p);
+            ::dizione::install(p);
             set_result(json!({ "ready": true }).to_string());
             1
         }
@@ -98,12 +97,11 @@ fn phonemize_json(p: &Phonemizer, v: &Value) -> Value {
 /// Writes the tokens JSON (or `{"error"}`) into the result and returns its length.
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_dizione_phonemize(ptr: MemPtr, len: u32) -> u32 {
-    let guard = PHONEMIZER.lock().unwrap_or_else(|e| e.into_inner());
-    let out = match (guard.as_ref(), serde_json::from_slice::<Value>(bytes(ptr, len))) {
-        (None, _) => json!({ "error": "no data: call haa_dizione_file + haa_dizione_init, or haa_dizione_gguf" }),
-        (_, Err(_)) => json!({ "error": "expected {text}" }),
-        (Some(p), Ok(v)) => phonemize_json(p, &v),
+    let out = match serde_json::from_slice::<Value>(bytes(ptr, len)) {
+        Err(_) => ::dizione::with_shared(|_| json!({ "error": "expected {text}" })),
+        Ok(v) => ::dizione::with_shared(|p| phonemize_json(p, &v)),
     }
+    .unwrap_or_else(|| json!({ "error": "no data: call haa_dizione_file + haa_dizione_init, haa_dizione_gguf or haa_tinyvoca_load with a one-file GGUF" }))
     .to_string();
     let n = out.len() as u32;
     set_result(out);
