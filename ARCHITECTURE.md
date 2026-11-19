@@ -6,7 +6,7 @@ HAA ("Hear Anything Anywhere") is a procedural sound engine that works with any 
 
 HAA is the procedural sound engine that the owner's games and HAA Studio drive. It uses Sona's graph model: a patch is Sona's graph JSON plus a header (§7). The published inputs are the game's whole contract with a sound (§8).
 
-- **Deliverable:** the engine library `@etcito/haa` v0.2.0 (MIT, org Etcito, private). It has:
+- **Deliverable:** the engine library `@etcito/haa` v0.3.0 (MIT, org Etcito, public on npm and as a GitHub release tgz). It has:
   - a Rust workspace: `crates/haa-core` (engine), `crates/haa-wasm` (wasm build), `crates/haa-cli` (native build);
   - a native CLI `haa`;
   - the wasm engine `pkg/haa.wasm`;
@@ -486,7 +486,7 @@ The workspace scaffold, build and release.
 - **Root `tsconfig.json`:** strict, ES2022, NodeNext. allowImportingTsExtensions, verbatimModuleSyntax, erasableSyntaxOnly, noEmit. lib `["ES2022", "DOM"]`, types `["node"]`. Includes `packages/haa/src`, `packages/haa/test` and `tools/listen`.
 - **`Cargo.toml`:**
   - `members = ["crates/*"]`, `resolver = "3"`;
-  - `[workspace.package]` edition 2024, rust-version 1.96, MIT, version 0.2.0;
+  - `[workspace.package]` edition 2024, rust-version 1.96, MIT, version 0.3.0;
   - `[workspace.dependencies]` serde and serde_json;
   - the release profile of §1.
 - **`rust-toolchain.toml`:** channel `1.96`, targets `["wasm32-unknown-unknown"]`. **`.gitignore`:** as in §16.
@@ -495,9 +495,9 @@ The workspace scaffold, build and release.
   - It reads `packages/haa/package.json` (the name must be `@etcito/haa`); `--tag v<version>` must match the version.
   - It runs `npm run build` and `npm pack -w @etcito/haa --pack-destination release/`.
   - It checks the tar entries with a pure-Node reader: `package/package.json`, `package/dist/{index.js,index.d.ts,offline.js,offline.d.ts,node.js,node.d.ts,worklet.js,cli.js}`, `package/pkg/haa.wasm`, `package/README.md`, `package/LICENSE`.
-  - It prints `release-pack: etcito-haa-<v>.tgz ok` and the `gh release create` command, without running it.
+  - It prints `release-pack: etcito-haa-<v>.tgz ok`, the `gh release create` command and `npm publish release/etcito-haa-<v>.tgz --access public`, without running either.
 - **`packages/haa/package.json`:**
-  - `@etcito/haa` 0.2.0, private, module, MIT;
+  - `@etcito/haa` 0.3.0, module, MIT, publishable (`description`, `repository`, `homepage`, `keywords`, `publishConfig.access: public`);
   - `files: ["dist", "pkg", "README.md", "LICENSE"]`, `bin: { "haa-node": "./dist/cli.js" }`;
   - `exports`: `.`, `./offline`, `./node` (each types + default from `dist/`), `./worklet` → `./dist/worklet.js`, `./wasm` → `./pkg/haa.wasm`, `./package.json`;
   - `scripts.build: "node build.mjs"`. No dependencies.
@@ -506,7 +506,7 @@ The workspace scaffold, build and release.
   - an entry whose source is missing is skipped with `[haa build] skip <entry>`.
   - It then runs `tsc -p packages/haa/tsconfig.json` (declarations only) and rewrites `./x.ts` specifiers in the `.d.ts` files to `./x.js`.
   - It warns when `pkg/haa.wasm` is missing.
-- **`packages/haa/src/version.ts`:** `HAA_PACKAGE_VERSION = '0.2.0'`, `HAA_WASM_FILE = 'pkg/haa.wasm'`.
+- **`packages/haa/src/version.ts`:** `HAA_PACKAGE_VERSION = '0.3.0'`, `HAA_WASM_FILE = 'pkg/haa.wasm'`.
 - **`packages/haa/src/index.ts`:** the append-only export file: `version`, `types`, `engine`, `player`, `load`.
 - **README.md:** what HAA is, the layout, every command, the patch format summary, the local release flow and one status section per milestone. **PROVENANCE.md:** Sona v11 node semantics, plus the v0.1 extraction history kept under `legacy/`. **`packages/haa/README.md`, `packages/haa/LICENSE`:** a short usage note and the MIT licence.
 

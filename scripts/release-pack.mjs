@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Packs @etcito/haa (packages/haa) into ./release/etcito-haa-<version>.tgz for a GitHub Release.
+// Packs @etcito/haa (packages/haa) into ./release/etcito-haa-<version>.tgz for a GitHub Release and npm.
 // Local only: there is no GitHub workflow. It builds the wasm and the JS (npm run build), packs the
-// workspace package, checks the required tar entries, then prints the `gh release create` command
-// for the owner to run. It never runs that command itself.
+// workspace package, checks the required tar entries, then prints the `gh release create` and
+// `npm publish` commands for the owner to run. It never runs them itself (both need his credentials).
 // Usage: node scripts/release-pack.mjs [--tag v<version>]
 // With --tag, the package version must equal the tag without its leading "v" (checked before any build).
 import { execSync } from 'node:child_process';
@@ -69,7 +69,7 @@ function run(command) {
 
 const tagIndex = process.argv.indexOf('--tag');
 const tag = tagIndex === -1 ? null : process.argv[tagIndex + 1];
-if (tagIndex !== -1 && !tag) fail('--tag needs a value, e.g. --tag v0.2.0');
+if (tagIndex !== -1 && !tag) fail('--tag needs a value, e.g. --tag v0.3.0');
 
 // Read and check the manifest before building anything.
 let manifest;
@@ -96,4 +96,6 @@ for (const entry of PACKAGE.required) {
   if (!entries.has(entry)) fail(`${file} is missing ${entry}`);
 }
 console.log(`release-pack: ${file} ok`);
+// Printed only, never run: the owner publishes (gh and npm use his own logins).
 console.log(`gh release create v${manifest.version} release/${file}`);
+console.log(`npm publish release/${file} --access public`);

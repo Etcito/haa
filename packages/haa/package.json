@@ -1,9 +1,19 @@
 {
   "name": "@etcito/haa",
-  "version": "0.2.0",
-  "private": true,
+  "version": "0.3.0",
+  "description": "HAA procedural sound engine: Rust/wasm patches from HAA Studio played in the browser (AudioWorklet) and rendered offline in a Worker or Node.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Etcito/haa.git",
+    "directory": "packages/haa"
+  },
+  "homepage": "https://github.com/Etcito/haa#readme",
+  "bugs": {
+    "url": "https://github.com/Etcito/haa/issues"
+  },
+  "keywords": ["audio", "procedural-audio", "sound-engine", "game-audio", "sfx", "webaudio", "audioworklet", "wasm", "webassembly", "speech", "haa"],
   "engines": {
     "node": ">=22.18"
   },
@@ -58,5 +68,8 @@
   },
   "scripts": {
     "build": "node build.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

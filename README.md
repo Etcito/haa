@@ -2,6 +2,31 @@
 
 HAA is a procedural sound engine. Its graph model and every node are ported from Sona v11 (the owner's sound studio), and a game drives a patch through **published inputs** (`rpm`, `speed`, `pedal`, ...). The engine is Rust (`haa-core`), compiled to wasm and to a native CLI; a small TypeScript host (`@etcito/haa`) plays and renders it. Nothing here is a deployed service.
 
+## Install
+
+`@etcito/haa` ships the JS host, its `.d.ts`, the AudioWorklet processor and the prebuilt wasm (`pkg/*.wasm`): nothing to compile on your side.
+
+1. From npm (once published):
+
+   ```sh
+   npm install @etcito/haa
+   ```
+
+2. From the GitHub release tarball (no npm account needed):
+
+   ```sh
+   npm install https://github.com/Etcito/haa/releases/download/v0.3.0/etcito-haa-0.3.0.tgz
+   ```
+
+3. From source (Node >= 22.18, Rust 1.96 with the `wasm32-unknown-unknown` target):
+
+   ```sh
+   git clone https://github.com/Etcito/haa.git && cd haa
+   npm ci && npm run build      # wasm into packages/haa/pkg, JS and .d.ts into packages/haa/dist
+   ```
+
+   then depend on it from your game with `"@etcito/haa": "file:../haa/packages/haa"`, or pack it with `npm run release:pack` and install the tgz.
+
 ## Layout
 
 - `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`: Rust workspace (`crates/*`), Rust 1.96, edition 2024.
@@ -94,11 +119,14 @@ Releases are local; there is no CI.
 npm run release:pack    # builds the wasm and JS, packs release/etcito-haa-<version>.tgz, checks its contents
 ```
 
-It then prints the command below, which it never runs. The owner runs it:
+It then prints the two commands below, which it never runs. The owner runs them (they use his GitHub and npm logins):
 
 ```sh
 gh release create v<version> release/etcito-haa-<version>.tgz
+npm publish release/etcito-haa-<version>.tgz --access public
 ```
+
+`npm publish` needs an npm user or organization named `etcito` (the package scope) that the publishing account belongs to.
 
 ## Status
 

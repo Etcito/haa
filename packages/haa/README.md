@@ -1,21 +1,18 @@
 # @etcito/haa
 
 The HAA procedural sound engine: a Rust core compiled to wasm (`pkg/haa.wasm`) with a small JS host.
-MIT, private (not on the npm registry).
+MIT. Source, docs and releases: https://github.com/Etcito/haa.
 
 ## Install
 
-From a GitHub release tgz (built locally with `npm run release:pack` in the haa repo):
-
 ```sh
-npm install ./etcito-haa-0.2.0.tgz
+npm install @etcito/haa
+# or, from the GitHub release tarball:
+npm install https://github.com/Etcito/haa/releases/download/v0.3.0/etcito-haa-0.3.0.tgz
 ```
 
-Or from a sibling checkout of the haa repo (run `npm run build` there first):
-
-```json
-"dependencies": { "@etcito/haa": "file:../haa/packages/haa" }
-```
+The package ships the prebuilt wasm (`pkg/*.wasm`), the bundled JS (`dist/`), its `.d.ts` and the AudioWorklet
+processor: nothing to compile. To build from source, see the repository README.
 
 ## Exports
 

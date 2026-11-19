@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "haa-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dizione",
  "haa-core",
@@ -101,7 +101,7 @@ dependencies = [
 
 [[package]]
 name = "haa-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chimera",
  "dizione",
@@ -114,14 +114,14 @@ dependencies = [
 
 [[package]]
 name = "haa-field"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "haa-trace",
 ]
 
 [[package]]
 name = "haa-fit"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "haa-core",
  "serde_json",
@@ -129,15 +129,15 @@ dependencies = [
 
 [[package]]
 name = "haa-mix"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "haa-trace"
-version = "0.2.0"
+version = "0.3.0"
 
 [[package]]
 name = "haa-wasm"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dizione",
  "haa-core",
