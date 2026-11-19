@@ -11,6 +11,7 @@ import type {
   PlayerInMsg,
   PlayerOutMsg,
   PlayerProcessorOptions,
+  SpeechClip,
   TracePacket,
   VoiceInfo,
 } from './types.ts';
@@ -31,6 +32,8 @@ export interface PlayerOptions {
   output?: AudioNode;
   /** Start with control traces on. */
   trace?: boolean;
+  /** Speech clips for the patch's `speak` nodes (the worklet has no tiny-voca model; see `SpeechClip`). */
+  speechClips?: SpeechClip[];
 }
 
 /** A live player bound to one AudioWorklet node (ARCHITECTURE §9). */
@@ -43,6 +46,8 @@ export interface HaaPlayer {
   trigger(name: string): void;
   restart(): void;
   setPatch(patch: HaaPatch | string | Uint8Array, keepState?: boolean): Promise<LoadResult>;
+  /** Hands speech clips to the worklet; the next `setPatch` lets the `speak` nodes play them. */
+  setSpeechClips(clips: SpeechClip[]): void;
   onTrace(cb: (t: TracePacket) => void): () => void;
   onEnded(cb: () => void): () => void;
   dispose(): void;
@@ -82,6 +87,7 @@ async function startPlayer(ctx: BaseAudioContext, o: PlayerOptions): Promise<Haa
     seed: o.seed ?? 0,
     inputs: o.inputs ?? {},
     trace: o.trace ?? false,
+    speechClips: o.speechClips ?? [],
   };
   const node = new AudioWorkletNode(ctx, PLAYER_PROCESSOR, {
     numberOfInputs: 0,
@@ -242,6 +248,14 @@ async function startPlayer(ctx: BaseAudioContext, o: PlayerOptions): Promise<Haa
       if (disposed) return;
       try {
         node.port.postMessage({ t: 'restart' } satisfies PlayerInMsg);
+      } catch {
+        // A closed port drops the message.
+      }
+    },
+    setSpeechClips(clips: SpeechClip[]): void {
+      if (disposed || clips.length === 0) return;
+      try {
+        node.port.postMessage({ t: 'clips', clips } satisfies PlayerInMsg);
       } catch {
         // A closed port drops the message.
       }

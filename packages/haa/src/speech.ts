@@ -10,6 +10,7 @@
 //
 // The weights are never bundled: the official file of the tiny-voca Hugging Face repo, pinned to a revision.
 
+import type { SpeechClip } from './types.ts';
 import { decodeUtf8, encodeUtf8 } from './utf8.ts';
 
 /** The tiny-voca Hugging Face repo and the revision the Rust port was checked against. */
@@ -122,11 +123,13 @@ export interface SpeechOps {
   perform: [{ perf: unknown; voice?: VoiceSpec; seed?: number; noiseSamples?: number[] }, Float32Array];
   speak: [{ text: string; params?: SpeakParams; voice?: VoiceSpec; seed?: number }, Float32Array];
   utterances: [{ text: string }, Utterance[]];
+  patchClips: [{ patch: unknown; seed?: number }, { key: string; rate: number; frames: number }[]];
+  clip: [{ key: string }, Float32Array];
   voiceToParams: [{ voice: VoiceFileV3 }, Required<SpeakParams>];
   paramsToVoice: [{ params: SpeakParams }, VoiceFileV3];
 }
 
-const AUDIO_OPS = new Set<keyof SpeechOps>(['vocode', 'synthesize', 'perform', 'speak']);
+const AUDIO_OPS = new Set<keyof SpeechOps>(['vocode', 'synthesize', 'perform', 'speak', 'clip']);
 
 /** tiny-voca over one wasm instance: the model and phonemizer are that instance's. */
 export interface Speech {
@@ -140,6 +143,11 @@ export interface Speech {
   speak(text: string, voice?: SpeakParams | VoiceSpec, opts?: { seed?: number }): Float32Array;
   /** How `speak` cuts and phonemizes `text`. */
   utterances(text: string): Utterance[];
+  /**
+   * The speech of every `speak` node of a patch (JSON text or object), rendered for voice seed `seed`: give them
+   * to a player (`createPlayer({ speechClips })`, `player.setSpeechClips`), which has no model.
+   */
+  patchClips(patch: unknown, seed?: number): SpeechClip[];
   /** dizione on one text (no cut), with the words and their token ranges. */
   phonemize(text: string): Phonemized;
   voiceToParams(voice: VoiceFileV3): Required<SpeakParams>;
@@ -207,6 +215,10 @@ export function wrapSpeech(exports: SpeechExports): Speech {
     },
     utterances(text) {
       return run('utterances', { text });
+    },
+    patchClips(patch, seed = 0) {
+      const list = run('patchClips', { patch: typeof patch === 'string' ? patch : JSON.stringify(patch), seed });
+      return list.map(({ key, rate }) => ({ key, rate, pcm: run('clip', { key }) }));
     },
     phonemize(text) {
       const call = exports.haa_dizione_phonemize;

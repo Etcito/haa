@@ -11,7 +11,7 @@ import './sfx/mix-worklet.ts';
 import './sfx/master-worklet.ts';
 import type { HaaVoice } from './engine.ts';
 import { BLOCK, PLAYER_PROCESSOR, TRACE_HZ } from './types.ts';
-import type { PatchIssue, PlayerInMsg, PlayerOutMsg, PlayerProcessorOptions, VoiceInfo } from './types.ts';
+import type { PatchIssue, PlayerInMsg, PlayerOutMsg, PlayerProcessorOptions, SpeechClip, VoiceInfo } from './types.ts';
 
 const EMPTY_INFO: VoiceInfo = { nodes: [], inputs: [], mode: 'timeline', duration: 1, loop: false };
 
@@ -34,6 +34,8 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
   private tracing: boolean;
   private endedPosted = false;
   private frames = 0;
+  /** Speech clips received, kept so a rebuilt instance gets them again. */
+  private readonly clips = new Map<string, SpeechClip>();
 
   constructor(options?: AudioWorkletNodeOptions) {
     super(options);
@@ -41,6 +43,7 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
     this.module = o.module;
     this.seed = o.seed;
     this.tracing = o.trace;
+    for (const clip of o.speechClips ?? []) this.clips.set(clip.key, clip);
     let playable = false;
     let issues: PatchIssue[] = [];
     let info = EMPTY_INFO;
@@ -109,6 +112,7 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
     this.voice?.free();
     this.voice = null;
     this.engine = HaaEngine.fromModule(this.module);
+    this.engine.putSpeechClips([...this.clips.values()]);
     this.voice = this.engine.createVoice(sampleRate, this.seed);
     this.trapped = false;
     this.endedPosted = false;
@@ -157,6 +161,10 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
           break;
         case 'trace':
           this.tracing = msg.on;
+          break;
+        case 'clips':
+          for (const clip of msg.clips) this.clips.set(clip.key, clip);
+          this.engine?.putSpeechClips(msg.clips);
           break;
         case 'dispose':
           this.disposed = true;

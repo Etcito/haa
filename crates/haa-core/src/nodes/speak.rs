@@ -16,9 +16,89 @@
 //! `configure` renders the whole utterance (24 kHz, resampled to the patch rate) and may allocate: changing a
 //! voice parameter renders again; only `gain` follows modulation per sample. `process_sample` reads the audio at
 //! the patch clock, so a loop or a restart replays it, and never allocates.
+//!
+//! Clips: every render is kept in a small process-wide store, keyed by what it was rendered from (text, input,
+//! voice params, seed: [`clip_key`]). A node whose key is in the store plays that clip and needs no model. So a
+//! host with the model (a worker) renders a patch's speech once ([`clips_of_patch`]) and hands the clips to a
+//! host without it (the AudioWorklet player, `haa_speak_clip_put`), which then loads the patch again; nothing
+//! heavy runs on the audio thread.
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::catalog::{Category, NodeTypeDef, ParamDef, ParamKind, Scale};
 use crate::node::{Node, NodeInit, NodeOut, SampleCtx};
+
+/// A rendered utterance: mono audio at `rate`.
+#[derive(Clone, Debug)]
+pub struct Clip {
+    pub rate: f64,
+    pub audio: Arc<Vec<f32>>,
+}
+
+/// At most this many clips are kept; the store is emptied when a new one would pass it.
+const MAX_CLIPS: usize = 32;
+
+struct Clips {
+    by_key: HashMap<String, Clip>,
+    /// Keys the nodes configured since the last [`take_wanted`], in order (what a patch needs).
+    wanted: Vec<String>,
+}
+
+static CLIPS: Mutex<Option<Clips>> = Mutex::new(None);
+
+fn with_clips<R>(f: impl FnOnce(&mut Clips) -> R) -> R {
+    let mut guard = CLIPS.lock().unwrap_or_else(|p| p.into_inner());
+    f(guard.get_or_insert_with(|| Clips { by_key: HashMap::new(), wanted: Vec::new() }))
+}
+
+/// What a `speak` node renders from: its text, input, envelope, voice params (`params[..GAIN]`) and seed.
+pub fn clip_key(text: &str, input: &str, envelope: &str, params: &[f64], seed: u32) -> String {
+    let voice: Vec<f64> = params.iter().take(GAIN).copied().collect();
+    format!("{text}\u{1}{input}\u{1}{envelope}\u{1}{voice:?}\u{1}{seed}")
+}
+
+/// Keeps a clip under `key` (replacing one there).
+pub fn put_clip(key: &str, clip: Clip) {
+    with_clips(|c| {
+        if c.by_key.len() >= MAX_CLIPS && !c.by_key.contains_key(key) {
+            c.by_key.clear();
+        }
+        c.by_key.insert(key.to_string(), clip);
+    });
+}
+
+/// The clip kept under `key`.
+pub fn clip(key: &str) -> Option<Clip> {
+    with_clips(|c| c.by_key.get(key).cloned())
+}
+
+/// The keys `speak` nodes asked for since the last call (and forgets them).
+pub fn take_wanted() -> Vec<String> {
+    with_clips(|c| std::mem::take(&mut c.wanted))
+}
+
+/// Renders the speech of every `speak` node of `patch` (the host must have the model) and returns the clips by
+/// key, in node order: what a player without the model needs to say the same patch with voice seed `seed`.
+pub fn clips_of_patch(patch: &str, seed: u32) -> Result<Vec<(String, Clip)>, String> {
+    take_wanted();
+    let mut voice = crate::Voice::new(48_000.0, seed);
+    let outcome = voice.load(patch, false);
+    if !outcome.playable {
+        let first = outcome.issues.iter().find(|i| i.severity == crate::issues::Severity::Error);
+        return Err(first.map_or("the patch cannot play".into(), |i| format!("{}: {}", i.code, i.message)));
+    }
+    let mut out: Vec<(String, Clip)> = Vec::new();
+    for key in take_wanted() {
+        if out.iter().any(|(k, _)| *k == key) {
+            continue;
+        }
+        if let Some(c) = clip(&key) {
+            out.push((key, c));
+        }
+    }
+    Ok(out)
+}
 
 pub const TEXT: usize = 0;
 pub const INPUT: usize = 1;
@@ -154,8 +234,10 @@ pub struct Script {
 
 /// Reads the script markup of a `speak` text. Today it only takes `[...]` tags out (a space is left where a tag
 /// separated two words); an unclosed `[` stays as text.
-// TODO(agent C, emotion tags): give `tags` (e.g. `[angry,5]`) a meaning per span (voice or curve edits from the
-// tag to the next one) in `speak_text`; the studio already passes the raw text here.
+// TODO(agent C, emotion tags): give `tags` a meaning per span (voice or curve edits from the tag to the next one)
+// in `speak_text`. Tag format v2 (/root/work/haa/temp/npc-voice/PLAN.md "SCRIPT FORMAT v2"): `[key:N, key:N]`,
+// N in 0..=10 (5 without `:N`), e.g. `[scared:4,question:10]`; `[neutral]` or `[]` resets. The studio passes the
+// raw text here.
 pub fn script(text: &str) -> Script {
     let mut out = Script::default();
     let mut rest = text;
@@ -210,16 +292,24 @@ pub fn speak_text(_text: &str, _m2: f32, _post: tinyvoca::Post, _seed: u32) -> R
 
 /// Renders `text` (or, when it is empty, `input`) at `sample_rate`; see the module comment.
 pub fn render_node(text: &str, input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate: f64) -> Result<Vec<f32>, String> {
-    if text.trim().is_empty() {
-        return render(input, m2, post, seed, sample_rate);
-    }
-    let audio = speak_text(text, m2, post, seed)?;
-    let from = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
-    Ok(tinyvoca::resample(&audio, from, sample_rate))
+    let c = render_clip(text, input, m2, post, seed)?;
+    Ok(tinyvoca::resample(&c.audio, c.rate, sample_rate))
+}
+
+/// Renders `text` (or, when it is empty, `input`) at the model's rate.
+pub fn render_clip(text: &str, input: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Clip, String> {
+    let rate = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
+    let audio = if text.trim().is_empty() { render_input(input, m2, post, seed)? } else { speak_text(text, m2, post, seed)? };
+    Ok(Clip { rate, audio: Arc::new(audio) })
 }
 
 /// Renders `input` with the shared model for a voice `(m2, post)`, at `sample_rate`.
 pub fn render(input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate: f64) -> Result<Vec<f32>, String> {
+    let rate = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
+    Ok(tinyvoca::resample(&render_input(input, m2, post, seed)?, rate, sample_rate))
+}
+
+fn render_input(input: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<f32>, String> {
     let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
     let voice = model.blend_voice(m2, post)?;
     let value: serde_json::Value = serde_json::from_str(input).map_err(|e| format!("speak input: {e}"))?;
@@ -235,7 +325,7 @@ pub fn render(input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate
         let options = tinyvoca::Options { seed, ..Default::default() };
         model.synthesize(&list("tokens")?, &list("stress")?, &voice, &options, None)?.audio
     };
-    Ok(tinyvoca::resample(&audio, model.config.sample_rate as f64, sample_rate))
+    Ok(audio)
 }
 
 impl Node for Speak {
@@ -249,24 +339,39 @@ impl Node for Speak {
     fn configure(&mut self, init: &NodeInit<'_>) {
         let text = |i: usize| init.texts.get(i).and_then(|t| t.as_deref()).unwrap_or("").to_string();
         let (said, input, envelope) = (text(TEXT), text(INPUT), text(ENVELOPE));
+        let silent = said.trim().is_empty() && input.trim().is_empty();
+        let source = clip_key(&said, &input, &envelope, init.params, init.seed);
+        if !silent {
+            with_clips(|c| {
+                if c.wanted.len() >= 256 {
+                    c.wanted.clear(); // a player never takes them: keep the list bounded
+                }
+                c.wanted.push(source.clone());
+            });
+        }
+        let kept = clip(&source);
         let loaded = tinyvoca::shared().is_some();
-        let voice: Vec<f64> = init.params.iter().take(GAIN).copied().collect();
-        let key = format!("{loaded}\u{1}{said}\u{1}{input}\u{1}{envelope}\u{1}{voice:?}\u{1}{}\u{1}{}", init.seed, init.sample_rate);
+        let key = format!("{loaded}\u{1}{}\u{1}{source}\u{1}{}", kept.is_some(), init.sample_rate);
         if key == self.key {
             return;
         }
         self.key = key;
         self.sample_rate = init.sample_rate;
         self.audio.clear();
-        if said.trim().is_empty() && input.trim().is_empty() {
+        if silent {
+            return;
+        }
+        if let Some(c) = kept {
+            self.audio = tinyvoca::resample(&c.audio, c.rate, init.sample_rate);
             return;
         }
         // an input or voice the model refuses leaves the node silent; the wasm `synthesize`/`perform` ops report
         // the same error as text
         if let Ok((m2, post)) = voice_params(init.params, &envelope)
-            && let Ok(a) = render_node(&said, &input, m2, post, init.seed, init.sample_rate)
+            && let Ok(c) = render_clip(&said, &input, m2, post, init.seed)
         {
-            self.audio = a;
+            self.audio = tinyvoca::resample(&c.audio, c.rate, init.sample_rate);
+            put_clip(&source, c);
         }
     }
 
@@ -308,8 +413,19 @@ mod tests {
         };
         let out = node.process_sample(&ctx, (0.0, 0.0), &params);
         assert_eq!((out.l, out.r), (0.0, 0.0));
-        let said = script("[calm] Hello[laughs]there, [angry,5]you. [open");
+
+        // a kept clip plays without a model once the node configures again (a player's reload)
+        let said_texts = [Some("Hi.".to_string()), Some(String::new()), None, None, None, Some("1 ".repeat(32)), None, None, None, None, None, None, None];
+        let init = NodeInit { id: "speak1", seed: 7, sample_rate: 48_000.0, params: &params, texts: &said_texts, curve: None, inputs: &[], duration: 1.0 };
+        node.configure(&init);
+        assert_eq!(node.process_sample(&ctx, (0.0, 0.0), &params).l, 0.0);
+        let key = clip_key("Hi.", "", &"1 ".repeat(32), &params, 7);
+        assert!(take_wanted().contains(&key));
+        put_clip(&key, Clip { rate: 24_000.0, audio: Arc::new(vec![0.5; 2_400]) });
+        node.configure(&init);
+        assert!((node.process_sample(&ctx, (0.0, 0.0), &params).l - 0.5).abs() < 1e-3);
+        let said = script("[calm] Hello[laughs]there, [scared:4,question:10]you. [open");
         assert_eq!(said.plain, " Hello there, you. [open");
-        assert_eq!(said.tags, [(0, "calm".to_string()), (6, "laughs".to_string()), (14, "angry,5".to_string())]);
+        assert_eq!(said.tags, [(0, "calm".to_string()), (6, "laughs".to_string()), (14, "scared:4,question:10".to_string())]);
     }
 }

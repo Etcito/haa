@@ -1,7 +1,7 @@
 // Realm-neutral wrapper over the HAA wasm voice ABI (ARCHITECTURE §13).
 // Text crosses linear memory as UTF-8 bytes so this module also runs in an AudioWorklet.
 
-import type { CatalogJson, HaaPatch, LoadResult, PatchIssue, VoiceInfo } from './types.ts';
+import type { CatalogJson, HaaPatch, LoadResult, PatchIssue, SpeechClip, VoiceInfo } from './types.ts';
 import { BLOCK } from './types.ts';
 import { decodeUtf8, encodeUtf8 } from './utf8.ts';
 
@@ -36,6 +36,8 @@ export interface HaaExports {
   haa_voice_trace_len(h: number): number;
   haa_voice_time(h: number): number;
   haa_voice_seconds(h: number): number;
+  /** Absent from builds before the tiny-voca `speak` node. */
+  haa_speak_clip_put?(keyPtr: number, keyLen: number, pcmPtr: number, pcmLen: number, rate: number): number;
 }
 
 /** Instantiated wasm module and factory for realm-neutral voices. */
@@ -62,6 +64,29 @@ export class HaaEngine {
   /** Create a voice at the requested sample rate and optional seed. */
   createVoice(sampleRate: number, seed = 0): HaaVoice {
     return new HaaVoice(this.exports, this.exports.haa_voice_new(sampleRate, seed));
+  }
+
+  /**
+   * Keeps speech clips in this instance: a `speak` node whose text, voice and seed match one plays it, no model
+   * needed. Voices pick them up on their next `load`.
+   */
+  putSpeechClips(clips: SpeechClip[]): void {
+    const put = this.exports.haa_speak_clip_put;
+    if (!put) return;
+    for (const clip of clips) {
+      const key = encodeUtf8(clip.key);
+      const pcm = new Uint8Array(clip.pcm.buffer, clip.pcm.byteOffset, clip.pcm.byteLength);
+      const kp = this.exports.haa_alloc(key.length);
+      const pp = this.exports.haa_alloc(pcm.length);
+      try {
+        new Uint8Array(this.exports.memory.buffer, kp, key.length).set(key);
+        new Uint8Array(this.exports.memory.buffer, pp, pcm.length).set(pcm);
+        put(kp, key.length, pp, pcm.length, clip.rate);
+      } finally {
+        this.exports.haa_free(kp, key.length);
+        this.exports.haa_free(pp, pcm.length);
+      }
+    }
   }
 
 }

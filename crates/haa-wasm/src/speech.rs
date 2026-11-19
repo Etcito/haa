@@ -26,6 +26,12 @@
 //!   and the model, cut per sentence (haa_core::nodes::speak::speak_text, what the `speak` node's `text` says);
 //!   `params` are the node params as `paramsToVoice` takes them
 //! - `utterances {text}` -> `[{ids, stress, symbols}]`: how `speak` cuts and phonemizes the text
+//! - `patchClips {patch, seed?}` -> `[{key, rate, frames}]`: the speech of every `speak` node of a patch, rendered
+//!   for voice seed `seed` (what a player without the model needs); then `clip {key}` -> that clip's audio
+//!
+//! `haa_speak_clip_put(key_ptr, key_len, pcm_ptr, pcm_len, rate) -> u32`: keeps a clip (little-endian f32 bytes)
+//! under its key in this instance, model or not; a `speak` node with that key plays it once it configures again
+//! (load the patch again, keep_state = 1). Returns 1, or 0 for a bad key.
 //! - `voiceToParams {voice}` -> the `speak` node params `{m2, warp, tilt, envelope, breath, phonation, shift, range,
 //!   rate, jitter}`; `paramsToVoice {params}` -> the voice.tvv.json v3 (a voice is only these graph params)
 //!
@@ -240,6 +246,19 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
             };
             Out::Audio(haa_core::nodes::speak::speak_text(text, m2, post, seed)?)
         }
+        "patchClips" => {
+            let patch = match v.get("patch") {
+                Some(Value::String(text)) => text.clone(),
+                Some(other) => other.to_string(),
+                None => return Err("patch: missing".into()),
+            };
+            let clips = haa_core::nodes::speak::clips_of_patch(&patch, seed)?;
+            Out::Json(Value::Array(clips.iter().map(|(key, c)| json!({ "key": key, "rate": c.rate, "frames": c.audio.len() })).collect()))
+        }
+        "clip" => {
+            let key = v.get("key").and_then(Value::as_str).ok_or("key: missing")?;
+            Out::Audio(haa_core::nodes::speak::clip(key).ok_or("no clip under this key")?.audio.to_vec())
+        }
         "utterances" => Out::Json(utterances(model, v.get("text").and_then(Value::as_str).ok_or("text: missing")?)?),
         "vocode" => {
             let cep = Cepstra { harmonic: floats(v, "harmonic")?, noise: floats(v, "noise")? };
@@ -267,6 +286,20 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
         }
         other => return Err(format!("op: unknown {other}")),
     })
+}
+
+/// Keeps a rendered clip for the `speak` nodes of this instance; see the module comment.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_speak_clip_put(key_ptr: MemPtr, key_len: u32, pcm_ptr: MemPtr, pcm_len: u32, rate: f64) -> u32 {
+    // SAFETY: the host passes blocks it allocated with `haa_alloc` and filled.
+    let (key, pcm) = unsafe { (bytes_at(key_ptr, key_len), bytes_at(pcm_ptr, pcm_len)) };
+    let Ok(key) = std::str::from_utf8(key) else { return 0 };
+    if !(rate > 0.0) {
+        return 0;
+    }
+    let audio: Vec<f32> = pcm.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+    haa_core::nodes::speak::put_clip(key, haa_core::nodes::speak::Clip { rate, audio: std::sync::Arc::new(audio) });
+    1
 }
 
 /// Runs one op of the model; see the module comment.
