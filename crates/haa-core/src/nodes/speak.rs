@@ -17,23 +17,57 @@
 //! voice parameter renders again; only `gain` follows modulation per sample. `process_sample` reads the audio at
 //! the patch clock, so a loop or a restart replays it, and never allocates.
 //!
-//! Clips: every render is kept in a small process-wide store, keyed by what it was rendered from (text, input,
-//! voice params, seed: [`clip_key`]). A node whose key is in the store plays that clip and needs no model. So a
-//! host with the model (a worker) renders a patch's speech once ([`clips_of_patch`]) and hands the clips to a
-//! host without it (the AudioWorklet player, `haa_speak_clip_put`), which then loads the patch again; nothing
-//! heavy runs on the audio thread.
+//! Clips: speech is rendered utterance by utterance, and every utterance (a part) is kept in a small process-wide
+//! store, keyed by what it was rendered from (text, input, envelope, voice params, seed: [`clip_key`]). A node
+//! whose key is in the store plays the parts there, at the patch clock, and needs no model; parts that are not
+//! there yet are silence. So a host with the model (a worker) plans a patch ([`plan_patch`], [`SpeechJobs`]) and
+//! renders one part at a time ([`SpeechJobs::step`]) while a host without it (the AudioWorklet player,
+//! `haa_speak_part_put`) takes each part as it comes and loads the patch again: playback can start with the first
+//! utterance, and nothing heavy runs on the audio thread (a part is resampled to the patch rate when it arrives).
+//! Each utterance is brought under a 0.99 peak on its own (say.mjs `limited` does it on the whole clip), so a
+//! streamed clip and a whole one are the same samples.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::catalog::{Category, NodeTypeDef, ParamDef, ParamKind, Scale};
 use crate::node::{Node, NodeInit, NodeOut, SampleCtx};
 
-/// A rendered utterance: mono audio at `rate`.
+/// Rendered speech: the utterances (parts) said so far, mono at `rate`, in order; `complete` once the last is in.
 #[derive(Clone, Debug)]
 pub struct Clip {
     pub rate: f64,
-    pub audio: Arc<Vec<f32>>,
+    pub parts: Vec<Arc<Vec<f32>>>,
+    pub complete: bool,
+}
+
+impl Clip {
+    /// A complete clip of one part.
+    pub fn whole(rate: f64, audio: Vec<f32>) -> Self {
+        Clip { rate, parts: vec![Arc::new(audio)], complete: true }
+    }
+
+    /// Frames over all parts.
+    pub fn frames(&self) -> usize {
+        self.parts.iter().map(|p| p.len()).sum()
+    }
+
+    /// The parts one after the other.
+    pub fn audio(&self) -> Vec<f32> {
+        self.parts.iter().flat_map(|p| p.iter().copied()).collect()
+    }
+}
+
+/// What a `speak` node asked for when it configured: enough to render its speech in another host.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Wanted {
+    pub key: String,
+    pub text: String,
+    pub input: String,
+    pub envelope: String,
+    pub params: Vec<f64>,
+    pub seed: u32,
 }
 
 /// At most this many clips are kept; the store is emptied when a new one would pass it.
@@ -41,11 +75,14 @@ const MAX_CLIPS: usize = 32;
 
 struct Clips {
     by_key: HashMap<String, Clip>,
-    /// Keys the nodes configured since the last [`take_wanted`], in order (what a patch needs).
-    wanted: Vec<String>,
+    /// What the nodes configured since the last [`take_wanted`], in order (what a patch needs).
+    wanted: Vec<Wanted>,
 }
 
 static CLIPS: Mutex<Option<Clips>> = Mutex::new(None);
+
+/// While set, `speak` nodes only record what they want ([`plan_patch`]); they neither render nor resample.
+static PLANNING: AtomicBool = AtomicBool::new(false);
 
 fn with_clips<R>(f: impl FnOnce(&mut Clips) -> R) -> R {
     let mut guard = CLIPS.lock().unwrap_or_else(|p| p.into_inner());
@@ -68,36 +105,184 @@ pub fn put_clip(key: &str, clip: Clip) {
     });
 }
 
+/// Keeps part `index` of the clip under `key` (the parts before it must be there; `last` completes the clip).
+/// Returns false for a part out of order.
+pub fn put_part(key: &str, index: usize, last: bool, rate: f64, audio: Vec<f32>) -> bool {
+    with_clips(|c| {
+        if c.by_key.len() >= MAX_CLIPS && !c.by_key.contains_key(key) {
+            c.by_key.clear();
+        }
+        let clip = c.by_key.entry(key.to_string()).or_insert_with(|| Clip { rate, parts: Vec::new(), complete: false });
+        if clip.rate != rate {
+            *clip = Clip { rate, parts: Vec::new(), complete: false };
+        }
+        if index > clip.parts.len() {
+            return false;
+        }
+        if index == clip.parts.len() {
+            clip.parts.push(Arc::new(audio));
+        }
+        if last {
+            clip.parts.truncate(index + 1);
+            clip.complete = true;
+        }
+        true
+    })
+}
+
 /// The clip kept under `key`.
 pub fn clip(key: &str) -> Option<Clip> {
     with_clips(|c| c.by_key.get(key).cloned())
 }
 
-/// The keys `speak` nodes asked for since the last call (and forgets them).
-pub fn take_wanted() -> Vec<String> {
+/// What `speak` nodes asked for since the last call (and forgets it).
+pub fn take_wanted() -> Vec<Wanted> {
     with_clips(|c| std::mem::take(&mut c.wanted))
 }
 
-/// Renders the speech of every `speak` node of `patch` (the host must have the model) and returns the clips by
-/// key, in node order: what a player without the model needs to say the same patch with voice seed `seed`.
-pub fn clips_of_patch(patch: &str, seed: u32) -> Result<Vec<(String, Clip)>, String> {
+/// The speech a patch needs with voice seed `seed`: one [`Wanted`] per distinct `speak` source, in node order.
+/// Nothing is rendered.
+pub fn plan_patch(patch: &str, seed: u32) -> Result<Vec<Wanted>, String> {
     take_wanted();
+    PLANNING.store(true, Ordering::SeqCst);
     let mut voice = crate::Voice::new(48_000.0, seed);
     let outcome = voice.load(patch, false);
+    PLANNING.store(false, Ordering::SeqCst);
+    let mut out: Vec<Wanted> = Vec::new();
+    for w in take_wanted() {
+        if !out.iter().any(|o| o.key == w.key) {
+            out.push(w);
+        }
+    }
     if !outcome.playable {
         let first = outcome.issues.iter().find(|i| i.severity == crate::issues::Severity::Error);
         return Err(first.map_or("the patch cannot play".into(), |i| format!("{}: {}", i.code, i.message)));
     }
-    let mut out: Vec<(String, Clip)> = Vec::new();
-    for key in take_wanted() {
-        if out.iter().any(|(k, _)| *k == key) {
-            continue;
-        }
-        if let Some(c) = clip(&key) {
-            out.push((key, c));
+    Ok(out)
+}
+
+/// One part [`SpeechJobs::step`] made available in the store.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Step {
+    pub key: String,
+    pub index: usize,
+    pub last: bool,
+    pub rate: f64,
+    pub frames: usize,
+    /// Why the source could not be rendered (its clip is then complete and silent).
+    pub error: Option<String>,
+}
+
+struct Job {
+    wanted: Wanted,
+    /// The rate the parts are kept at (the player's; 0 = the model's).
+    rate: f64,
+    utterances: Option<Vec<(Vec<u32>, Vec<u32>)>>,
+    next: usize,
+    frames: usize,
+}
+
+/// The sources waiting to be rendered, one part at a time; the host must have the model. Parts already in the
+/// store are handed out again without rendering, so a repeat costs nothing.
+#[derive(Default)]
+pub struct SpeechJobs {
+    jobs: Vec<Job>,
+}
+
+impl SpeechJobs {
+    /// Queues every source of `wanted` that is not queued yet, its parts to be kept at `rate` (the rate of the
+    /// player that takes them, so it only copies them; 0 = the model's rate).
+    pub fn add(&mut self, wanted: &[Wanted], rate: f64) {
+        for w in wanted {
+            if !self.jobs.iter().any(|j| j.wanted.key == w.key) {
+                self.jobs.push(Job { wanted: w.clone(), rate, utterances: None, next: 0, frames: 0 });
+            }
         }
     }
-    Ok(out)
+
+    /// Whether nothing is left to hand out.
+    pub fn is_empty(&self) -> bool {
+        self.jobs.is_empty()
+    }
+
+    /// Puts the next part of the source with the least audio so far in the store (rendering it unless it is
+    /// there already) and says which part it is; `None` once every source is complete.
+    pub fn step(&mut self) -> Option<Step> {
+        let i = (0..self.jobs.len()).min_by_key(|&i| self.jobs[i].frames)?;
+        let job = &mut self.jobs[i];
+        let key = job.wanted.key.clone();
+        let kept = clip(&key);
+        let model_rate = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
+        let rate = if job.rate > 0.0 { job.rate } else { model_rate };
+        let (index, last, rate, frames, error) = match kept.as_ref().filter(|c| job.next < c.parts.len() && c.rate == rate) {
+            Some(c) => (job.next, c.complete && job.next + 1 == c.parts.len(), c.rate, c.parts[job.next].len(), None),
+            None => {
+                let (audio, last, error) = match render_part(job) {
+                    Ok((audio, last)) => (tinyvoca::resample(&audio, model_rate, rate), last, None),
+                    Err(e) => (Vec::new(), true, Some(e)),
+                };
+                let frames = audio.len();
+                put_part(&key, job.next, last, rate, audio);
+                (job.next, last, rate, frames, error)
+            }
+        };
+        job.next += 1;
+        job.frames += frames;
+        if last {
+            self.jobs.remove(i);
+        }
+        Some(Step { key, index, last, rate, frames, error })
+    }
+}
+
+/// Renders part `job.next` of a job's source.
+fn render_part(job: &mut Job) -> Result<(Vec<f32>, bool), String> {
+    let w = &job.wanted;
+    let (m2, post) = voice_params(&w.params, &w.envelope)?;
+    if w.text.trim().is_empty() {
+        return Ok((render_input(&w.input, m2, post, w.seed)?, true));
+    }
+    let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
+    if job.utterances.is_none() {
+        job.utterances = Some(utterances_of(&w.text)?);
+    }
+    let utterances = job.utterances.as_deref().unwrap_or(&[]);
+    let Some((ids, stress)) = utterances.get(job.next) else { return Ok((Vec::new(), true)) };
+    let voice = model.blend_voice(m2, post)?;
+    let audio = say_utterance(&model, &voice, ids, stress, w.seed.wrapping_add(job.next as u32))?;
+    Ok((audio, job.next + 1 >= utterances.len()))
+}
+
+/// One utterance in a voice, under a 0.99 peak (say.mjs `limited`, per utterance).
+fn say_utterance(model: &tinyvoca::Model, voice: &tinyvoca::Voice, ids: &[u32], stress: &[u32], seed: u32) -> Result<Vec<f32>, String> {
+    let options = tinyvoca::Options { seed, ..Default::default() };
+    let mut audio = model.synthesize(ids, stress, voice, &options, None)?.audio;
+    let peak = audio.iter().fold(0.0f32, |m, &v| m.max(v.abs()));
+    if peak > 0.99 {
+        let k = 0.99 / peak;
+        for v in &mut audio {
+            *v *= k;
+        }
+    }
+    Ok(audio)
+}
+
+/// How `text` is cut and phonemized: (token ids, stresses) per utterance; none when there is nothing to say.
+#[cfg(feature = "dizione")]
+fn utterances_of(text: &str) -> Result<Vec<(Vec<u32>, Vec<u32>)>, String> {
+    let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
+    let said = script(text);
+    let limit = model.config.max_tokens.saturating_sub(12).max(1);
+    let utterances = dizione::with_shared(|p| p.utterances(&said.plain, limit))
+        .ok_or("no phonemizer loaded (a one-file tiny-voca GGUF, or haa_dizione_*)")?
+        .map_err(|e| e.0)?;
+    Ok(utterances.iter().map(|u| (u.ids.clone(), u.stress.iter().map(|&s| s as u32).collect())).collect())
+}
+
+/// Without the `dizione` feature there is no text front end.
+#[cfg(not(feature = "dizione"))]
+fn utterances_of(_text: &str) -> Result<Vec<(Vec<u32>, Vec<u32>)>, String> {
+    Err("this build has no text front end (haa-core feature dizione)".into())
 }
 
 pub const TEXT: usize = 0;
@@ -181,7 +366,7 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
 };
 
 fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
-    let mut node = Speak { audio: Vec::new(), key: String::new(), sample_rate: init.sample_rate };
+    let mut node = Speak { audio: Vec::new(), key: String::new(), sample_rate: init.sample_rate, source: String::new(), from: 0.0, parts: 0 };
     node.configure(init);
     Box::new(node)
 }
@@ -189,9 +374,13 @@ fn create(init: &NodeInit<'_>) -> Box<dyn Node> {
 struct Speak {
     /// The utterance at the patch rate.
     audio: Vec<f32>,
-    /// What `audio` was rendered from, so a live swap of `gain` alone does not render again.
+    /// What `audio` was made from (model, parts kept, source, rate), so a live swap of `gain` alone does nothing.
     key: String,
     sample_rate: f64,
+    /// The source (`clip_key`) of `audio`, the rate of its clip and how many of its parts `audio` holds.
+    source: String,
+    from: f64,
+    parts: usize,
 }
 
 /// The 32 band offsets of the `envelope` text (numbers separated by commas or spaces); empty = none.
@@ -257,50 +446,34 @@ pub fn script(text: &str) -> Script {
 }
 
 /// Says `text` (plain English, script markup allowed) with the shared model and phonemizer for a voice
-/// `(m2, post)`: 24 kHz audio. The wasm `speak` op, the `haa speak` command and the node all run this.
-#[cfg(feature = "dizione")]
+/// `(m2, post)`: 24 kHz audio, the utterances one after the other. The wasm `speak` op, the `haa speak` command
+/// and the node all say the same samples.
 pub fn speak_text(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<f32>, String> {
-    let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
-    let voice = model.blend_voice(m2, post)?;
-    let said = script(text);
-    let limit = model.config.max_tokens.saturating_sub(12).max(1);
-    let utterances = dizione::with_shared(|p| p.utterances(&said.plain, limit))
-        .ok_or("no phonemizer loaded (a one-file tiny-voca GGUF, or haa_dizione_*)")?
-        .map_err(|e| e.0)?;
-    let mut audio = Vec::new();
-    for (i, u) in utterances.iter().enumerate() {
-        let stress: Vec<u32> = u.stress.iter().map(|&s| s as u32).collect();
-        let options = tinyvoca::Options { seed: seed.wrapping_add(i as u32), ..Default::default() };
-        audio.extend(model.synthesize(&u.ids, &stress, &voice, &options, None)?.audio);
-    }
-    // say.mjs `limited`: the whole clip brought under a 0.99 peak
-    let peak = audio.iter().fold(0.0f32, |m, &v| m.max(v.abs()));
-    if peak > 0.99 {
-        let k = 0.99 / peak;
-        for v in &mut audio {
-            *v *= k;
-        }
-    }
-    Ok(audio)
+    Ok(speak_parts(text, m2, post, seed)?.into_iter().flatten().collect())
 }
 
-/// Without the `dizione` feature there is no text front end.
-#[cfg(not(feature = "dizione"))]
-pub fn speak_text(_text: &str, _m2: f32, _post: tinyvoca::Post, _seed: u32) -> Result<Vec<f32>, String> {
-    Err("this build has no text front end (haa-core feature dizione)".into())
+/// [`speak_text`] per utterance.
+fn speak_parts(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<Vec<f32>>, String> {
+    let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
+    let voice = model.blend_voice(m2, post)?;
+    utterances_of(text)?
+        .iter()
+        .enumerate()
+        .map(|(i, (ids, stress))| say_utterance(&model, &voice, ids, stress, seed.wrapping_add(i as u32)))
+        .collect()
 }
 
 /// Renders `text` (or, when it is empty, `input`) at `sample_rate`; see the module comment.
 pub fn render_node(text: &str, input: &str, m2: f32, post: tinyvoca::Post, seed: u32, sample_rate: f64) -> Result<Vec<f32>, String> {
     let c = render_clip(text, input, m2, post, seed)?;
-    Ok(tinyvoca::resample(&c.audio, c.rate, sample_rate))
+    Ok(c.parts.iter().flat_map(|p| tinyvoca::resample(p, c.rate, sample_rate)).collect())
 }
 
-/// Renders `text` (or, when it is empty, `input`) at the model's rate.
+/// Renders `text` (or, when it is empty, `input`) at the model's rate: a complete clip, one part per utterance.
 pub fn render_clip(text: &str, input: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Clip, String> {
     let rate = tinyvoca::shared().map_or(24_000.0, |m| m.config.sample_rate as f64);
-    let audio = if text.trim().is_empty() { render_input(input, m2, post, seed)? } else { speak_text(text, m2, post, seed)? };
-    Ok(Clip { rate, audio: Arc::new(audio) })
+    let parts = if text.trim().is_empty() { vec![render_input(input, m2, post, seed)?] } else { speak_parts(text, m2, post, seed)? };
+    Ok(Clip { rate, parts: parts.into_iter().map(Arc::new).collect(), complete: true })
 }
 
 /// Renders `input` with the shared model for a voice `(m2, post)`, at `sample_rate`.
@@ -342,35 +515,54 @@ impl Node for Speak {
         let silent = said.trim().is_empty() && input.trim().is_empty();
         let source = clip_key(&said, &input, &envelope, init.params, init.seed);
         if !silent {
+            let wanted = Wanted { key: source.clone(), text: said.clone(), input: input.clone(), envelope: envelope.clone(), params: init.params.iter().take(GAIN).copied().collect(), seed: init.seed };
             with_clips(|c| {
                 if c.wanted.len() >= 256 {
                     c.wanted.clear(); // a player never takes them: keep the list bounded
                 }
-                c.wanted.push(source.clone());
+                c.wanted.push(wanted);
             });
+        }
+        if PLANNING.load(Ordering::SeqCst) {
+            return;
         }
         let kept = clip(&source);
         let loaded = tinyvoca::shared().is_some();
-        let key = format!("{loaded}\u{1}{}\u{1}{source}\u{1}{}", kept.is_some(), init.sample_rate);
+        let (parts, complete) = kept.as_ref().map_or((0, false), |c| (c.parts.len(), c.complete));
+        let key = format!("{loaded}\u{1}{parts}\u{1}{complete}\u{1}{source}\u{1}{}", init.sample_rate);
         if key == self.key {
             return;
         }
         self.key = key;
-        self.sample_rate = init.sample_rate;
-        self.audio.clear();
         if silent {
+            self.audio.clear();
+            self.source.clear();
+            self.parts = 0;
             return;
         }
         if let Some(c) = kept {
-            self.audio = tinyvoca::resample(&c.audio, c.rate, init.sample_rate);
+            // a part arrived: resample only the new ones
+            if self.source != source || self.sample_rate != init.sample_rate || self.from != c.rate || c.parts.len() < self.parts {
+                self.audio.clear();
+                self.parts = 0;
+            }
+            for part in &c.parts[self.parts..] {
+                self.audio.extend(tinyvoca::resample(part, c.rate, init.sample_rate));
+            }
+            (self.source, self.sample_rate, self.from, self.parts) = (source, init.sample_rate, c.rate, c.parts.len());
             return;
         }
+        self.audio.clear();
+        self.parts = 0;
+        self.source.clear();
+        self.sample_rate = init.sample_rate;
         // an input or voice the model refuses leaves the node silent; the wasm `synthesize`/`perform` ops report
         // the same error as text
         if let Ok((m2, post)) = voice_params(init.params, &envelope)
             && let Ok(c) = render_clip(&said, &input, m2, post, init.seed)
         {
-            self.audio = tinyvoca::resample(&c.audio, c.rate, init.sample_rate);
+            self.audio = c.parts.iter().flat_map(|p| tinyvoca::resample(p, c.rate, init.sample_rate)).collect();
+            (self.source, self.from, self.parts) = (source.clone(), c.rate, c.parts.len());
             put_clip(&source, c);
         }
     }
@@ -420,10 +612,18 @@ mod tests {
         node.configure(&init);
         assert_eq!(node.process_sample(&ctx, (0.0, 0.0), &params).l, 0.0);
         let key = clip_key("Hi.", "", &"1 ".repeat(32), &params, 7);
-        assert!(take_wanted().contains(&key));
-        put_clip(&key, Clip { rate: 24_000.0, audio: Arc::new(vec![0.5; 2_400]) });
+        assert!(take_wanted().iter().any(|w| w.key == key && w.text == "Hi." && w.seed == 7));
+        // parts arrive one by one: the first plays at once, the second lands after it, at its own time
+        assert!(put_part(&key, 0, false, 24_000.0, vec![0.5; 2_400]));
+        assert!(!put_part(&key, 2, true, 24_000.0, vec![0.0; 10]));
         node.configure(&init);
         assert!((node.process_sample(&ctx, (0.0, 0.0), &params).l - 0.5).abs() < 1e-3);
+        let later = SampleCtx { seconds: 0.15, ..ctx };
+        assert_eq!(node.process_sample(&later, (0.0, 0.0), &params).l, 0.0);
+        assert!(put_part(&key, 1, true, 24_000.0, vec![-0.25; 2_400]));
+        node.configure(&init);
+        assert!((node.process_sample(&later, (0.0, 0.0), &params).l + 0.25).abs() < 1e-3);
+        assert!(clip(&key).is_some_and(|c| c.complete && c.frames() == 4_800));
         let said = script("[calm] Hello[laughs]there, [scared:4,question:10]you. [open");
         assert_eq!(said.plain, " Hello there, you. [open");
         assert_eq!(said.tags, [(0, "calm".to_string()), (6, "laughs".to_string()), (14, "scared:4,question:10".to_string())]);

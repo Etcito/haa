@@ -26,12 +26,18 @@
 //!   and the model, cut per sentence (haa_core::nodes::speak::speak_text, what the `speak` node's `text` says);
 //!   `params` are the node params as `paramsToVoice` takes them
 //! - `utterances {text}` -> `[{ids, stress, symbols}]`: how `speak` cuts and phonemizes the text
-//! - `patchClips {patch, seed?}` -> `[{key, rate, frames}]`: the speech of every `speak` node of a patch, rendered
-//!   for voice seed `seed` (what a player without the model needs); then `clip {key}` -> that clip's audio
+//! - `speechPlan {patch, seed?, rate?}` -> `[{key, parts, complete}]`: queues the speech of every `speak` node of a
+//!   patch for voice seed `seed` (what a player without the model needs; `parts` already kept), its parts resampled
+//!   to `rate` (the player's, so it only copies them; absent = the model's 24 kHz). Then `speechNext {}`
+//!   renders one utterance (the queued source with the least audio first; kept parts are handed out again) and
+//!   answers `{key, index, last, rate, frames, error?}`, or `null` when nothing is queued; `clipPart {key, index}`
+//!   -> that part's audio. Plan and parts: haa_core::nodes::speak (`plan_patch`, `SpeechJobs`).
 //!
-//! `haa_speak_clip_put(key_ptr, key_len, pcm_ptr, pcm_len, rate) -> u32`: keeps a clip (little-endian f32 bytes)
-//! under its key in this instance, model or not; a `speak` node with that key plays it once it configures again
-//! (load the patch again, keep_state = 1). Returns 1, or 0 for a bad key.
+//! `haa_speak_part_put(key_ptr, key_len, index, last, pcm_ptr, pcm_len, rate) -> u32`: keeps part `index` of a
+//! clip (little-endian f32 bytes) in this instance, model or not; `last` (0/1) completes it. A `speak` node with
+//! that key plays the parts it has once it configures again (load the patch again, keep_state = 1). Returns 1, or 0
+//! for a bad key or a part out of order. `haa_speak_clip_put(key_ptr, key_len, pcm_ptr, pcm_len, rate)` keeps a
+//! whole clip (one complete part).
 //! - `voiceToParams {voice}` -> the `speak` node params `{m2, warp, tilt, envelope, breath, phonation, shift, range,
 //!   rate, jitter}`; `paramsToVoice {params}` -> the voice.tvv.json v3 (a voice is only these graph params)
 //!
@@ -246,18 +252,33 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
             };
             Out::Audio(haa_core::nodes::speak::speak_text(text, m2, post, seed)?)
         }
-        "patchClips" => {
+        "speechPlan" => {
             let patch = match v.get("patch") {
                 Some(Value::String(text)) => text.clone(),
                 Some(other) => other.to_string(),
                 None => return Err("patch: missing".into()),
             };
-            let clips = haa_core::nodes::speak::clips_of_patch(&patch, seed)?;
-            Out::Json(Value::Array(clips.iter().map(|(key, c)| json!({ "key": key, "rate": c.rate, "frames": c.audio.len() })).collect()))
+            let wanted = haa_core::nodes::speak::plan_patch(&patch, seed)?;
+            with_jobs(|jobs| jobs.add(&wanted, number(v, "rate", 0.0)));
+            Out::Json(Value::Array(
+                wanted
+                    .iter()
+                    .map(|w| {
+                        let kept = haa_core::nodes::speak::clip(&w.key);
+                        json!({ "key": w.key, "parts": kept.as_ref().map_or(0, |c| c.parts.len()), "complete": kept.is_some_and(|c| c.complete) })
+                    })
+                    .collect(),
+            ))
         }
-        "clip" => {
+        "speechNext" => Out::Json(match with_jobs(|jobs| jobs.step()) {
+            Some(s) => json!({ "key": s.key, "index": s.index, "last": s.last, "rate": s.rate, "frames": s.frames, "error": s.error }),
+            None => Value::Null,
+        }),
+        "clipPart" => {
             let key = v.get("key").and_then(Value::as_str).ok_or("key: missing")?;
-            Out::Audio(haa_core::nodes::speak::clip(key).ok_or("no clip under this key")?.audio.to_vec())
+            let index = number(v, "index", 0.0) as usize;
+            let kept = haa_core::nodes::speak::clip(key).ok_or("no clip under this key")?;
+            Out::Audio(kept.parts.get(index).ok_or("no such part")?.to_vec())
         }
         "utterances" => Out::Json(utterances(model, v.get("text").and_then(Value::as_str).ok_or("text: missing")?)?),
         "vocode" => {
@@ -288,7 +309,18 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
     })
 }
 
-/// Keeps a rendered clip for the `speak` nodes of this instance; see the module comment.
+static JOBS: std::sync::Mutex<Option<haa_core::nodes::speak::SpeechJobs>> = std::sync::Mutex::new(None);
+
+fn with_jobs<R>(f: impl FnOnce(&mut haa_core::nodes::speak::SpeechJobs) -> R) -> R {
+    let mut guard = JOBS.lock().unwrap_or_else(|p| p.into_inner());
+    f(guard.get_or_insert_with(Default::default))
+}
+
+fn f32s(pcm: &[u8]) -> Vec<f32> {
+    pcm.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()
+}
+
+/// Keeps a whole rendered clip for the `speak` nodes of this instance; see the module comment.
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_speak_clip_put(key_ptr: MemPtr, key_len: u32, pcm_ptr: MemPtr, pcm_len: u32, rate: f64) -> u32 {
     // SAFETY: the host passes blocks it allocated with `haa_alloc` and filled.
@@ -297,12 +329,23 @@ pub extern "C" fn haa_speak_clip_put(key_ptr: MemPtr, key_len: u32, pcm_ptr: Mem
     if !(rate > 0.0) {
         return 0;
     }
-    let audio: Vec<f32> = pcm.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
-    haa_core::nodes::speak::put_clip(key, haa_core::nodes::speak::Clip { rate, audio: std::sync::Arc::new(audio) });
+    haa_core::nodes::speak::put_clip(key, haa_core::nodes::speak::Clip::whole(rate, f32s(pcm)));
     1
 }
 
-/// Runs one op of the model; see the module comment.
+/// Keeps one part of a clip for the `speak` nodes of this instance; see the module comment.
+#[unsafe(no_mangle)]
+pub extern "C" fn haa_speak_part_put(key_ptr: MemPtr, key_len: u32, index: u32, last: u32, pcm_ptr: MemPtr, pcm_len: u32, rate: f64) -> u32 {
+    // SAFETY: the host passes blocks it allocated with `haa_alloc` and filled.
+    let (key, pcm) = unsafe { (bytes_at(key_ptr, key_len), bytes_at(pcm_ptr, pcm_len)) };
+    let Ok(key) = std::str::from_utf8(key) else { return 0 };
+    if !(rate > 0.0) {
+        return 0;
+    }
+    u32::from(haa_core::nodes::speak::put_part(key, index as usize, last != 0, rate, f32s(pcm)))
+}
+
+/// Runs one op of the model; see the module comment./// Runs one op of the model; see the module comment.
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_tinyvoca_run(ptr: MemPtr, len: u32) -> i32 {
     let Some(model) = tinyvoca::shared() else {

@@ -11,6 +11,23 @@
 // The weights are never bundled: the official file of the tiny-voca Hugging Face repo, pinned to a revision.
 
 import type { SpeechClip } from './types.ts';
+
+/** A source `planPatch` queued: its key, the parts already kept and whether they are all of it. */
+export interface SpeechPlanned {
+  key: string;
+  parts: number;
+  complete: boolean;
+}
+
+/** What one `speechNext` made available. */
+export interface SpeechStep {
+  key: string;
+  index: number;
+  last: boolean;
+  rate: number;
+  frames: number;
+  error?: string | null;
+}
 import { decodeUtf8, encodeUtf8 } from './utf8.ts';
 
 /** The tiny-voca Hugging Face repo and the revision the Rust port was checked against. */
@@ -123,13 +140,14 @@ export interface SpeechOps {
   perform: [{ perf: unknown; voice?: VoiceSpec; seed?: number; noiseSamples?: number[] }, Float32Array];
   speak: [{ text: string; params?: SpeakParams; voice?: VoiceSpec; seed?: number }, Float32Array];
   utterances: [{ text: string }, Utterance[]];
-  patchClips: [{ patch: unknown; seed?: number }, { key: string; rate: number; frames: number }[]];
-  clip: [{ key: string }, Float32Array];
+  speechPlan: [{ patch: unknown; seed?: number; rate?: number }, SpeechPlanned[]];
+  speechNext: [Record<string, never>, SpeechStep | null];
+  clipPart: [{ key: string; index: number }, Float32Array];
   voiceToParams: [{ voice: VoiceFileV3 }, Required<SpeakParams>];
   paramsToVoice: [{ params: SpeakParams }, VoiceFileV3];
 }
 
-const AUDIO_OPS = new Set<keyof SpeechOps>(['vocode', 'synthesize', 'perform', 'speak', 'clip']);
+const AUDIO_OPS = new Set<keyof SpeechOps>(['vocode', 'synthesize', 'perform', 'speak', 'clipPart']);
 
 /** tiny-voca over one wasm instance: the model and phonemizer are that instance's. */
 export interface Speech {
@@ -144,10 +162,15 @@ export interface Speech {
   /** How `speak` cuts and phonemizes `text`. */
   utterances(text: string): Utterance[];
   /**
-   * The speech of every `speak` node of a patch (JSON text or object), rendered for voice seed `seed`: give them
-   * to a player (`createPlayer({ speechClips })`, `player.setSpeechClips`), which has no model.
+   * Queues the speech of every `speak` node of a patch (JSON text or object) for voice seed `seed`, nothing
+   * rendered yet, its parts to come at `rate` (the player's sample rate, so the audio thread only copies them;
+   * default the model's 24 kHz); returns each source's key. Then call `nextPart` until it returns null: each call renders one
+   * utterance (or hands out one already kept), to give to a player (`createPlayer({ speechClips })`,
+   * `player.setSpeechClips`), which has no model and plays each part as it arrives.
    */
-  patchClips(patch: unknown, seed?: number): SpeechClip[];
+  planPatch(patch: unknown, seed?: number, rate?: number): SpeechPlanned[];
+  /** The next part of the queued speech, or null when every source is complete. */
+  nextPart(): (SpeechClip & { part: number; last: boolean; error?: string }) | null;
   /** dizione on one text (no cut), with the words and their token ranges. */
   phonemize(text: string): Phonemized;
   voiceToParams(voice: VoiceFileV3): Required<SpeakParams>;
@@ -216,9 +239,14 @@ export function wrapSpeech(exports: SpeechExports): Speech {
     utterances(text) {
       return run('utterances', { text });
     },
-    patchClips(patch, seed = 0) {
-      const list = run('patchClips', { patch: typeof patch === 'string' ? patch : JSON.stringify(patch), seed });
-      return list.map(({ key, rate }) => ({ key, rate, pcm: run('clip', { key }) }));
+    planPatch(patch, seed = 0, rate) {
+      return run('speechPlan', { patch: typeof patch === 'string' ? patch : JSON.stringify(patch), seed, ...(rate ? { rate } : {}) });
+    },
+    nextPart() {
+      const step = run('speechNext', {});
+      if (!step) return null;
+      const pcm = run('clipPart', { key: step.key, index: step.index });
+      return { key: step.key, rate: step.rate, pcm, part: step.index, last: step.last, ...(step.error ? { error: step.error } : {}) };
     },
     phonemize(text) {
       const call = exports.haa_dizione_phonemize;

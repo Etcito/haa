@@ -46,7 +46,7 @@ export interface HaaPlayer {
   trigger(name: string): void;
   restart(): void;
   setPatch(patch: HaaPatch | string | Uint8Array, keepState?: boolean): Promise<LoadResult>;
-  /** Hands speech clips to the worklet; the next `setPatch` lets the `speak` nodes play them. */
+  /** Hands speech clips or parts to the worklet; the `speak` nodes play them at once (at the patch clock). */
   setSpeechClips(clips: SpeechClip[]): void;
   onTrace(cb: (t: TracePacket) => void): () => void;
   onEnded(cb: () => void): () => void;

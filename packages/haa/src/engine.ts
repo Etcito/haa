@@ -38,6 +38,7 @@ export interface HaaExports {
   haa_voice_seconds(h: number): number;
   /** Absent from builds before the tiny-voca `speak` node. */
   haa_speak_clip_put?(keyPtr: number, keyLen: number, pcmPtr: number, pcmLen: number, rate: number): number;
+  haa_speak_part_put?(keyPtr: number, keyLen: number, index: number, last: number, pcmPtr: number, pcmLen: number, rate: number): number;
 }
 
 /** Instantiated wasm module and factory for realm-neutral voices. */
@@ -72,6 +73,7 @@ export class HaaEngine {
    */
   putSpeechClips(clips: SpeechClip[]): void {
     const put = this.exports.haa_speak_clip_put;
+    const putPart = this.exports.haa_speak_part_put;
     if (!put) return;
     for (const clip of clips) {
       const key = encodeUtf8(clip.key);
@@ -81,7 +83,8 @@ export class HaaEngine {
       try {
         new Uint8Array(this.exports.memory.buffer, kp, key.length).set(key);
         new Uint8Array(this.exports.memory.buffer, pp, pcm.length).set(pcm);
-        put(kp, key.length, pp, pcm.length, clip.rate);
+        if (clip.part === undefined || !putPart) put(kp, key.length, pp, pcm.length, clip.rate);
+        else putPart(kp, key.length, clip.part, clip.last ? 1 : 0, pp, pcm.length, clip.rate);
       } finally {
         this.exports.haa_free(kp, key.length);
         this.exports.haa_free(pp, pcm.length);

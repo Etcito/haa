@@ -34,8 +34,10 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
   private tracing: boolean;
   private endedPosted = false;
   private frames = 0;
-  /** Speech clips received, kept so a rebuilt instance gets them again. */
+  /** Speech clips and parts received, in order, kept so a rebuilt instance gets them again. */
   private readonly clips = new Map<string, SpeechClip>();
+  /** The patch last loaded, loaded again (keepState) when speech parts arrive. */
+  private patch: Uint8Array;
 
   constructor(options?: AudioWorkletNodeOptions) {
     super(options);
@@ -43,7 +45,8 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
     this.module = o.module;
     this.seed = o.seed;
     this.tracing = o.trace;
-    for (const clip of o.speechClips ?? []) this.clips.set(clip.key, clip);
+    this.patch = o.patch;
+    this.keep(o.speechClips ?? []);
     let playable = false;
     let issues: PatchIssue[] = [];
     let info = EMPTY_INFO;
@@ -126,6 +129,10 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
     if (first) this.send({ t: 'error', message: error instanceof Error ? error.message : String(error) });
   }
 
+  private keep(clips: SpeechClip[]): void {
+    for (const clip of clips) this.clips.set(clip.part === undefined ? clip.key : `${clip.key}#${clip.part}`, clip);
+  }
+
   private send(msg: PlayerOutMsg): void {
     this.port.postMessage(msg);
   }
@@ -142,6 +149,7 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
         case 'patch': {
           if (this.trapped || !this.voice) this.rebuild();
           const voice = this.voice!;
+          this.patch = msg.bytes;
           const result = voice.load(msg.bytes, msg.keepState);
           this.playable = result.playable;
           this.alive = result.playable;
@@ -163,8 +171,10 @@ class HaaPlayerProcessor extends AudioWorkletProcessor {
           this.tracing = msg.on;
           break;
         case 'clips':
-          for (const clip of msg.clips) this.clips.set(clip.key, clip);
+          this.keep(msg.clips);
           this.engine?.putSpeechClips(msg.clips);
+          // the speak nodes pick the new parts up when they configure; the clock and the other nodes go on
+          if (this.voice && !this.trapped) this.voice.load(this.patch, true);
           break;
         case 'dispose':
           this.disposed = true;

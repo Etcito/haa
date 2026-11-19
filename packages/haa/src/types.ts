@@ -249,14 +249,17 @@ export interface CatalogJson {
 
 /**
  * A `speak` node's rendered speech, keyed by what it was rendered from (crates/haa-core/src/nodes/speak.rs
- * `clip_key`). A host with the tiny-voca model makes them (`@etcito/haa/speech` `patchClips`); a player without
- * the model plays a patch's `speak` nodes from them.
+ * `clip_key`): one utterance (`part`, in order from 0, `last` on the final one), or a whole clip when `part` is
+ * absent. A host with the tiny-voca model makes them (`@etcito/haa/speech` `planPatch` / `nextPart`); a player
+ * without the model plays a patch's `speak` nodes from them, each part as soon as it is there.
  */
 export interface SpeechClip {
   key: string;
   /** Sample rate of `pcm` (the model's, 24 kHz). */
   rate: number;
   pcm: Float32Array;
+  part?: number;
+  last?: boolean;
 }
 
 /** Options a player passes to the AudioWorklet processor (ARCHITECTURE §9 `processorOptions`). */
@@ -281,7 +284,7 @@ export type PlayerInMsg =
   /** The node is connected: the voice starts rendering (it holds at 0 until then). */
   | { t: 'start' }
   | { t: 'trace'; on: boolean }
-  /** Keep these speech clips; a following `patch` (keepState) lets the `speak` nodes pick them up. */
+  /** Keep these speech clips (parts); the processor loads its patch again (keepState) so the nodes play them. */
   | { t: 'clips'; clips: SpeechClip[] }
   | { t: 'dispose' };
 
