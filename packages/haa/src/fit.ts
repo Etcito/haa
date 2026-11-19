@@ -441,6 +441,23 @@ export function phoneAlign(
   return phoneCall(module, vocabJson, logits, { words, frame, offset, language }) as PhoneAlignment;
 }
 
+/** The language a recogniser's phones are, when they say so clearly (see {@link phoneLanguage}). */
+export interface PhoneLanguage {
+  /** '' when the phones do not say */
+  language: 'french' | 'english' | '';
+  /** how many French-only (ʁ, nasal vowels) and English-only (ɹ θ ð ɚ eɪ oʊ) phones the recogniser heard */
+  french: number;
+  english: number;
+}
+
+/**
+ * Whether a CTC phoneme recogniser's logits (flat rows of the vocabulary's size) hear French or English: at least two
+ * phones only one of the languages has and twice as many as the other's. In Rust (haa-fit `phonemes::phone_language`).
+ */
+export function phoneLanguage(module: WebAssembly.Module, vocabJson: string, logits: Float32Array): PhoneLanguage {
+  return phoneCall(module, vocabJson, logits, { detect: true }) as PhoneLanguage;
+}
+
 /** A render's phones against the stem's (see {@link renderLead}). */
 export interface RenderLead {
   /** the phones force-aligned on the render: [phone, start s, end s] (-1 where none could be placed) */

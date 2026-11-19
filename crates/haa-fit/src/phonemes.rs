@@ -79,6 +79,28 @@ pub fn ctc_greedy(logits: &[f32], vocab: &[String], blank: usize) -> Vec<Phone> 
     out
 }
 
+/// Phones the multilingual recogniser hears only in French speech (uvular r, nasal vowels) and only in English speech
+/// (approximant r, dental fricatives, r-coloured vowels, the English diphthongs eɪ oʊ). The vowels the two share or
+/// that a French speaker's audio is often heard as (ɪ ʌ iː æ aɪ ɾ) are left out: on short clips they mislead.
+const FRENCH_PHONES: [&str; 5] = ["ʁ", "ɑ̃", "ɔ̃", "ɛ̃", "œ̃"];
+const ENGLISH_PHONES: [&str; 7] = ["ɹ", "θ", "ð", "ɚ", "ɝ", "eɪ", "oʊ"];
+
+/// The language a recogniser's phones are (French or English) when they say so clearly: at least two marker phones of
+/// one language and at least twice as many as the other's. Returns the language ("french", "english" or "" when
+/// unclear) and the two counts.
+pub fn phone_language(heard: &[Phone]) -> (&'static str, usize, usize) {
+    let count = |set: &[&str]| heard.iter().filter(|p| set.contains(&p.token.as_str())).count();
+    let (fr, en) = (count(&FRENCH_PHONES), count(&ENGLISH_PHONES));
+    let language = if fr >= 2 && fr >= 2 * en {
+        "french"
+    } else if en >= 2 && en >= 2 * fr {
+        "english"
+    } else {
+        ""
+    };
+    (language, fr, en)
+}
+
 /// A phone as compared: length (`ː`, `ˑ`, `:`), stress (`ˈ`, `ˌ`), tone digits and syllable dots dropped.
 /// Empty for a token that was only such marks.
 pub fn fold_phone(token: &str) -> String {
@@ -479,6 +501,16 @@ mod tests {
         assert_eq!((c.substitutions, c.deletions, c.insertions, c.reference), (1, 1, 1, 4));
         assert!((c.rate() - 0.75).abs() < 1e-12);
         assert_eq!(parse_vocab(r#"{"<pad>": 0, "n": 2, "a": 1}"#), Some(s(&["<pad>", "a", "n"])));
+    }
+
+    #[test]
+    fn phone_language_needs_clear_markers() {
+        let heard = |t: &[&str]| t.iter().enumerate().map(|(i, x)| Phone { id: 0, token: x.to_string(), start: i, end: i + 1 }).collect::<Vec<_>>();
+        // fr05 as the recogniser hears it: nasal vowels and ʁ beside English-looking vowels
+        assert_eq!(phone_language(&heard(&["s", "e", "m", "ɔ̃", "t", "ɾ", "a", "v", "aɪ", "j", "k", "ɔ̃", "v", "æ", "ŋ", "k", "ʁ"])).0, "french");
+        assert_eq!(phone_language(&heard(&["ʃ", "iː", "ð", "ə", "ɚ", "f", "ɹ"])).0, "english");
+        // fr01: no marker either way
+        assert_eq!(phone_language(&heard(&["d", "ʌ", "m", "v", "iː", "ɪ", "t", "r", "a", "b", "y"])), ("", 0, 0));
     }
 
     #[test]

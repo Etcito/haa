@@ -39,7 +39,7 @@ use std::sync::Mutex;
 
 use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p, LyricLanguage};
 use haa_fit::articulatory::{ARTIC_INPUTS, artic_curves};
-use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, render_lead, tokens};
+use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, phone_language, render_lead, tokens};
 use haa_fit::singer::{SingerFitter, singer_from_request};
 use haa_fit::{FitOptions, Fitter, SpectralTarget, SpectralWeights, parse_notes};
 use serde_json::Value;
@@ -271,6 +271,9 @@ pub extern "C" fn haa_phone_per(ref_ptr: MemPtr, ref_len: u32, hyp_ptr: MemPtr, 
 /// `{"written", "lead": the line's new lead, "lag": mean |render - stem| start (s) of the phones the render is heard saying
 /// as written, "heard": how many, "score": the mean lag with each other phone counted 0.12 s}` (haa-fit `render_lead`,
 /// leads within 0.12 s).
+///
+/// With `"detect": true` alone: the language the recogniser's phones are when they say so clearly (haa-fit
+/// `phonemes::phone_language`), `{"language": "french"|"english"|"", "french": marker phones, "english": marker phones}`.
 #[unsafe(no_mangle)]
 pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr: MemPtr, vocab_len: u32, req_ptr: MemPtr, req_len: u32) -> u32 {
     // SAFETY: host buffers per the ABI.
@@ -280,6 +283,10 @@ pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr
     let frame = req.get("frame").and_then(Value::as_f64).filter(|f| *f > 0.0).unwrap_or(0.02);
     let offset = req.get("offset").and_then(Value::as_f64).unwrap_or(0.0);
     let sec = |f: usize| ((offset + f as f64 * frame) * 1000.0).round() / 1000.0;
+    if req.get("detect").and_then(Value::as_bool) == Some(true) {
+        let (language, french, english) = phone_language(&ctc_greedy(logits, &vocab, 0));
+        return set_len(serde_json::json!({ "language": language, "french": french, "english": english }).to_string());
+    }
     if let Some(phones) = req.get("phones").and_then(Value::as_array) {
         let given: Vec<(String, f64)> = phones.iter().filter_map(|p| Some((p.get(0)?.as_str()?.to_string(), p.get(1)?.as_f64()?))).collect();
         let g2p: Vec<(String, usize)> = given.iter().map(|(p, _)| (p.clone(), 0)).collect();
