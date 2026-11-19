@@ -6,7 +6,7 @@
 //! the tiny-voca `phonemizer/` folder, see dizione::install): it is cut into utterances as tiny-voca's page cuts
 //! it (dizione::utterances: sentences, then clauses, at most `max_tokens - 12` tokens each), each utterance is
 //! synthesized with seed `seed + its index`, and the clip is limited to a 0.99 peak, as upstream `say.mjs` does.
-//! Script markup in `text` goes through [`script`] first (today `[...]` tags are taken out). When `text` is
+//! Script markup in `text` (tags, emphasis, pauses, inline sounds: crate::voice_script) shapes the speech. When `text` is
 //! empty, `input` is used: JSON, either a `perf.json` v1 performance (it has `durations`: its durations and curves are used) or
 //! `{"tokens": [...], "stress": [...]}` (dizione ids: the model predicts the performance).
 //! A voice is only these parameters (voice.tvv.json v3 is their import/export form): `m2` blends the GGUF's M2 and
@@ -177,7 +177,7 @@ struct Job {
     wanted: Wanted,
     /// The rate the parts are kept at (the player's; 0 = the model's).
     rate: f64,
-    utterances: Option<Vec<(Vec<u32>, Vec<u32>)>>,
+    utterances: Option<Vec<Utterance>>,
     next: usize,
     frames: usize,
 }
@@ -244,19 +244,29 @@ fn render_part(job: &mut Job) -> Result<(Vec<f32>, bool), String> {
     }
     let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
     if job.utterances.is_none() {
-        job.utterances = Some(utterances_of(&w.text)?);
+        job.utterances = Some(utterances_of(&w.text)?.0);
     }
     let utterances = job.utterances.as_deref().unwrap_or(&[]);
-    let Some((ids, stress)) = utterances.get(job.next) else { return Ok((Vec::new(), true)) };
+    let Some(u) = utterances.get(job.next) else { return Ok((Vec::new(), true)) };
     let voice = model.blend_voice(m2, post)?;
-    let audio = say_utterance(&model, &voice, ids, stress, w.seed.wrapping_add(job.next as u32))?;
+    let audio = say_utterance(&model, &voice, u, w.seed.wrapping_add(job.next as u32))?;
     Ok((audio, job.next + 1 >= utterances.len()))
 }
 
-/// One utterance in a voice, under a 0.99 peak (say.mjs `limited`, per utterance).
-fn say_utterance(model: &tinyvoca::Model, voice: &tinyvoca::Voice, ids: &[u32], stress: &[u32], seed: u32) -> Result<Vec<f32>, String> {
-    let options = tinyvoca::Options { seed, ..Default::default() };
-    let mut audio = model.synthesize(ids, stress, voice, &options, None)?.audio;
+/// One utterance of a text: its tokens and stresses, and the script's edits when its markup changes anything.
+struct Utterance {
+    ids: Vec<u32>,
+    stress: Vec<u32>,
+    plan: Option<crate::voice_script::UtterancePlan>,
+}
+
+/// One utterance in a voice, under a 0.99 peak (say.mjs `limited`, per utterance). An utterance with script edits
+/// goes through crate::voice_script::synthesize_edited (the emotion edits between the model's stages).
+fn say_utterance(model: &tinyvoca::Model, voice: &tinyvoca::Voice, u: &Utterance, seed: u32) -> Result<Vec<f32>, String> {
+    let mut audio = match &u.plan {
+        Some(plan) => crate::voice_script::with_emotions(|e| crate::voice_script::synthesize_edited(model, voice, plan, e, seed))?.audio,
+        None => model.synthesize(&u.ids, &u.stress, voice, &tinyvoca::Options { seed, ..Default::default() }, None)?.audio,
+    };
     let peak = audio.iter().fold(0.0f32, |m, &v| m.max(v.abs()));
     if peak > 0.99 {
         let k = 0.99 / peak;
@@ -267,21 +277,46 @@ fn say_utterance(model: &tinyvoca::Model, voice: &tinyvoca::Voice, ids: &[u32], 
     Ok(audio)
 }
 
-/// How `text` is cut and phonemized: (token ids, stresses) per utterance; none when there is nothing to say.
+/// How `text` is cut, phonemized and edited by its script markup (crate::voice_script): the utterances (none when
+/// there is nothing to say) and the script's warnings.
 #[cfg(feature = "dizione")]
-fn utterances_of(text: &str) -> Result<Vec<(Vec<u32>, Vec<u32>)>, String> {
+fn utterances_of(text: &str) -> Result<(Vec<Utterance>, Vec<String>), String> {
+    use crate::voice_script::{UtteranceWords, WordPos, plan_utterances};
     let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
-    let said = script(text);
+    let said = parse_script(text);
+    let mut warnings = said.warnings.clone();
     let limit = model.config.max_tokens.saturating_sub(12).max(1);
-    let utterances = dizione::with_shared(|p| p.utterances(&said.plain, limit))
+    let utterances = dizione::with_shared(|p| p.utterances_g2p(&said.plain, limit))
         .ok_or("no phonemizer loaded (a one-file tiny-voca GGUF, or haa_dizione_*)")?
         .map_err(|e| e.0)?;
-    Ok(utterances.iter().map(|u| (u.ids.clone(), u.stress.iter().map(|&s| s as u32).collect())).collect())
+    let stresses: Vec<Vec<u32>> = utterances.iter().map(|(_, g)| g.tokens.stress.iter().map(|&s| s as u32).collect()).collect();
+    let plans = if said.edits() {
+        let words: Vec<UtteranceWords<'_>> = utterances
+            .iter()
+            .zip(&stresses)
+            .map(|((text, g), stress)| UtteranceWords {
+                text,
+                tokens: &g.tokens.ids,
+                stress,
+                words: g.words.iter().map(|w| WordPos { tokens: w.tokens, span: w.span, inline: w.source == "inline" }).collect(),
+            })
+            .collect();
+        plan_utterances(&said, &words, &mut warnings)
+    } else {
+        Vec::new()
+    };
+    let mut plans = plans.into_iter();
+    let out = utterances
+        .iter()
+        .zip(stresses)
+        .map(|((_, g), stress)| Utterance { ids: g.tokens.ids.clone(), stress, plan: plans.next().filter(|p| !p.is_empty()) })
+        .collect();
+    Ok((out, warnings))
 }
 
 /// Without the `dizione` feature there is no text front end.
 #[cfg(not(feature = "dizione"))]
-fn utterances_of(_text: &str) -> Result<Vec<(Vec<u32>, Vec<u32>)>, String> {
+fn utterances_of(_text: &str) -> Result<(Vec<Utterance>, Vec<String>), String> {
     Err("this build has no text front end (haa-core feature dizione)".into())
 }
 
@@ -415,52 +450,62 @@ pub fn voice_params(params: &[f64], envelope: &str) -> Result<(f32, tinyvoca::Po
 /// Script markup taken out of a `speak` text: what is said, and the tags met on the way.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Script {
-    /// The text to say, tags removed.
+    /// The text to say, markup removed (inline sounds stand as dizione inline words `{ə}`).
     pub plain: String,
     /// Each `[...]` tag: its byte offset in `plain` and what was inside the brackets.
     pub tags: Vec<(usize, String)>,
 }
 
-/// Reads the script markup of a `speak` text. Today it only takes `[...]` tags out (a space is left where a tag
-/// separated two words); an unclosed `[` stays as text.
-// TODO(agent C, emotion tags): give `tags` a meaning per span (voice or curve edits from the tag to the next one)
-// in `speak_text`. Tag format v2 (/root/work/haa/temp/npc-voice/PLAN.md "SCRIPT FORMAT v2"): `[key:N, key:N]`,
-// N in 0..=10 (5 without `:N`), e.g. `[scared:4,question:10]`; `[neutral]` or `[]` resets. The studio passes the
-// raw text here.
+/// The whole script of a `speak` text (crate::voice_script, SCRIPT FORMAT v2: `[key:N, ...]` tags, `*emphasis*`,
+/// `|` pauses, `{...}` inline sounds) with the presets and vocal events in use.
+pub fn parse_script(text: &str) -> crate::voice_script::Script {
+    crate::voice_script::with_emotions(|e| crate::voice_script::with_events(|ev| crate::voice_script::parse(text, e, ev)))
+}
+
+/// Reads the script markup of a `speak` text: the plain text and the tags (a space is left where markup separated
+/// two words; an unclosed `[` stays as text). [`parse_script`] gives the spans, emphasis, pauses, sounds and
+/// warnings.
 pub fn script(text: &str) -> Script {
-    let mut out = Script::default();
-    let mut rest = text;
-    while let Some(open) = rest.find('[') {
-        let Some(len) = rest[open..].find(']') else { break };
-        out.plain.push_str(&rest[..open]);
-        let after = &rest[open + len + 1..];
-        out.tags.push((out.plain.len(), rest[open + 1..open + len].trim().to_string()));
-        let word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
-        if word(out.plain.chars().next_back()) && word(after.chars().next()) {
-            out.plain.push(' ');
-        }
-        rest = after;
-    }
-    out.plain.push_str(rest);
-    out
+    let s = parse_script(text);
+    Script { plain: s.plain, tags: s.tags }
+}
+
+/// What [`speak_script`] said: the audio (24 kHz) and the script's warnings (unknown keys, unclosed marks...).
+#[derive(Clone, Debug, Default)]
+pub struct Spoken {
+    pub audio: Vec<f32>,
+    pub warnings: Vec<String>,
 }
 
 /// Says `text` (plain English, script markup allowed) with the shared model and phonemizer for a voice
 /// `(m2, post)`: 24 kHz audio, the utterances one after the other. The wasm `speak` op, the `haa speak` command
 /// and the node all say the same samples.
 pub fn speak_text(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<f32>, String> {
-    Ok(speak_parts(text, m2, post, seed)?.into_iter().flatten().collect())
+    Ok(speak_script(text, m2, post, seed)?.audio)
+}
+
+/// [`speak_text`] with the script's warnings (crate::voice_script: an utterance whose markup changes nothing is
+/// synthesized as plain text, the others with the emotion edits between the model's stages).
+pub fn speak_script(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Spoken, String> {
+    let (parts, warnings) = speak_parts_warned(text, m2, post, seed)?;
+    Ok(Spoken { audio: parts.into_iter().flatten().collect(), warnings })
 }
 
 /// [`speak_text`] per utterance.
 fn speak_parts(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<Vec<Vec<f32>>, String> {
+    Ok(speak_parts_warned(text, m2, post, seed)?.0)
+}
+
+fn speak_parts_warned(text: &str, m2: f32, post: tinyvoca::Post, seed: u32) -> Result<(Vec<Vec<f32>>, Vec<String>), String> {
     let model = tinyvoca::shared().ok_or("no tiny-voca model loaded (haa_tinyvoca_load)")?;
     let voice = model.blend_voice(m2, post)?;
-    utterances_of(text)?
+    let (utterances, warnings) = utterances_of(text)?;
+    let parts = utterances
         .iter()
         .enumerate()
-        .map(|(i, (ids, stress))| say_utterance(&model, &voice, ids, stress, seed.wrapping_add(i as u32)))
-        .collect()
+        .map(|(i, u)| say_utterance(&model, &voice, u, seed.wrapping_add(i as u32)))
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok((parts, warnings))
 }
 
 /// Renders `text` (or, when it is empty, `input`) at `sample_rate`; see the module comment.

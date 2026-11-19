@@ -565,6 +565,14 @@ fn plan_node(
         params.push(check_param(param, raw, value, &at, id, issues));
         texts.push(text);
     }
+    // the speak node's script: unknown tag keys, unclosed marks, sounds that are not phones
+    if def.type_name == "speak"
+        && let Some(Some(said)) = texts.get(crate::nodes::speak::TEXT)
+    {
+        for warning in crate::nodes::speak::parse_script(said).warnings {
+            push(issues, Severity::Warning, "speak-script", format!("{path}.params.text"), id, &warning);
+        }
+    }
     for key in spec.params.keys() {
         if param_index(def, key).is_none() {
             push(

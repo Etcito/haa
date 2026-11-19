@@ -15,6 +15,8 @@ chimera = { path = "../chimera" }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 # tiny-voca speech (Apache-2.0 port): the `speak` node; the weights come from the host at run time.
 tinyvoca = { path = "../tinyvoca" }
+# Deterministic transcendentals for the emotion edits (voice_script), native and wasm alike.
+libm = "=0.2.16"
 # English text for the `speak` node (Apache-2.0 port of dizione): about 2.3 MB of a wasm module, so opt-in.
 dizione = { path = "../dizione", optional = true }
 

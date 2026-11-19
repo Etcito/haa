@@ -24,7 +24,11 @@
 //! - `perform {perf, voice, seed?, noiseSamples?}` -> audio (perf.json v1)
 //! - `speak {text, voice? | params?, seed?}` -> audio: plain text (script markup allowed) through the phonemizer
 //!   and the model, cut per sentence (haa_core::nodes::speak::speak_text, what the `speak` node's `text` says);
-//!   `params` are the node params as `paramsToVoice` takes them
+//!   `params` are the node params as `paramsToVoice` takes them. With `withWarnings: true` the result is JSON
+//!   `{audio: [samples], warnings: [text]}` instead (the script's warnings: unknown tag keys, unclosed marks...)
+//! - `script {text}` -> `{plain, segments: [{text, keys}], emphasis: [{start, end, level}], pauses: [{at, seconds}],
+//!   sounds: [{at, event, phones: [{id, stress, stretch, seconds, voiced}]}], warnings}`: how `speak` reads the
+//!   script markup (haa_core::voice_script, SCRIPT FORMAT v2), without rendering
 //! - `utterances {text}` -> `[{ids, stress, symbols}]`: how `speak` cuts and phonemizes the text
 //! - `speechPlan {patch, seed?, rate?}` -> `[{key, parts, complete}]`: queues the speech of every `speak` node of a
 //!   patch for voice seed `seed` (what a player without the model needs; `parts` already kept), its parts resampled
@@ -184,6 +188,24 @@ fn utterances(_model: &Model, _text: &str) -> Result<Value, String> {
     Err("built without the dizione feature".into())
 }
 
+/// The `script` op: how the speak node reads `text`.
+fn script_json(text: &str) -> Value {
+    let s = haa_core::nodes::speak::parse_script(text);
+    let keys = |k: &[(String, f64)]| -> Value { Value::Object(k.iter().map(|(n, x)| (n.clone(), json!(x))).collect()) };
+    json!({
+        "plain": s.plain,
+        "segments": s.segments().iter().map(|(t, k)| json!({ "text": t, "keys": keys(k) })).collect::<Vec<_>>(),
+        "emphasis": s.emphasis.iter().map(|e| json!({ "start": e.start, "end": e.end, "level": e.level })).collect::<Vec<_>>(),
+        "pauses": s.pauses.iter().map(|p| json!({ "at": p.at, "seconds": p.seconds })).collect::<Vec<_>>(),
+        "sounds": s.sounds.iter().map(|(at, snd)| json!({
+            "at": at,
+            "event": snd.event,
+            "phones": snd.phones.iter().map(|p| json!({ "id": p.id, "stress": p.stress, "stretch": p.stretch, "seconds": p.seconds, "voiced": p.voiced })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "warnings": s.warnings,
+    })
+}
+
 fn noise_samples(v: &Value) -> Result<Option<Vec<f32>>, String> {
     if v.get("noiseSamples").is_some() { floats(v, "noiseSamples").map(Some) } else { Ok(None) }
 }
@@ -250,8 +272,14 @@ fn run(model: &Model, v: &Value) -> Result<Out, String> {
                     (resolved.m2, resolved.post)
                 }
             };
-            Out::Audio(haa_core::nodes::speak::speak_text(text, m2, post, seed)?)
+            let spoken = haa_core::nodes::speak::speak_script(text, m2, post, seed)?;
+            if v.get("withWarnings").and_then(Value::as_bool).unwrap_or(false) {
+                Out::Json(json!({ "audio": spoken.audio, "warnings": spoken.warnings }))
+            } else {
+                Out::Audio(spoken.audio)
+            }
         }
+        "script" => Out::Json(script_json(v.get("text").and_then(Value::as_str).ok_or("text: missing")?)),
         "speechPlan" => {
             let patch = match v.get("patch") {
                 Some(Value::String(text)) => text.clone(),

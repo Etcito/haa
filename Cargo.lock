@@ -106,6 +106,7 @@ dependencies = [
  "chimera",
  "dizione",
  "flate2",
+ "libm",
  "serde",
  "serde_json",
  "tinyvoca",

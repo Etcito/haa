@@ -1,0 +1,26 @@
+{
+ "v": 1,
+ "about": "Named vocal events of the speak node: {hmm}, {sigh}... Each is tiny-voca phones (IPA of the dizione inventory, stress marks on vowels) with a duration in seconds per phone, an optional forced voicing per phone (1 voiced, 0 unvoiced, null = the model's), a pitch contour in semitones spread evenly over the event (relative to the voice's mean pitch around it, so a tag's register carries), an energy offset in dB (energy condition and head gain) and a breath gain in dB on the head's noise branch. Hand-set, editable data; no recordings.",
+ "aliases": {
+  "hm": "hmm", "hmmm": "hmm", "hmmmm": "hmm",
+  "mm": "mmh", "mmm": "mmh", "mhm": "mmh", "mmhm": "mmh", "mmm-hmm": "mmh",
+  "er": "uh", "erm": "um", "uhm": "um", "umm": "um", "uhh": "uh",
+  "ahh": "ah", "aah": "ah", "ohh": "oh",
+  "sighs": "sigh", "breathe": "breath", "inhale": "breath", "exhale": "breath",
+  "gasps": "gasp", "tut": "tsk", "tsktsk": "tsk",
+  "laughs": "laugh", "laughing": "laugh", "haha": "laugh", "chuckle": "laugh"
+ },
+ "events": {
+  "hmm": {"phones": "h m", "seconds": [0.05, 0.55], "voiced": [0, 1], "f0_st": [0.0, 0.5, -2.0], "energy_db": -3.0, "breath_db": 0.0},
+  "mmh": {"phones": "m h", "seconds": [0.45, 0.12], "voiced": [1, 0], "f0_st": [0.0, -1.0, 1.5], "energy_db": -4.0, "breath_db": 2.0},
+  "uh": {"phones": "ə", "seconds": [0.32], "voiced": [1], "f0_st": [0.0, -0.5], "energy_db": -2.0, "breath_db": 0.0},
+  "um": {"phones": "ʌ m", "seconds": [0.16, 0.36], "voiced": [1, 1], "f0_st": [0.0, -1.0], "energy_db": -3.0, "breath_db": 0.0},
+  "ah": {"phones": "ˈɑː", "seconds": [0.4], "voiced": [1], "f0_st": [1.0, -2.0], "energy_db": 0.0, "breath_db": 0.0},
+  "oh": {"phones": "ˈoʊ", "seconds": [0.4], "voiced": [1], "f0_st": [0.0, 2.0, -2.0], "energy_db": 0.0, "breath_db": 0.0},
+  "sigh": {"phones": "h ɑː h", "seconds": [0.15, 0.45, 0.35], "voiced": [0, 1, 0], "f0_st": [1.0, -4.0], "energy_db": -4.0, "breath_db": 10.0},
+  "breath": {"phones": "h", "seconds": [0.45], "voiced": [0], "f0_st": [0.0], "energy_db": -10.0, "breath_db": 6.0},
+  "gasp": {"phones": "h ɑː", "seconds": [0.06, 0.22], "voiced": [0, 1], "f0_st": [3.0, 5.0], "energy_db": -2.0, "breath_db": 12.0},
+  "tsk": {"phones": "t", "seconds": [0.07], "voiced": [0], "f0_st": [0.0], "energy_db": 0.0, "breath_db": 0.0},
+  "laugh": {"phones": "h ɑː h ɑː h ɑː", "seconds": [0.07, 0.12, 0.06, 0.11, 0.06, 0.14], "voiced": [0, 1, 0, 1, 0, 1], "f0_st": [4.0, 3.0, 2.0, 1.0, 0.0, -1.0], "energy_db": 0.0, "breath_db": 6.0}
+ }
+}

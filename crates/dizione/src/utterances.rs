@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::{Phonemized, Phonemizer, ValueError};
+use crate::{G2p, Phonemized, Phonemizer, ValueError};
 
 static ABBREVIATION: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc|no|inc|ltd|co|e\.g|i\.e|a\.m|p\.m)|\b[a-z])\.$").expect("abbreviation pattern")
@@ -85,6 +85,12 @@ impl Phonemizer {
     /// text.js `utterancesOf`: the text as utterances of at most `limit` tokens each (tiny-voca's page uses
     /// `max_tokens - 12`), in order. A sentence with nothing to pronounce gives none.
     pub fn utterances(&self, text: &str, limit: usize) -> Result<Vec<Phonemized>, ValueError> {
+        Ok(self.utterances_g2p(text, limit)?.into_iter().map(|(_, g)| g.tokens).collect())
+    }
+
+    /// [`Phonemizer::utterances`] with, for each utterance, the text it was phonemized from and its spoken words
+    /// (token ranges, byte spans in that text): what script markup is mapped onto.
+    pub fn utterances_g2p(&self, text: &str, limit: usize) -> Result<Vec<(String, G2p)>, ValueError> {
         let mut out = Vec::new();
         for sentence in sentences(&finished(text)) {
             self.fit(&sentence, limit, &mut out)?;
@@ -92,14 +98,14 @@ impl Phonemizer {
         Ok(out)
     }
 
-    fn fit(&self, sentence: &str, limit: usize, out: &mut Vec<Phonemized>) -> Result<(), ValueError> {
-        let result = match self.phonemize(sentence) {
+    fn fit(&self, sentence: &str, limit: usize, out: &mut Vec<(String, G2p)>) -> Result<(), ValueError> {
+        let result = match self.g2p(sentence) {
             Ok(r) => r,
             Err(e) if e.0 == "the text has nothing to pronounce" || e.0 == "text must not be empty" => return Ok(()),
             Err(e) => return Err(e),
         };
-        if result.ids.len() <= limit {
-            out.push(result);
+        if result.tokens.ids.len() <= limit {
+            out.push((sentence.to_string(), result));
             return Ok(());
         }
         // /(?<=[,;:—])\s+/

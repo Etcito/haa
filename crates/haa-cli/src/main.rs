@@ -309,8 +309,13 @@ fn speak(args: &[String]) -> i32 {
             Err(reason) => return fail(reason),
         },
     };
-    let audio = match haa_core::nodes::speak::speak_text(text, m2, post, seed) {
-        Ok(audio) => audio,
+    let audio = match haa_core::nodes::speak::speak_script(text, m2, post, seed) {
+        Ok(spoken) => {
+            for warning in &spoken.warnings {
+                eprintln!("[haa] script warning: {warning}");
+            }
+            spoken.audio
+        }
         Err(reason) => return fail(reason),
     };
     let rate = tinyvoca::shared().map_or(24_000, |m| m.config.sample_rate as u32);

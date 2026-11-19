@@ -1,0 +1,688 @@
+{
+ "v": 2,
+ "levels": {
+  "0": 0,
+  "5": 1,
+  "8": 1.4,
+  "10": 1.8
+ },
+ "levels_about": "N 0..10: 0 none, 5 the dataset normal median (the preset), 8 its strong median (at8), 10 its strong upper quartile (at10), linear between; a preset without at8 / at10 uses these gains on its N=5 values (ratios in the log domain)",
+ "aliases": {
+  "relaxed": "calm",
+  "serene": "calm",
+  "peaceful": "calm",
+  "joy": "happy",
+  "joyful": "happy",
+  "glad": "happy",
+  "cheerful": "happy",
+  "sadness": "sad",
+  "unhappy": "sad",
+  "sorrow": "sad",
+  "sorrowful": "sad",
+  "anger": "angry",
+  "mad": "angry",
+  "furious": "angry",
+  "rage": "angry",
+  "fear": "scared",
+  "fearful": "scared",
+  "afraid": "scared",
+  "frightened": "scared",
+  "terrified": "scared",
+  "scary": "scared",
+  "disgusted": "disgust",
+  "disgusting": "disgust",
+  "gross": "disgust",
+  "surprise": "surprised",
+  "astonished": "surprised",
+  "amazed": "surprised",
+  "suspicion": "suspicious",
+  "wary": "suspicious",
+  "distrustful": "suspicious",
+  "doubtful": "suspicious",
+  "boredom": "bored",
+  "uninterested": "bored",
+  "indifferent": "bored",
+  "curiosity": "curious",
+  "interested": "curious",
+  "inquisitive": "curious",
+  "ask": "question",
+  "asking": "question",
+  "interrogative": "question",
+  "questioning": "question",
+  "wh": "question_wh",
+  "whquestion": "question_wh",
+  "exclaim": "exclamation",
+  "exclamative": "exclamation",
+  "exclamatory": "exclamation",
+  "whispered": "whisper",
+  "whispering": "whisper",
+  "shouting": "shout",
+  "shouted": "shout",
+  "yell": "shout",
+  "yelling": "shout",
+  "hesitation": "hesitant",
+  "unsure": "hesitant",
+  "hesitating": "hesitant",
+  "sarcasm": "sarcastic",
+  "ironic": "sarcastic",
+  "irony": "sarcastic",
+  "weary": "tired",
+  "exhausted": "tired",
+  "sleepy": "tired"
+ },
+ "emotions": {
+  "neutral": {
+   "register_st": 0.0,
+   "range_x": 1.0,
+   "declination_st_s": 0.0,
+   "final_st": 0.0,
+   "accent_st": 0.0,
+   "jitter_x": 1.0,
+   "rate_x": 1.0,
+   "pause": 0.0,
+   "energy_db": 0.0,
+   "tilt_db_oct": 0.0,
+   "cpp_db": 0.0,
+   "h1h2_db": 0.0,
+   "source": "definition (no change)",
+   "licence": "none needed"
+  },
+  "angry": {
+   "register_st": 7.8,
+   "range_x": 2.526,
+   "declination_st_s": 4.548,
+   "final_st": 0.223,
+   "accent_st": 1.152,
+   "jitter_x": 1.931,
+   "rate_x": 0.935,
+   "pause": 0.054,
+   "energy_db": 12.801,
+   "tilt_db_oct": 0.557,
+   "cpp_db": 1.162,
+   "h1h2_db": 0.915,
+   "at8": {
+    "register_st": 13.925,
+    "range_x": 2.359,
+    "declination_st_s": 3.806,
+    "final_st": 0.978,
+    "accent_st": 0.916,
+    "jitter_x": 1.769,
+    "rate_x": 0.929,
+    "pause": 0.076,
+    "energy_db": 19.781,
+    "tilt_db_oct": 2.213,
+    "cpp_db": 2.048,
+    "h1h2_db": -1.42
+   },
+   "at10": {
+    "register_st": 16.45,
+    "range_x": 3.565,
+    "declination_st_s": 8.348,
+    "final_st": 2.227,
+    "accent_st": 1.606,
+    "jitter_x": 2.61,
+    "rate_x": 0.749,
+    "pause": 0.098,
+    "energy_db": 23.158,
+    "tilt_db_oct": 3.726,
+    "cpp_db": 3.049,
+    "h1h2_db": -5.319
+   },
+   "kind": "emotion",
+   "source": "CREMA-D IEO, median over 83 actors vs the same actor's neutral IEO: N=5 medium median, N=8 high median, N=10 high upper quartile (picked by effect size: CREMA-D 0.66, RAVDESS 0.56)",
+   "licence": "CREMA-D (Cao et al. 2014), Open Database License 1.0 (database) + Database Contents License 1.0 (contents); attribution required, share-alike on the database (github.com/CheyneyComputerScience/CREMA-D LICENSE.txt)"
+  },
+  "disgust": {
+   "register_st": 3.5,
+   "range_x": 1.768,
+   "declination_st_s": -0.625,
+   "final_st": -0.22,
+   "accent_st": 0.588,
+   "jitter_x": 1.516,
+   "rate_x": 0.843,
+   "pause": 0.0,
+   "energy_db": 5.641,
+   "tilt_db_oct": -0.495,
+   "cpp_db": 0.769,
+   "h1h2_db": -0.62,
+   "at8": {
+    "register_st": 4.8,
+    "range_x": 1.816,
+    "declination_st_s": 1.464,
+    "final_st": -0.313,
+    "accent_st": 0.627,
+    "jitter_x": 1.433,
+    "rate_x": 0.796,
+    "pause": 0.0,
+    "energy_db": 7.197,
+    "tilt_db_oct": 0.345,
+    "cpp_db": 0.64,
+    "h1h2_db": -0.673
+   },
+   "at10": {
+    "register_st": 7.6,
+    "range_x": 2.804,
+    "declination_st_s": 4.483,
+    "final_st": -1.516,
+    "accent_st": 1.521,
+    "jitter_x": 2.528,
+    "rate_x": 0.667,
+    "pause": 0.0,
+    "energy_db": 11.503,
+    "tilt_db_oct": 1.216,
+    "cpp_db": 1.767,
+    "h1h2_db": -3.99
+   },
+   "kind": "emotion",
+   "source": "CREMA-D IEO, median over 75 actors vs the same actor's neutral IEO: N=5 medium median, N=8 high median, N=10 high upper quartile (picked by effect size: CREMA-D 0.33, RAVDESS 0.22)",
+   "licence": "CREMA-D (Cao et al. 2014), Open Database License 1.0 (database) + Database Contents License 1.0 (contents); attribution required, share-alike on the database (github.com/CheyneyComputerScience/CREMA-D LICENSE.txt)"
+  },
+  "scared": {
+   "register_st": 4.506,
+   "range_x": 0.985,
+   "declination_st_s": 1.38,
+   "final_st": 2.01,
+   "accent_st": 0.105,
+   "jitter_x": 1.061,
+   "rate_x": 0.949,
+   "pause": 0.041,
+   "energy_db": 4.554,
+   "tilt_db_oct": 0.774,
+   "cpp_db": -0.531,
+   "h1h2_db": 2.309,
+   "at8": {
+    "register_st": 13.081,
+    "range_x": 1.044,
+    "declination_st_s": 1.83,
+    "final_st": 2.514,
+    "accent_st": 0.416,
+    "jitter_x": 1.033,
+    "rate_x": 0.916,
+    "pause": 0.057,
+    "energy_db": 19.917,
+    "tilt_db_oct": 0.96,
+    "cpp_db": 1.349,
+    "h1h2_db": 3.501
+   },
+   "at10": {
+    "register_st": 15.019,
+    "range_x": 1.358,
+    "declination_st_s": 3.733,
+    "final_st": 4.68,
+    "accent_st": 1.192,
+    "jitter_x": 1.489,
+    "rate_x": 0.839,
+    "pause": 0.074,
+    "energy_db": 22.011,
+    "tilt_db_oct": 1.58,
+    "cpp_db": 1.962,
+    "h1h2_db": 5.776
+   },
+   "kind": "emotion",
+   "source": "RAVDESS, median over 24 actors vs the same actor's neutral: N=5 normal median, N=8 strong median, N=10 strong upper quartile (picked by effect size: CREMA-D 0.22, RAVDESS 0.35)",
+   "licence": "RAVDESS (Livingstone & Russo 2018), CC BY-NC-SA 4.0 (zenodo.org/records/1188976); shipped by the owner's decision of 2026-11-19 (only a trace stays in the weights / presets)"
+  },
+  "happy": {
+   "register_st": 2.812,
+   "range_x": 1.233,
+   "declination_st_s": -0.416,
+   "final_st": -0.001,
+   "accent_st": 0.578,
+   "jitter_x": 0.984,
+   "rate_x": 1.021,
+   "pause": -0.031,
+   "energy_db": 4.805,
+   "tilt_db_oct": -0.047,
+   "cpp_db": 0.694,
+   "h1h2_db": -0.454,
+   "at8": {
+    "register_st": 9.9,
+    "range_x": 1.292,
+    "declination_st_s": 0.917,
+    "final_st": 1.299,
+    "accent_st": 1.023,
+    "jitter_x": 1.176,
+    "rate_x": 0.909,
+    "pause": -0.043,
+    "energy_db": 14.867,
+    "tilt_db_oct": 0.734,
+    "cpp_db": 1.301,
+    "h1h2_db": 1.466
+   },
+   "at10": {
+    "register_st": 12.4,
+    "range_x": 1.749,
+    "declination_st_s": 3.813,
+    "final_st": 3.531,
+    "accent_st": 1.618,
+    "jitter_x": 1.649,
+    "rate_x": 0.817,
+    "pause": -0.055,
+    "energy_db": 17.253,
+    "tilt_db_oct": 1.363,
+    "cpp_db": 1.991,
+    "h1h2_db": 2.54
+   },
+   "kind": "emotion",
+   "source": "RAVDESS, median over 24 actors vs the same actor's neutral: N=5 normal median, N=8 strong median, N=10 strong upper quartile (picked by effect size: CREMA-D 0.32, RAVDESS 0.38)",
+   "licence": "RAVDESS (Livingstone & Russo 2018), CC BY-NC-SA 4.0 (zenodo.org/records/1188976); shipped by the owner's decision of 2026-11-19 (only a trace stays in the weights / presets)"
+  },
+  "sad": {
+   "register_st": 0.019,
+   "range_x": 0.774,
+   "declination_st_s": 0.563,
+   "final_st": 0.782,
+   "accent_st": -0.313,
+   "jitter_x": 0.947,
+   "rate_x": 0.901,
+   "pause": 0.032,
+   "energy_db": -2.973,
+   "tilt_db_oct": 0.523,
+   "cpp_db": -0.385,
+   "h1h2_db": -0.3,
+   "at8": {
+    "register_st": 5.8,
+    "range_x": 0.825,
+    "declination_st_s": 1.434,
+    "final_st": 1.79,
+    "accent_st": -0.093,
+    "jitter_x": 1.033,
+    "rate_x": 0.804,
+    "pause": 0.044,
+    "energy_db": 5.462,
+    "tilt_db_oct": 0.001,
+    "cpp_db": 0.091,
+    "h1h2_db": 0.604
+   },
+   "at10": {
+    "register_st": 7.941,
+    "range_x": 0.581,
+    "declination_st_s": 4.109,
+    "final_st": 4.176,
+    "accent_st": -1.416,
+    "jitter_x": 1.304,
+    "rate_x": 0.714,
+    "pause": 0.057,
+    "energy_db": 9.567,
+    "tilt_db_oct": 0.774,
+    "cpp_db": 2.026,
+    "h1h2_db": 4.998
+   },
+   "kind": "emotion",
+   "source": "RAVDESS, median over 24 actors vs the same actor's neutral: N=5 normal median, N=8 strong median, N=10 strong upper quartile (picked by effect size: CREMA-D 0.28, RAVDESS 0.30)",
+   "licence": "RAVDESS (Livingstone & Russo 2018), CC BY-NC-SA 4.0 (zenodo.org/records/1188976); shipped by the owner's decision of 2026-11-19 (only a trace stays in the weights / presets)"
+  },
+  "calm": {
+   "register_st": -0.406,
+   "range_x": 0.782,
+   "declination_st_s": 0.36,
+   "final_st": 0.361,
+   "accent_st": -0.455,
+   "jitter_x": 0.779,
+   "rate_x": 0.879,
+   "pause": 0.022,
+   "energy_db": -2.951,
+   "tilt_db_oct": 0.762,
+   "cpp_db": -0.593,
+   "h1h2_db": 1.468,
+   "at8": {
+    "register_st": -0.125,
+    "range_x": 0.836,
+    "declination_st_s": 0.906,
+    "final_st": 0.586,
+    "accent_st": -0.629,
+    "jitter_x": 0.916,
+    "rate_x": 0.752,
+    "pause": 0.031,
+    "energy_db": -3.081,
+    "tilt_db_oct": 0.827,
+    "cpp_db": -0.568,
+    "h1h2_db": 2.257
+   },
+   "at10": {
+    "register_st": -1.022,
+    "range_x": 0.698,
+    "declination_st_s": 2.602,
+    "final_st": 1.141,
+    "accent_st": -1.518,
+    "jitter_x": 0.72,
+    "rate_x": 0.636,
+    "pause": 0.039,
+    "energy_db": -4.18,
+    "tilt_db_oct": 1.32,
+    "cpp_db": -1.194,
+    "h1h2_db": 3.354
+   },
+   "kind": "emotion",
+   "source": "RAVDESS, median over 24 actors vs the same actor's neutral: N=5 normal median, N=8 strong median, N=10 strong upper quartile (CREMA-D has no calm)",
+   "licence": "RAVDESS (Livingstone & Russo 2018), CC BY-NC-SA 4.0 (zenodo.org/records/1188976); shipped by the owner's decision of 2026-11-19 (only a trace stays in the weights / presets)"
+  },
+  "surprised": {
+   "register_st": 4.481,
+   "range_x": 1.514,
+   "declination_st_s": 1.605,
+   "final_st": 5.053,
+   "accent_st": 2.388,
+   "jitter_x": 1.468,
+   "rate_x": 1.056,
+   "pause": -0.005,
+   "energy_db": 5.715,
+   "tilt_db_oct": 0.252,
+   "cpp_db": -0.761,
+   "h1h2_db": 2.145,
+   "at8": {
+    "register_st": 7.25,
+    "range_x": 1.483,
+    "declination_st_s": 1.061,
+    "final_st": 7.505,
+    "accent_st": 2.179,
+    "jitter_x": 1.465,
+    "rate_x": 1.065,
+    "pause": -0.007,
+    "energy_db": 11.221,
+    "tilt_db_oct": 1.091,
+    "cpp_db": -0.73,
+    "h1h2_db": 3.127
+   },
+   "at10": {
+    "register_st": 10.466,
+    "range_x": 2.425,
+    "declination_st_s": 4.559,
+    "final_st": 8.989,
+    "accent_st": 3.335,
+    "jitter_x": 1.913,
+    "rate_x": 1.15,
+    "pause": -0.008,
+    "energy_db": 11.939,
+    "tilt_db_oct": 2.352,
+    "cpp_db": -1.619,
+    "h1h2_db": 6.033
+   },
+   "kind": "emotion",
+   "source": "RAVDESS, median over 24 actors vs the same actor's neutral: N=5 normal median, N=8 strong median, N=10 strong upper quartile (CREMA-D has no surprised)",
+   "licence": "RAVDESS (Livingstone & Russo 2018), CC BY-NC-SA 4.0 (zenodo.org/records/1188976); shipped by the owner's decision of 2026-11-19 (only a trace stays in the weights / presets)"
+  },
+  "suspicious": {
+   "mix": {
+    "angry": 0.3,
+    "disgust": 0.2
+   },
+   "overrides": {
+    "final_st": 2.0,
+    "pause": 0.08
+   },
+   "kind": "composed",
+   "source": "composed: VAD least-squares prediction approximated by a non-negative mix of the measured presets, overrides where the mix misses by > 0.5 sd, plus hand prosody",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "bored": {
+   "mix": {
+    "sad": 0.6
+   },
+   "overrides": {
+    "register_st": -3.861,
+    "range_x": 0.7,
+    "declination_st_s": -0.776,
+    "final_st": -1.353,
+    "accent_st": -1.307,
+    "jitter_x": 0.794,
+    "energy_db": -6.906,
+    "tilt_db_oct": 0.042,
+    "rate_x": 0.9
+   },
+   "kind": "composed",
+   "source": "composed: VAD least-squares prediction approximated by a non-negative mix of the measured presets, overrides where the mix misses by > 0.5 sd, plus hand prosody",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "tired": {
+   "mix": {
+    "sad": 0.35
+   },
+   "overrides": {
+    "register_st": -3.916,
+    "range_x": 0.651,
+    "declination_st_s": -1.005,
+    "final_st": -1.181,
+    "accent_st": -1.065,
+    "jitter_x": 0.764,
+    "energy_db": -6.578,
+    "rate_x": 0.85,
+    "cpp_db": -1.0
+   },
+   "kind": "composed",
+   "source": "composed: VAD least-squares prediction approximated by a non-negative mix of the measured presets, overrides where the mix misses by > 0.5 sd, plus hand prosody",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "curious": {
+   "mix": {
+    "happy": 0.3,
+    "calm": 0.1,
+    "surprised": 0.55
+   },
+   "overrides": {
+    "final_st": 3.0
+   },
+   "kind": "composed",
+   "source": "composed: VAD least-squares prediction approximated by a non-negative mix of the measured presets, overrides where the mix misses by > 0.5 sd, plus hand prosody",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "sarcastic": {
+   "mix": {
+    "happy": 0.5,
+    "disgust": 0.5
+   },
+   "overrides": {
+    "range_x": 1.3,
+    "rate_x": 0.88,
+    "accent_st": 1.5
+   },
+   "kind": "composed",
+   "source": "composed: hand mix happy + disgust with exaggerated range, slow rate, stronger accents (no VAD entry)",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "question": {
+   "register_st": 0.0,
+   "range_x": 1.171,
+   "declination_st_s": 0.0,
+   "final_st": 4.0,
+   "accent_st": 0.0,
+   "jitter_x": 1.0,
+   "rate_x": 1.0,
+   "pause": 0.0,
+   "energy_db": 0.0,
+   "tilt_db_oct": 0.0,
+   "cpp_db": 0.0,
+   "h1h2_db": 0.0,
+   "at8": {
+    "register_st": 0.0,
+    "range_x": 1.211,
+    "declination_st_s": 0.0,
+    "final_st": 5.6,
+    "accent_st": 0.0,
+    "jitter_x": 1.0,
+    "rate_x": 1.0,
+    "pause": 0.0,
+    "energy_db": 0.0,
+    "tilt_db_oct": 0.0,
+    "cpp_db": 0.0,
+    "h1h2_db": 0.0
+   },
+   "at10": {
+    "register_st": 0.0,
+    "range_x": 1.239,
+    "declination_st_s": 0.0,
+    "final_st": 7.2,
+    "accent_st": 0.0,
+    "jitter_x": 1.0,
+    "rate_x": 1.0,
+    "pause": 0.0,
+    "energy_db": 0.0,
+    "tilt_db_oct": 0.0,
+    "cpp_db": 0.0,
+    "h1h2_db": 0.0
+   },
+   "kind": "delivery",
+   "source": "measured: 5 question yn utterances of read speech vs the same speaker's statements (N=5 median, N=10 upper quartile); kept ['range_x']; final_st measured -2.754 st (q25 -2.832, q75 -2.624) is a fall: replaced by the built rise +4.0 / +5.6 / +7.2 st at N = 5 / 8 / 10",
+   "licence": "LibriTTS-R test-clean (Koizumi et al. 2023, CC BY 4.0) + CSTR VCTK 0.92 (Yamagishi et al. 2019, CC BY 4.0); attribution required"
+  },
+  "question_wh": {
+   "register_st": 0.0,
+   "range_x": 1.0,
+   "declination_st_s": 1.591,
+   "final_st": 0.0,
+   "accent_st": 0.0,
+   "jitter_x": 1.0,
+   "rate_x": 1.0,
+   "pause": 0.0,
+   "energy_db": 0.0,
+   "tilt_db_oct": 0.0,
+   "cpp_db": 0.0,
+   "h1h2_db": 0.0,
+   "at8": {
+    "register_st": 0.0,
+    "range_x": 1.0,
+    "declination_st_s": 1.86,
+    "final_st": 0.0,
+    "accent_st": 0.0,
+    "jitter_x": 1.0,
+    "rate_x": 1.0,
+    "pause": 0.0,
+    "energy_db": 0.0,
+    "tilt_db_oct": 0.0,
+    "cpp_db": 0.0,
+    "h1h2_db": 0.0
+   },
+   "at10": {
+    "register_st": 0.0,
+    "range_x": 1.0,
+    "declination_st_s": 2.039,
+    "final_st": 0.0,
+    "accent_st": 0.0,
+    "jitter_x": 1.0,
+    "rate_x": 1.0,
+    "pause": 0.0,
+    "energy_db": 0.0,
+    "tilt_db_oct": 0.0,
+    "cpp_db": 0.0,
+    "h1h2_db": 0.0
+   },
+   "kind": "delivery",
+   "source": "measured: 10 question wh utterances of read speech vs the same speaker's statements (N=5 median, N=10 upper quartile); kept ['declination_st_s']",
+   "licence": "LibriTTS-R test-clean (Koizumi et al. 2023, CC BY 4.0) + CSTR VCTK 0.92 (Yamagishi et al. 2019, CC BY 4.0); attribution required"
+  },
+  "exclamation": {
+   "register_st": 1.5,
+   "range_x": 1.3,
+   "declination_st_s": 0.0,
+   "final_st": -2.0,
+   "accent_st": 2.0,
+   "jitter_x": 1.0,
+   "rate_x": 1.0,
+   "pause": 0.0,
+   "energy_db": 4.0,
+   "tilt_db_oct": 0.0,
+   "cpp_db": 0.0,
+   "h1h2_db": 0.0,
+   "kind": "delivery",
+   "source": "built: stronger accents, louder, wider range, falling end (the read-speech set has 3 exclamations with a statement baseline)",
+   "licence": "none needed"
+  },
+  "shout": {
+   "register_st": 4.803,
+   "range_x": 1.6,
+   "declination_st_s": 1.262,
+   "final_st": -0.404,
+   "accent_st": 0.969,
+   "jitter_x": 1.531,
+   "rate_x": 0.984,
+   "pause": -0.003,
+   "energy_db": 10.0,
+   "tilt_db_oct": 1.5,
+   "cpp_db": 1.171,
+   "h1h2_db": -3.0,
+   "kind": "delivery",
+   "source": "composed: VAD least-squares map (fitted on the measured emotions) at arousal 0.6, dominance 0.4, with energy >= +10 dB, tilt >= +1.5, h1h2 <= -3, range <= 1.6",
+   "licence": "derived from the measured presets (see their licence)"
+  },
+  "whisper": {
+   "mix": {
+    "calm": 1.0
+   },
+   "overrides": {
+    "cpp_db": -6.0,
+    "energy_db": -12.0,
+    "h1h2_db": 4.0,
+    "range_x": 0.6,
+    "accent_st": -1.0,
+    "rate_x": 0.95
+   },
+   "kind": "delivery",
+   "source": "composed: calm + strong breath / low level / flat (a true whisper also needs devoicing, which the 12 parameters do not have)",
+   "licence": "composed from the presets it mixes (see their licence)"
+  },
+  "hesitant": {
+   "mix": {
+    "scared": 0.3
+   },
+   "overrides": {
+    "pause": 0.12,
+    "rate_x": 0.85,
+    "range_x": 0.85,
+    "final_st": 1.0
+   },
+   "kind": "delivery",
+   "source": "composed: a little fear + pauses, slow rate, narrow range",
+   "licence": "composed from the presets it mixes (see their licence)"
+  }
+ },
+ "caps": {
+  "register_st": [
+   -12,
+   16
+  ],
+  "range_x": [
+   0.25,
+   6.0
+  ],
+  "declination_st_s": [
+   -10,
+   10
+  ],
+  "final_st": [
+   -10,
+   14
+  ],
+  "accent_st": [
+   -4,
+   8
+  ],
+  "jitter_x": [
+   0.5,
+   4.0
+  ],
+  "rate_x": [
+   0.5,
+   1.8
+  ],
+  "pause": [
+   -0.1,
+   0.3
+  ],
+  "energy_db": [
+   -20,
+   30
+  ],
+  "tilt_db_oct": [
+   -6,
+   6
+  ],
+  "cpp_db": [
+   -6,
+   6
+  ],
+  "h1h2_db": [
+   -9,
+   9
+  ]
+ }
+}

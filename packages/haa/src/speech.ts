@@ -117,6 +117,16 @@ export interface Utterance {
   symbols: string[];
 }
 
+/** How the speak node reads a text's script markup (SCRIPT FORMAT v2: `[key:N]` tags, `*emphasis*`, `|` pauses, `{sounds}`). */
+export interface SpeechScript {
+  plain: string;
+  segments: { text: string; keys: Record<string, number> }[];
+  emphasis: { start: number; end: number; level: number }[];
+  pauses: { at: number; seconds: number }[];
+  sounds: { at: number; event: string | null; phones: { id: number; stress: number; stretch: number; seconds: number | null; voiced: boolean | null }[] }[];
+  warnings: string[];
+}
+
 /** dizione's result for one text (crates/haa-wasm/src/dizione.rs). */
 export interface Phonemized {
   ids: number[];
@@ -138,7 +148,8 @@ export interface SpeechOps {
   vocode: [Cepstra & { logF0: number[]; cepDelta?: Cepstra; noiseSamples?: number[]; seed?: number }, Float32Array];
   synthesize: [Tokens & { voice?: VoiceSpec; speed?: number; pitchShift?: number; pitchRange?: number; seed?: number; noiseSamples?: number[] }, Float32Array];
   perform: [{ perf: unknown; voice?: VoiceSpec; seed?: number; noiseSamples?: number[] }, Float32Array];
-  speak: [{ text: string; params?: SpeakParams; voice?: VoiceSpec; seed?: number }, Float32Array];
+  speak: [{ text: string; params?: SpeakParams; voice?: VoiceSpec; seed?: number; withWarnings?: boolean }, Float32Array];
+  script: [{ text: string }, SpeechScript];
   utterances: [{ text: string }, Utterance[]];
   speechPlan: [{ patch: unknown; seed?: number; rate?: number }, SpeechPlanned[]];
   speechNext: [Record<string, never>, SpeechStep | null];
@@ -155,10 +166,13 @@ export interface Speech {
   load(gguf: Uint8Array): { phonemizer: boolean; phonemizerError?: string };
   info(): SpeechInfo;
   /**
-   * Says `text` (English; `[...]` tags are taken out for now) with a voice: the `speak` node params, a stock
-   * speaker or voice.tvv.json v3. Cut per sentence, as the node does. Float32Array at `info().sampleRate` (24 kHz).
+   * Says `text` (English, with script markup: `[scared:4, question:10]` tags, `*emphasis*`, `|` pauses, `{hmm}`
+   * sounds) with a voice: the `speak` node params, a stock speaker or voice.tvv.json v3. Cut per sentence, as the
+   * node does. Float32Array at `info().sampleRate` (24 kHz). `onWarnings` gets the script's warnings, if any.
    */
-  speak(text: string, voice?: SpeakParams | VoiceSpec, opts?: { seed?: number }): Float32Array;
+  speak(text: string, voice?: SpeakParams | VoiceSpec, opts?: { seed?: number; onWarnings?: (warnings: string[]) => void }): Float32Array;
+  /** How `speak` reads the script markup of `text`, with its warnings (no rendering). */
+  script(text: string): SpeechScript;
   /** How `speak` cuts and phonemizes `text`. */
   utterances(text: string): Utterance[];
   /**
@@ -210,10 +224,13 @@ export function wrapSpeech(exports: SpeechExports): Speech {
     throw new Error(`[haa] speech: ${message}`);
   };
 
-  const run = <K extends keyof SpeechOps>(op: K, request: SpeechOps[K][0]): SpeechOps[K][1] => {
+  const call = (op: string, request: object): Uint8Array => {
     const n = withBytes(encodeUtf8(JSON.stringify({ ...request, op })), (ptr, len) => exports.haa_tinyvoca_run(ptr, len));
     if (n < 0) fail();
-    const bytes = resultBytes(n);
+    return resultBytes(n);
+  };
+  const run = <K extends keyof SpeechOps>(op: K, request: SpeechOps[K][0]): SpeechOps[K][1] => {
+    const bytes = call(op, request);
     if (AUDIO_OPS.has(op)) return new Float32Array(bytes.buffer, 0, bytes.length >> 2) as SpeechOps[K][1];
     return JSON.parse(decodeUtf8(bytes)) as SpeechOps[K][1];
   };
@@ -234,7 +251,14 @@ export function wrapSpeech(exports: SpeechExports): Speech {
       const request: SpeechOps['speak'][0] = { text, seed: opts.seed ?? 0 };
       if (typeof voice === 'string' || (voice && 'v' in voice)) request.voice = voice as VoiceSpec;
       else if (voice) request.params = voice;
-      return run('speak', request);
+      if (!opts.onWarnings) return run('speak', request);
+      // withWarnings: the result is JSON {audio, warnings}, not raw samples
+      const said = JSON.parse(decodeUtf8(call('speak', { ...request, withWarnings: true }))) as { audio: number[]; warnings: string[] };
+      if (said.warnings.length) opts.onWarnings(said.warnings);
+      return Float32Array.from(said.audio);
+    },
+    script(text) {
+      return run('script', { text });
     },
     utterances(text) {
       return run('utterances', { text });
