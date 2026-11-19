@@ -494,15 +494,15 @@ The workspace scaffold, build and release.
 - **`scripts/release-pack.mjs`:**
   - It reads `packages/haa/package.json` (the name must be `@etcito/haa`); `--tag v<version>` must match the version.
   - It runs `npm run build` and `npm pack -w @etcito/haa --pack-destination release/`.
-  - It checks the tar entries with a pure-Node reader: `package/package.json`, `package/dist/{index.js,index.d.ts,offline.js,offline.d.ts,node.js,node.d.ts,worklet.js,cli.js}`, `package/pkg/haa.wasm`, `package/README.md`, `package/LICENSE`.
+  - It checks the tar entries with a pure-Node reader: `package/package.json`, `package/dist/{index.js,index.d.ts,offline.js,offline.d.ts,node.js,node.d.ts,worklet.js,speech-worker.js,cli.js}`, `package/pkg/haa.wasm`, `package/README.md`, `package/LICENSE`.
   - It prints `release-pack: etcito-haa-<v>.tgz ok`, the `gh release create` command and `npm publish release/etcito-haa-<v>.tgz --access public`, without running either.
 - **`packages/haa/package.json`:**
   - `@etcito/haa` 0.3.0, module, MIT, publishable (`description`, `repository`, `homepage`, `keywords`, `publishConfig.access: public`);
   - `files: ["dist", "pkg", "README.md", "LICENSE"]`, `bin: { "haa-node": "./dist/cli.js" }`;
-  - `exports`: `.`, `./offline`, `./node` (each types + default from `dist/`), `./worklet` → `./dist/worklet.js`, `./wasm` → `./pkg/haa.wasm`, `./package.json`;
+  - `exports`: `.`, `./offline`, `./node` (each types + default from `dist/`), `./worklet` → `./dist/worklet.js`, `./speech-worker` → `./dist/speech-worker.js`, `./wasm` → `./pkg/haa.wasm`, `./package.json`;
   - `scripts.build: "node build.mjs"`. No dependencies.
 - **`packages/haa/build.mjs`:** esbuild bundles (esm, es2022, no minify, no sourcemap):
-  - `index` (browser), `offline` (neutral), `worklet` (self-contained, generated banner), `node` (node), `cli` (node, shebang);
+  - `index` (browser), `offline` (neutral), `worklet` (self-contained, generated banner), `node` (node), `cli` (node, shebang), `speech-worker` (browser, self-contained module Worker);
   - an entry whose source is missing is skipped with `[haa build] skip <entry>`.
   - It then runs `tsc -p packages/haa/tsconfig.json` (declarations only) and rewrites `./x.ts` specifiers in the `.d.ts` files to `./x.js`.
   - It warns when `pkg/haa.wasm` is missing.
@@ -685,7 +685,8 @@ The browser playback path.
   - It handles every §9 message. On a trap it outputs silence, posts `error` once and rebuilds on the next `patch`.
 - **load.ts:** `loadHaaModule(url)` uses `WebAssembly.compileStreaming(fetch(url))`, with an arrayBuffer fallback when the MIME type is wrong.
 - **player.ts:**
-  - `PlayerOptions { module, processorUrl, patch, seed?, inputs?, output?, trace? }`.
+  - `PlayerOptions { module, processorUrl, patch, seed?, inputs?, output?, trace?, speechClips?, speech? }`.
+  - `speech` (`'auto'` by default without `speechClips`, `false`, or `SpeechOptions { worker?, workerUrl?, weightsUrl?, cache?, onProgress?, onError? }`): a patch with a `speak` node waits for each source's first utterance from the shared speech worker (speech-host.ts `prepareSpeech`), starts with them and gets the later parts through `setSpeechClips`; `setPatch` with other speech streams that. A patch without one fetches nothing. A speech failure never rejects `createPlayer`: the patch plays without it (`onError`).
   - `HaaPlayer { node, info, issues, playable, set, trigger, restart, setPatch(patch, keepState?) -> Promise<LoadResult>, onTrace(cb) -> unsubscribe, onEnded(cb) -> unsubscribe, dispose }`.
   - `createPlayer(ctx, o)`:
     - runs addModule once per context (WeakMap);

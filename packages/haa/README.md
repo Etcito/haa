@@ -22,6 +22,8 @@ processor: nothing to compile. To build from source, see the repository README.
 | `@etcito/haa/offline` | `dist/offline.js` (+ `.d.ts`) |
 | `@etcito/haa/node` | `dist/node.js` (+ `.d.ts`) |
 | `@etcito/haa/worklet` | `dist/worklet.js` (AudioWorklet processor) |
+| `@etcito/haa/speech-worker` | `dist/speech-worker.js` (module Worker for `speak` nodes) |
+| `@etcito/haa/speech` | `dist/speech.js` (tiny-voca host: weights, `createSpeech`, `patchSpeechClips`) |
 | `@etcito/haa/wasm` | `pkg/haa.wasm` |
 | `@etcito/haa/package.json` | `package.json` |
 

@@ -4,3 +4,4 @@ export * from './engine.ts';
 export * from './player.ts';
 export * from './load.ts';
 export * from './spatial.ts';
+export * from './speech-host.ts';

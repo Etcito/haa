@@ -31,6 +31,7 @@ const ENTRIES = [
   { entry: 'src/arranger.ts', outfile: 'dist/arranger.js', platform: 'neutral' },
   { entry: 'src/fit.ts', outfile: 'dist/fit.js', platform: 'neutral' },
   { entry: 'src/speech.ts', outfile: 'dist/speech.js', platform: 'neutral' },
+  { entry: 'src/speech-worker.ts', outfile: 'dist/speech-worker.js', platform: 'browser' },
 ];
 
 /** Every .d.ts file under dir. */

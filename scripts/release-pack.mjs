@@ -28,6 +28,7 @@ const PACKAGE = {
     'package/dist/node.js',
     'package/dist/node.d.ts',
     'package/dist/worklet.js',
+    'package/dist/speech-worker.js',
     'package/dist/cli.js',
     'package/pkg/haa.wasm',
     'package/README.md',

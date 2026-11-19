@@ -55,6 +55,7 @@
       "default": "./dist/node.js"
     },
     "./worklet": "./dist/worklet.js",
+    "./speech-worker": "./dist/speech-worker.js",
     "./wasm": "./pkg/haa.wasm",
     "./field-wasm": "./pkg/haa-field.wasm",
     "./field-worker": "./dist/field-worker.js",

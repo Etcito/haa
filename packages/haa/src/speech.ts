@@ -398,3 +398,75 @@ export async function clearTinyVocaCache(o: { url?: string; cache?: string } = {
   const cache = await openCache(o.cache);
   await cache?.delete(o.url ?? TINY_VOCA_URL).catch(() => false);
 }
+
+/** Whether a patch (object, JSON text or UTF-8 bytes) has a `speak` node with something to say (text or input). */
+export function patchSpeaks(patch: unknown): boolean {
+  let value = patch;
+  try {
+    if (value instanceof Uint8Array) value = decodeUtf8(value);
+    if (typeof value === 'string') value = JSON.parse(value);
+  } catch {
+    return false; // not JSON: the patch cannot play either
+  }
+  const shaped = value as { graph?: { nodes?: unknown }; nodes?: unknown } | null;
+  const nodes = shaped?.graph?.nodes ?? shaped?.nodes; // a HAA patch or Sona project, or a bare Sona graph
+  if (!Array.isArray(nodes)) return false;
+  return nodes.some((node: { type?: unknown; params?: Record<string, unknown> } | null) => node?.type === 'speak'
+    && [node.params?.text, node.params?.input].some((v) => typeof v === 'string' && v.trim() !== ''));
+}
+
+/** What a patch's speech depends on besides the seed: its `speak` nodes ('' for a patch without one). */
+export function speechSignature(patch: unknown): string {
+  if (!patchSpeaks(patch)) return '';
+  let value = patch;
+  if (value instanceof Uint8Array) value = decodeUtf8(value);
+  if (typeof value === 'string') value = JSON.parse(value);
+  const shaped = value as { graph?: { nodes?: unknown[] }; nodes?: unknown[] };
+  const nodes = (shaped.graph?.nodes ?? shaped.nodes ?? []) as { id?: unknown; type?: unknown; params?: unknown; muted?: unknown }[];
+  return JSON.stringify(nodes.filter((n) => n?.type === 'speak').map((n) => [n.id, n.params, n.muted ?? false]));
+}
+
+/** The patch as the JSON text `planPatch` takes. */
+function patchText(patch: unknown): string {
+  if (patch instanceof Uint8Array) return decodeUtf8(patch);
+  return typeof patch === 'string' ? patch : JSON.stringify(patch);
+}
+
+/**
+ * Every part of a patch's speech, rendered now with an already loaded `speech` (`planPatch`, then `nextPart` until
+ * null), at `rate` (the render's sample rate; default the model's 24 kHz).
+ */
+export function collectPatchSpeech(speech: Speech, patch: unknown, seed = 0, rate?: number): SpeechClip[] {
+  speech.planPatch(patchText(patch), seed, rate);
+  const clips: SpeechClip[] = [];
+  for (let next = speech.nextPart(); next; next = speech.nextPart()) {
+    clips.push({ key: next.key, rate: next.rate, pcm: next.pcm, part: next.part, last: next.last });
+  }
+  return clips;
+}
+
+/** Options of `patchSpeechClips`: the weight fetch options, or the weights themselves. */
+export interface PatchSpeechOptions extends FetchWeightsOptions {
+  seed?: number;
+  /** The render's sample rate (offline: `RenderOptions.sampleRate`, 48 kHz by default). */
+  rate?: number;
+  /** The tiny-voca GGUF already in hand (e.g. read from disk in Node); otherwise `fetchTinyVoca(options)`. */
+  gguf?: Uint8Array;
+}
+
+/**
+ * The speech an offline render of `patch` needs (`renderPatch(module, patch, { speechClips })`), realm-neutral (Node,
+ * Worker). Empty, with nothing fetched or instantiated, for a patch without a `speak` node; otherwise the weights are
+ * fetched (or `o.gguf` is used), loaded into a new haa.wasm instance and every part is rendered.
+ */
+export async function patchSpeechClips(
+  wasm: BufferSource | WebAssembly.Module,
+  patch: unknown,
+  o: PatchSpeechOptions = {},
+): Promise<SpeechClip[]> {
+  if (!patchSpeaks(patch)) return [];
+  const [gguf, speech] = await Promise.all([o.gguf ?? fetchTinyVoca(o), createSpeech(wasm)]);
+  const loaded = speech.load(gguf);
+  if (!loaded.phonemizer) throw new Error(`[haa] speech: the weights have no phonemizer: ${loaded.phonemizerError ?? 'unknown'}`);
+  return collectPatchSpeech(speech, patch, o.seed ?? 0, o.rate);
+}

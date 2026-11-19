@@ -8,12 +8,14 @@
 // - a trigger fires at the first block whose start is at or after `at` seconds;
 // - the result holds exactly `round(seconds × rate)` frames, silent after `ended`.
 
-import type { HaaPatch, PatchIssue } from './types.ts';
+import type { HaaPatch, PatchIssue, SpeechClip } from './types.ts';
 import { BLOCK, LIVE_DEFAULT_SECONDS, OFFLINE_RATE } from './types.ts';
 import { HaaEngine, patchBytes } from './engine.ts';
 import { decodeUtf8, encodeUtf8 } from './utf8.ts';
+import { patchSpeechClips, type PatchSpeechOptions } from './speech.ts';
 
 export { encodeWav } from './wav.ts';
+export { patchSpeechClips, patchSpeaks, type PatchSpeechOptions } from './speech.ts';
 export * from './types.ts';
 
 /** The offline render settings. Defaults: `OFFLINE_RATE`, seed 0, the patch's own length. */
@@ -26,6 +28,8 @@ export interface RenderOptions {
   ramps?: Record<string, [number, number]>;
   /** Pulse each trigger at the first block whose start is at or after `at` seconds. */
   triggers?: { name: string; at: number }[];
+  /** The speech of the patch's `speak` nodes (`patchSpeechClips`); without it they are silent. */
+  speechClips?: SpeechClip[];
 }
 
 /** The rendered stereo buffer and the loader/validate issues of its patch. */
@@ -59,6 +63,7 @@ export function renderPatch(
   const sampleRate = renderSampleRate(o.sampleRate);
   const rate = sampleRate;
   const engine = HaaEngine.fromModule(module);
+  if (o.speechClips?.length) engine.putSpeechClips(o.speechClips);
   const voice = engine.createVoice(sampleRate, o.seed ?? 0);
   try {
     const { playable, issues } = voice.load(patchBytes(patch));
@@ -114,6 +119,21 @@ export function renderPatch(
   } finally {
     voice.free();
   }
+}
+
+/**
+ * `renderPatch` with the speech of the patch's `speak` nodes rendered first (`patchSpeechClips`: the tiny-voca weights
+ * are fetched, or taken from `o.speech.gguf`, and loaded into a separate haa.wasm instance). A patch without a `speak`
+ * node fetches nothing and renders as `renderPatch` does. Realm-neutral (Node, Worker).
+ */
+export async function renderPatchWithSpeech(
+  module: WebAssembly.Module,
+  patch: HaaPatch | string | Uint8Array,
+  o: RenderOptions & { speech?: Omit<PatchSpeechOptions, 'seed' | 'rate'> } = {},
+): Promise<StereoRender> {
+  const { speech, ...render } = o;
+  const speechClips = await patchSpeechClips(module, patch, { ...speech, seed: o.seed ?? 0, rate: renderSampleRate(o.sampleRate) });
+  return renderPatch(module, patch, { ...render, speechClips: [...(o.speechClips ?? []), ...speechClips] });
 }
 
 /** A `chimera` node in `lyrics` mode: its text, body and rate input, to time its words. */

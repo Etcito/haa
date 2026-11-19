@@ -1,10 +1,10 @@
 // Node render CLI: native haa flags and diagnostics over the offline wasm renderer.
 import { readFile } from 'node:fs/promises';
-import { loadModule, renderPatch, writeWav } from './node.ts';
+import { loadModule, OFFLINE_RATE, patchSpeechClips, renderPatch, writeWav } from './node.ts';
 import type { RenderOptions } from './offline.ts';
 
 const USAGE = 'usage: haa render <patch.json> --out <file.wav>';
-const HELP = `${USAGE} [--seconds S] [--seed N] [--rate HZ]
+const HELP = `${USAGE} [--seconds S] [--seed N] [--rate HZ] [--tinyvoca tiny-voca-js.gguf]
   --input name=value       Set a number or enum name
   --ramp name=a:b          Ramp an input over the render
   --trigger name@seconds  Fire a trigger (--trigger name=at is also accepted)`;
@@ -35,9 +35,10 @@ function splitOnce(value: string, separator: string): [string, string] | undefin
   return index < 0 ? undefined : [value.slice(0, index), value.slice(index + 1)];
 }
 
-function parseArgs(args: string[]): { patch: string; out: string; options: RenderOptions } {
+function parseArgs(args: string[]): { patch: string; out: string; tinyvoca?: string; options: RenderOptions } {
   let patch: string | undefined;
   let out: string | undefined;
+  let tinyvoca: string | undefined;
   const options: RenderOptions = {
     inputs: Object.create(null) as Record<string, number | string>,
     ramps: Object.create(null) as Record<string, [number, number]>,
@@ -51,6 +52,7 @@ function parseArgs(args: string[]): { patch: string; out: string; options: Rende
       if (value === undefined) throw new Error(`${flag} needs a value`);
       switch (flag) {
         case '--out': out = value; break;
+        case '--tinyvoca': tinyvoca = value; break;
         case '--seconds': options.seconds = parseFloatFlag(flag, value); break;
         case '--seed': options.seed = parseUintFlag(flag, value); break;
         case '--rate': {
@@ -91,7 +93,7 @@ function parseArgs(args: string[]): { patch: string; out: string; options: Rende
   }
   if (patch === undefined) throw new Error(`${USAGE} [--seconds S] [--seed N] [--rate HZ]`);
   if (out === undefined) throw new Error('render needs --out <file.wav>');
-  return { patch, out, options };
+  return { patch, out, tinyvoca, options };
 }
 
 function reason(error: unknown): string {
@@ -106,14 +108,25 @@ async function main(): Promise<void> {
   }
   if (args[0] === undefined) throw new Error(USAGE);
   if (args[0] !== 'render') throw new Error(`unknown command: ${args[0]}`);
-  const { patch, out, options } = parseArgs(args.slice(1));
+  const { patch, out, tinyvoca, options } = parseArgs(args.slice(1));
   let bytes: Uint8Array;
   try {
     bytes = await readFile(patch);
   } catch (error) {
     throw new Error(`cannot read ${patch}: ${reason(error)}`);
   }
-  const result = renderPatch(await loadModule(), bytes, options);
+  const module = await loadModule();
+  if (tinyvoca !== undefined) {
+    let gguf: Uint8Array;
+    try {
+      gguf = await readFile(tinyvoca);
+    } catch (error) {
+      throw new Error(`cannot read ${tinyvoca}: ${reason(error)}`);
+    }
+    // The speak nodes' speech, rendered at the render rate in a separate instance, then played by the render.
+    options.speechClips = await patchSpeechClips(module, bytes, { gguf, seed: options.seed ?? 0, rate: options.sampleRate ?? OFFLINE_RATE });
+  }
+  const result = renderPatch(module, bytes, options);
   try {
     writeWav(out, result);
   } catch (error) {
