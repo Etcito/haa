@@ -59,6 +59,7 @@ dependencies = [
  "flate2",
  "serde",
  "serde_json",
+ "tinyvoca",
 ]
 
 [[package]]
@@ -91,6 +92,7 @@ dependencies = [
  "haa-core",
  "haa-fit",
  "serde_json",
+ "tinyvoca",
 ]
 
 [[package]]
@@ -197,6 +199,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "tinyvoca"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

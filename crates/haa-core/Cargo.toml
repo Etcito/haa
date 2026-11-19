@@ -13,3 +13,5 @@ serde_json.workspace = true
 chimera = { path = "../chimera" }
 # Gzip CMUdict for the English text node: 869 kB instead of 3.3 MB in the wasm.
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# tiny-voca speech (Apache-2.0 port): the `speak` node; the weights come from the host at run time.
+tinyvoca = { path = "../tinyvoca" }

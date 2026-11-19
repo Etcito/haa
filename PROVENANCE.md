@@ -4,6 +4,10 @@
 
 The engine semantics and every node are ported from Sona v11, the owner's own studio (SOUND_REVISION 8). Each ported file carries a `Ported from Sona v11 <file>` header and lists its deviations. Sona remains a read-only reference.
 
+## tiny-voca speech (crates/tinyvoca)
+
+`crates/tinyvoca` is a Rust port of the inference of tiny-voca (https://github.com/n4ze3m/tiny-voca, Apache License 2.0, revision 0eea2be), under that licence; its NOTICE.md says what was ported and what was written for HAA. The `speak` node and the `haa_tinyvoca_*` wasm exports use it. No weights are in the repository: the host passes in an official GGUF from https://huggingface.co/n4ze3m/tiny-voca.
+
 ## Legacy TypeScript engine (v0.1)
 
 `legacy/` holds the v0.1 TypeScript engine, extracted from an Etcito game. It is kept readable for later ports, is not built, and is deleted when Phase 4 closes. HAA v0.1 started as the audio engine of that game, extracted at revision `0972c2c1a0ad` of the game's audio module and then generalized so that it carries no game content. Paths below are under `legacy/`.
