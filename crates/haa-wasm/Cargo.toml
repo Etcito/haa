@@ -12,4 +12,10 @@ crate-type = ["cdylib", "rlib"]
 haa-core = { path = "../haa-core" }
 haa-fit = { path = "../haa-fit" }
 tinyvoca = { path = "../tinyvoca" }
+dizione = { path = "../dizione", optional = true }
 serde_json.workspace = true
+
+[features]
+# English text to tiny-voca tokens (src/dizione.rs): about 2.3 MB of the module (regex engines, Unicode tables, rules).
+default = ["dizione"]
+dizione = ["dep:dizione"]

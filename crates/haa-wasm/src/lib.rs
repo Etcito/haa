@@ -14,6 +14,8 @@ mod fit;
 mod master;
 mod lyrics;
 mod speech;
+#[cfg(feature = "dizione")]
+mod dizione;
 
 /// A pointer as the ABI sees it: a `u32` offset into the wasm linear memory.
 /// Native tests run at pointer width, so there the same value is a `usize` that
