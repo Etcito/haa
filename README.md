@@ -2,6 +2,39 @@
 
 HAA is a procedural sound engine. Its graph model and every node are ported from Sona v11 (the owner's sound studio), and a game drives a patch through **published inputs** (`rpm`, `speed`, `pedal`, ...). The engine is Rust (`haa-core`), compiled to wasm and to a native CLI; a small TypeScript host (`@etcito/haa`) plays and renders it. Nothing here is a deployed service.
 
+## Use a HAA Studio graph in your game
+
+1. **Export:** in HAA Studio, **Project menu → Download .haa.json**. Put the file with your game's static files (e.g. `public/sounds/engine.haa.json`).
+2. **Install:** `npm install @etcito/haa` (other ways under [Install](#install)).
+3. **Play** (browser; Vite shown, any bundler that gives asset URLs works):
+
+```ts
+import { createPlayer, loadHaaModule } from '@etcito/haa';
+import wasmUrl from '@etcito/haa/wasm?url';
+import workletUrl from '@etcito/haa/worklet?url';
+import speechWorkerUrl from '@etcito/haa/speech-worker?url';
+
+// Call it after a click or key press: browsers keep audio silent until the page had one.
+export async function startEngineSound() {
+  const ctx = new AudioContext();
+  const player = await createPlayer(ctx, {
+    module: await loadHaaModule(wasmUrl),
+    processorUrl: workletUrl,
+    patch: await (await fetch('/sounds/engine.haa.json')).text(),
+    inputs: { speed: 0.5 },                   // the graph's published inputs, set before it starts
+    speech: { workerUrl: speechWorkerUrl },   // used only if the graph has a speak node
+  });
+  player.set('speed', 0.8);                   // from your game loop; player.trigger('hit') for triggers
+  return player;
+}
+```
+
+The player plays from creation: a timeline graph plays once (`player.restart()` plays it again), a live graph runs until `player.dispose()`. `npm run inputs -- engine.haa.json` (in this repo) prints the graph's input names as a TypeScript declaration.
+
+**Speak nodes:** nothing more to write. The voice model (tiny-voca, 8 MB, from its Hugging Face repo) is downloaded on first use, kept in the browser's Cache API and never bundled; `createPlayer` resolves once each spoken line has its first sentence ready, and the rest streams while it plays. `speech: { onProgress: (p) => bar(p.loaded / p.total) }` shows the first download. A graph without a speak node downloads nothing.
+
+**A WAV instead:** `npx haa-node render engine.haa.json --out engine.wav --input speed=0.8` from your game (the installed package, Node >= 22.18), or `npm run render -- engine.haa.json --out engine.wav` in this repo (native `haa render`, flags below). A graph with speak nodes also needs `--tinyvoca tiny-voca-js.gguf` ([the weights file](https://huggingface.co/n4ze3m/tiny-voca/resolve/1e73262226dbf4ef02e9df277e81aaa1db5ce16c/gguf/tiny-voca-js.gguf)).
+
 ## Install
 
 `@etcito/haa` ships the JS host, its `.d.ts`, the AudioWorklet processor and the prebuilt wasm (`pkg/*.wasm`): nothing to compile on your side.

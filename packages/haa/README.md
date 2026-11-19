@@ -29,11 +29,33 @@ processor: nothing to compile. To build from source, see the repository README.
 
 The `haa-node` bin runs `dist/cli.js`.
 
-## Usage
+## Usage: play a HAA Studio graph
+
+Export the graph from HAA Studio (**Project menu → Download .haa.json**) and serve it with your game. In the browser
+(Vite shown; any bundler that gives asset URLs works):
 
 ```ts
-import { HAA_PACKAGE_VERSION, HAA_WASM_FILE } from '@etcito/haa';
+import { createPlayer, loadHaaModule } from '@etcito/haa';
+import wasmUrl from '@etcito/haa/wasm?url';
+import workletUrl from '@etcito/haa/worklet?url';
+import speechWorkerUrl from '@etcito/haa/speech-worker?url';
+
+// Call it after a click or key press: browsers keep audio silent until the page had one.
+export async function startEngineSound() {
+  const ctx = new AudioContext();
+  const player = await createPlayer(ctx, {
+    module: await loadHaaModule(wasmUrl),
+    processorUrl: workletUrl,
+    patch: await (await fetch('/sounds/engine.haa.json')).text(),
+    inputs: { speed: 0.5 },                   // the graph's published inputs, set before it starts
+    speech: { workerUrl: speechWorkerUrl },   // used only if the graph has a speak node
+  });
+  player.set('speed', 0.8);                   // from your game loop; player.trigger('hit') for triggers
+  return player;
+}
 ```
 
-Today only the version constants are exported. The host API (`createPlayer`, `renderPatch`,
-the offline/node/worklet entries and the Node CLI) arrives in milestone 2.
+A graph with `speak` nodes needs nothing more: the voice model (tiny-voca, 8 MB) is downloaded from Hugging Face on
+first use, kept in the Cache API and never bundled (`speech: { onProgress }` for a loading bar). A WAV:
+`npx haa-node render engine.haa.json --out engine.wav` (`--tinyvoca tiny-voca-js.gguf` for speak nodes). Offline in a
+Worker or Node: `renderPatch` / `renderPatchWithSpeech` from `@etcito/haa/offline`.
