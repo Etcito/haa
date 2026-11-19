@@ -101,6 +101,7 @@ const LYRICS: usize = 5;
 const ARTICULATE: usize = 6;
 const ENGLISH: usize = 0;
 const IPA: usize = 1;
+const FRENCH: usize = 2;
 /// Frames rendered per engine call; matches the graph block.
 const BLOCK: usize = 128;
 
@@ -279,7 +280,7 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
         ParamDef {
             key: "language",
             kind: ParamKind::Enum {
-                values: &["english", "ipa"],
+                values: &["english", "ipa", "french"],
                 default: ENGLISH,
             },
             unit: "",
@@ -769,16 +770,47 @@ pub const LYRIC_LEAD: f64 = 0.06;
 /// The pause before a line written without its start time (s).
 const LYRIC_PAUSE: f64 = 0.3;
 
-/// Plans `lyrics` text (see [`lyric_lines`]): per line, English G2P (or IPA words) into the physical voice's phoneme
+/// The language a `lyrics` text is written in: English words (CMUdict + letter-to-sound), IPA words, or French words
+/// (the French spelling rules of `chimera::phonetics::french`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum LyricLanguage {
+    #[default]
+    English,
+    Ipa,
+    French,
+}
+
+impl LyricLanguage {
+    /// From the node's `language` value or a request's name ("english", "ipa", "french"); anything else is English.
+    pub fn from_name(name: &str) -> LyricLanguage {
+        match name {
+            "ipa" => LyricLanguage::Ipa,
+            "french" => LyricLanguage::French,
+            _ => LyricLanguage::English,
+        }
+    }
+
+    fn from_index(i: usize) -> LyricLanguage {
+        match i {
+            IPA => LyricLanguage::Ipa,
+            FRENCH => LyricLanguage::French,
+            _ => LyricLanguage::English,
+        }
+    }
+}
+
+/// Plans `lyrics` text (see [`lyric_lines`]): per line, English or French G2P (or IPA words) into the physical voice's phoneme
 /// gestures at rate 1, its pitch and vibrato gestures dropped (the pitch input sings the line), sorted by start.
-pub fn plan_lyrics(text: &str, ipa: bool, female: f64, child: f64, pitch: f64) -> Vec<LyricLine> {
+pub fn plan_lyrics(text: &str, language: LyricLanguage, female: f64, child: f64, pitch: f64) -> Vec<LyricLine> {
     ::chimera::init();
     let body = BodyMix::new(female.clamp(0.0, 1.0), child.clamp(0.0, 1.0));
     let mut lines = Vec::new();
     let mut next_start = LYRIC_PAUSE;
     for (start, words) in lyric_lines(text) {
         // the segments, and the words they say (each word's last segment marks its end)
-        let (segments, said): (Vec<Segment>, Vec<String>) = if ipa {
+        let (segments, said): (Vec<Segment>, Vec<String>) = if language == LyricLanguage::French {
+            ::chimera::phonetics::french::to_segments(words)
+        } else if language == LyricLanguage::Ipa {
             let mut segs = Vec::new();
             let mut said = Vec::new();
             for w in words.split_whitespace() {
@@ -895,13 +927,25 @@ pub fn lyrics_phone_timing(lines: &[LyricLine], rate_at: impl Fn(f64) -> f64) ->
         .collect()
 }
 
-/// English words as the `lyrics` mode's G2P writes them: each phone (IPA before the planner splits a diphthong) with
-/// the index of its word, and the words.
-pub fn lyric_g2p(words: &str) -> (Vec<(String, usize)>, Vec<String>) {
+/// Words as the `lyrics` mode's G2P writes them (English, or French with [`LyricLanguage::French`]): each phone (IPA
+/// before the planner splits a diphthong) with the index of its word, and the words.
+pub fn lyric_g2p(words: &str, language: LyricLanguage) -> (Vec<(String, usize)>, Vec<String>) {
     ::chimera::init();
     let mut phones = Vec::new();
     let mut said = Vec::new();
     let mut wi = 0;
+    if language == LyricLanguage::French {
+        let (segs, said) = ::chimera::phonetics::french::to_segments(words);
+        for seg in segs {
+            // a nasal vowel keeps its tilde: the recogniser hears ɑ̃ ɔ̃ ɛ̃ œ̃ as phones of their own
+            let ipa = if seg.nasalized == Some(true) { format!("{}\u{303}", seg.ipa) } else { seg.ipa.clone() };
+            phones.push((ipa, wi));
+            if seg.word_end == Some(true) {
+                wi += 1;
+            }
+        }
+        return (phones, said);
+    }
     for p in english_g2p().to_phrases(words) {
         said.extend(p.words.iter().cloned());
         for seg in p.segments {
@@ -1346,6 +1390,7 @@ impl ChimeraNode {
                 } else if mode == SING {
                     let source = |word: &str, reduce: bool| {
                         if language == IPA { tokenize_ipa(word) }
+                        else if language == FRENCH { ::chimera::phonetics::french::to_segments(word).0 }
                         else { english_g2p().word(word, reduce) }
                     };
                     let syllables = lyrics_to_syllables(text, &source);
@@ -1368,6 +1413,9 @@ impl ChimeraNode {
                     })
                 } else if language == IPA {
                     let segments = tokenize_ipa(text);
+                    plan_utterance(&segments, &options)
+                } else if language == FRENCH {
+                    let segments = ::chimera::phonetics::french::to_segments(text).0;
                     plan_utterance(&segments, &options)
                 } else {
                     let phrases: Vec<PhraseInput> = english_g2p()
@@ -1394,7 +1442,7 @@ impl ChimeraNode {
                 // patch reaches the line's start.
                 self.engine.set_beat_playing(false);
                 self.engine.stop_speech();
-                let lines = plan_lyrics(text, language == IPA, female, child, pitch);
+                let lines = plan_lyrics(text, LyricLanguage::from_index(language), female, child, pitch);
                 self.lyrics = lines;
                 // a live edit plays from the next line on
                 self.lyric_next = self.lyrics.partition_point(|l| l.start - LYRIC_LEAD < self.last_seconds);
@@ -2157,9 +2205,22 @@ mod tests {
     }
 
     #[test]
+    fn french_lyrics_plan_the_french_phones() {
+        // "Je ne vendrai pas mon âme." through the French G2P: nasal vowels, the uvular r, silent finals
+        let (phones, said) = lyric_g2p("Je ne vendrai pas mon âme", LyricLanguage::French);
+        assert_eq!(said, vec!["je", "ne", "vendrai", "pas", "mon", "âme"]);
+        let ipa: Vec<&str> = phones.iter().map(|(p, _)| p.as_str()).collect();
+        assert_eq!(ipa, vec!["ʒ", "ə", "n", "ə", "v", "ɑ̃", "d", "ʁ", "ɛ", "p", "a", "m", "ɔ̃", "a", "m"]);
+        let lines = plan_lyrics("0.5 Je ne vendrai pas mon âme", LyricLanguage::French, 0.0, 0.0, 120.0);
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].phones.iter().any(|p| p == "ʁ"), "{:?}", lines[0].phones);
+        assert_eq!(LyricLanguage::from_name("french"), LyricLanguage::French);
+    }
+
+    #[test]
     fn lyric_rate_fit_lands_each_sound_when_the_audio_says_it() {
         // "aɪ hæv" heard later and slower than planned: aɪ at 1.0, h at 1.3, æ at 1.4, v at 1.7, ending at 1.9
-        let lines = plan_lyrics("0.5 aɪ hæv", true, 0.0, 0.0, 120.0);
+        let lines = plan_lyrics("0.5 aɪ hæv", LyricLanguage::Ipa, 0.0, 0.0, 120.0);
         let targets = [("aɪ", 1.0), ("h", 1.3), ("æ", 1.4), ("v", 1.7)].map(|(p, t)| (p.to_string(), t));
         let fit = lyric_rate_fit(&lines[0], &targets, 1.9, 120);
         assert!((fit.start - 1.0).abs() < 1e-9, "start {}", fit.start);
@@ -2174,7 +2235,7 @@ mod tests {
             let (a, b) = (fit.rate[i - 1], fit.rate[i]);
             a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]).max(1e-12)
         };
-        let mut moved = plan_lyrics("0.5 aɪ hæv", true, 0.0, 0.0, 120.0);
+        let mut moved = plan_lyrics("0.5 aɪ hæv", LyricLanguage::Ipa, 0.0, 0.0, 120.0);
         moved[0].start = fit.start;
         let timed = lyrics_phone_timing(&moved, rate_at);
         let starts: Vec<(&str, f64)> = timed[0].iter().map(|(p, a, _)| (p.as_str(), *a)).collect();
@@ -2183,7 +2244,7 @@ mod tests {
             assert!((starts[k].1 - want).abs() < 0.015, "{} at {:.3}, heard at {want}", starts[k].0, starts[k].1);
         }
         // the G2P side: words and phones as the lyrics mode writes them
-        let (phones, said) = lyric_g2p("I have");
+        let (phones, said) = lyric_g2p("I have", LyricLanguage::English);
         assert_eq!(said, vec!["i", "have"]);
         assert_eq!(phones.iter().map(|(p, w)| (p.as_str(), *w)).collect::<Vec<_>>(), vec![("aɪ", 0), ("h", 1), ("ə", 1), ("v", 1)]);
         assert!(ipa_sayable("ɑː") && !ipa_sayable("5") && !ipa_sayable(""));

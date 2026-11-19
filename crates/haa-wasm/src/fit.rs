@@ -37,7 +37,7 @@
 
 use std::sync::Mutex;
 
-use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p};
+use haa_core::nodes::chimera::{ipa_sayable, lyric_g2p, LyricLanguage};
 use haa_fit::articulatory::{ARTIC_INPUTS, artic_curves};
 use haa_fit::phonemes::{Origin, Phone, align_lyrics, ctc_greedy, parse_vocab, phone_error_rate, render_lead, tokens};
 use haa_fit::singer::{SingerFitter, singer_from_request};
@@ -256,8 +256,9 @@ pub extern "C" fn haa_phone_per(ref_ptr: MemPtr, ref_len: u32, hyp_ptr: MemPtr, 
 }
 
 /// The lyrics timed on the audio: a CTC phoneme recogniser's logits of one sung or spoken line (flat f32 rows of the
-/// vocabulary's size), its `vocab.json`, and a request `{"words": "english words", "frame": seconds per logits row
-/// (0.02), "offset": seconds of row 0}`. The words go through the lyrics voice's G2P, are force-aligned on the
+/// vocabulary's size), its `vocab.json`, and a request `{"words": "english words", "language": "english"|"french"
+/// (default english), "frame": seconds per logits row (0.02), "offset": seconds of row 0}`. The words go through the
+/// lyrics voice's G2P (English or French), are force-aligned on the
 /// posteriors and matched with what the recogniser heard, the audio deciding each phone (haa-fit
 /// `phonemes::align_lyrics`, phones the chimera voice can say). JSON length, 0 when the vocabulary or the request is
 /// not valid. The result: `{"words": [IPA per word as the voice will say it], "said": [english words], "phones":
@@ -309,7 +310,8 @@ pub extern "C" fn haa_phone_align(logits_ptr: MemPtr, logits_len: u32, vocab_ptr
         return set_len(out.to_string());
     }
     let Some(words) = req.get("words").and_then(Value::as_str) else { return 0 };
-    let (g2p, said) = lyric_g2p(words);
+    let language = LyricLanguage::from_name(req.get("language").and_then(Value::as_str).unwrap_or("english"));
+    let (g2p, said) = lyric_g2p(words, language);
     let a = align_lyrics(logits, &vocab, &g2p, 0, ipa_sayable);
     // the words as the voice will say them: each word's phones in order (a word the audio drops entirely is left out)
     let mut by_word: Vec<(usize, String)> = Vec::new();

@@ -430,11 +430,15 @@ export interface PhoneAlignment {
 /**
  * A line's words timed on the audio: a CTC phoneme recogniser's logits of the line (flat rows of the vocabulary's
  * size, `frame` seconds each, row 0 at `offset` s) and its `vocab.json` text. The words go through the lyrics voice's
- * G2P, are force-aligned (Viterbi) on the posteriors and matched with what the recogniser heard; where the two
- * disagree the audio wins (a phone substituted, dropped or inserted). All in Rust (haa-fit `phonemes::align_lyrics`).
+ * G2P (`language`: English or French), are force-aligned (Viterbi) on the posteriors and matched with what the
+ * recogniser heard; where the two disagree the audio wins (a phone substituted, dropped or inserted). All in Rust
+ * (haa-fit `phonemes::align_lyrics`).
  */
-export function phoneAlign(module: WebAssembly.Module, vocabJson: string, logits: Float32Array, words: string, frame = 0.02, offset = 0): PhoneAlignment {
-  return phoneCall(module, vocabJson, logits, { words, frame, offset }) as PhoneAlignment;
+export function phoneAlign(
+  module: WebAssembly.Module, vocabJson: string, logits: Float32Array, words: string, frame = 0.02, offset = 0,
+  language: 'english' | 'french' = 'english',
+): PhoneAlignment {
+  return phoneCall(module, vocabJson, logits, { words, frame, offset, language }) as PhoneAlignment;
 }
 
 /** A render's phones against the stem's (see {@link renderLead}). */

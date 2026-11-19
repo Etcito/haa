@@ -120,7 +120,7 @@ export function renderPatch(
 export interface LyricsTimingRequest {
   /** the node text: one line per phrase, `<seconds> words` */
   text: string;
-  language?: 'english' | 'ipa';
+  language?: 'english' | 'ipa' | 'french';
   female?: number;
   child?: number;
   /** the rate input over the patch: `[seconds, rate]` points, linear between them (none: rate 1) */
@@ -173,7 +173,7 @@ export function lyricsTiming(module: WebAssembly.Module, request: LyricsTimingRe
 export interface LyricsFitRequest {
   /** the node text: one line per phrase, `<seconds> words` (the seconds are replaced by the fitted start) */
   text: string;
-  language?: 'english' | 'ipa';
+  language?: 'english' | 'ipa' | 'french';
   female?: number;
   child?: number;
   /** per text line: [ipa, start s, lead s] of each phone in order (played `lead` s early, default 0), and when the last one ends */

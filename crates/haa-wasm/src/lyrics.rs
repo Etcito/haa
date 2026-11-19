@@ -1,6 +1,6 @@
 //! Timed lyrics of the `chimera` node (`lyrics` mode): when each word is said.
 //!
-//! `haa_lyrics_timing(ptr, len)`: request JSON `{"text", "language": "english"|"ipa", "female", "child",
+//! `haa_lyrics_timing(ptr, len)`: request JSON `{"text", "language": "english"|"ipa"|"french", "female", "child",
 //! "rate": [[seconds, rate], ...], "hop", "seconds"}` (the node's rate input over the patch, linear between points;
 //! none = 1). The result JSON is `{"lines": [{"start", "end", "words": [{"word", "start", "end"}], "phones": [{"ipa",
 //! "start", "end"}]}]}` in patch seconds, the node's own plan (G2P, durations, vowel-stretching rate) integrated in
@@ -13,7 +13,7 @@
 //! rate], ...]}], "error": mean |planned - wanted| start of the sounds (s) with that rate, "worst"}` (haa-core
 //! `lyric_rate_fit`, checked with the node's own clock).
 
-use haa_core::nodes::chimera::{lyric_held, lyric_rate_fit, lyric_speed, lyrics_phone_timing, lyrics_timing, plan_lyrics, LyricLine, LYRIC_LEAD};
+use haa_core::nodes::chimera::{lyric_held, lyric_rate_fit, lyric_speed, lyrics_phone_timing, lyrics_timing, plan_lyrics, LyricLanguage, LyricLine, LYRIC_LEAD};
 use serde_json::Value;
 
 use crate::{set_result, MemPtr};
@@ -21,7 +21,7 @@ use crate::{set_result, MemPtr};
 /// The request fields, read leniently (a missing number is 0, a missing rate 1).
 struct Request {
     text: String,
-    ipa: bool,
+    language: LyricLanguage,
     female: f64,
     child: f64,
     rate: Vec<[f64; 2]>,
@@ -38,7 +38,7 @@ fn request(v: &Value) -> Option<Request> {
         .unwrap_or_default();
     Some(Request {
         text: v.get("text")?.as_str()?.to_string(),
-        ipa: v.get("language").and_then(Value::as_str) == Some("ipa"),
+        language: LyricLanguage::from_name(v.get("language").and_then(Value::as_str).unwrap_or("english")),
         female: num("female"),
         child: num("child"),
         rate,
@@ -87,7 +87,7 @@ fn track(lines: &[LyricLine], rate: &[[f64; 2]], hop: f64, seconds: f64) -> (Vec
 }
 
 fn timing_json(req: &Request) -> String {
-    let lines = plan_lyrics(&req.text, req.ipa, req.female, req.child, 120.0);
+    let lines = plan_lyrics(&req.text, req.language, req.female, req.child, 120.0);
     let timed = lyrics_timing(&lines, |t| rate_at(&req.rate, t));
     let phones = lyrics_phone_timing(&lines, |t| rate_at(&req.rate, t));
     let r = |v: f64| if v.is_finite() { (v * 1000.0).round() / 1000.0 } else { -1.0 };
@@ -133,7 +133,7 @@ pub extern "C" fn haa_lyrics_timing(ptr: MemPtr, len: u32) -> u32 {
 
 fn fit_json(v: &Value) -> Option<String> {
     let req = request(v)?;
-    let mut lines = plan_lyrics(&req.text, req.ipa, req.female, req.child, 120.0);
+    let mut lines = plan_lyrics(&req.text, req.language, req.female, req.child, 120.0);
     let wanted = v.get("lines")?.as_array()?;
     let max_points = v.get("maxPoints").and_then(Value::as_u64).unwrap_or(120) as usize;
     let mut fits = Vec::new();
