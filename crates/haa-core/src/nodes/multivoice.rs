@@ -3,8 +3,9 @@
 //! crate::multivoice.
 //!
 //! Every input comes from the graph: the voice (age 0..63 = 8..71 years, sex 0..15, weight 0..63 = 20..150 kg, the
-//! voice seed, rough / breath / tremble 0..255), the text with its inline tags (crate::multivoice::plan), the
-//! node's emotion and intensity, the speech noise, the event noise and the speed. Four params are overrides:
+//! voice seed, rough / breath / tremble 0..255), the text with its inline tags (crate::multivoice::plan; the
+//! emotion comes from the tags only, text before the first tag is neutral), the intensity of a tag written without a
+//! level, the speech noise, the event noise and the speed. Four params are overrides:
 //! `duration` (a factor on the predicted token durations), `f0` (Hz), `voiced` (0..1) and `energy` (dB). They act
 //! only when an Automation curve is wired into them: then, as any modulated param, their value at patch time t is
 //! clamp(base + curve(t) x amount, min, max), and it replaces the predicted value between the model's stages
@@ -26,23 +27,22 @@ use crate::node::{Node, NodeInit, NodeOut, SampleCtx};
 use crate::nodes::speak::{clip, put_part};
 
 pub const TEXT: usize = 0;
-pub const EMOTION: usize = 1;
-pub const INTENSITY: usize = 2;
-pub const AGE: usize = 3;
-pub const SEX: usize = 4;
-pub const WEIGHT: usize = 5;
-pub const SEED: usize = 6;
-pub const ROUGH: usize = 7;
-pub const BREATH: usize = 8;
-pub const TREMBLE: usize = 9;
-pub const NOISE: usize = 10;
-pub const EVENT_NOISE: usize = 11;
-pub const SPEED: usize = 12;
-pub const DURATION: usize = 13;
-pub const F0: usize = 14;
-pub const VOICED: usize = 15;
-pub const ENERGY: usize = 16;
-pub const GAIN: usize = 17;
+pub const INTENSITY: usize = 1;
+pub const AGE: usize = 2;
+pub const SEX: usize = 3;
+pub const WEIGHT: usize = 4;
+pub const SEED: usize = 5;
+pub const ROUGH: usize = 6;
+pub const BREATH: usize = 7;
+pub const TREMBLE: usize = 8;
+pub const NOISE: usize = 9;
+pub const EVENT_NOISE: usize = 10;
+pub const SPEED: usize = 11;
+pub const DURATION: usize = 12;
+pub const F0: usize = 13;
+pub const VOICED: usize = 14;
+pub const ENERGY: usize = 15;
+pub const GAIN: usize = 16;
 
 /// The override params and the name of each in [`Overrides`].
 pub const OVERRIDES: [(usize, &str); 4] = [(DURATION, "duration"), (F0, "f0"), (VOICED, "voiced"), (ENERGY, "energy")];
@@ -71,15 +71,6 @@ pub static DEF: NodeTypeDef = NodeTypeDef {
     hidden: false,
     params: &[
         ParamDef { key: "text", kind: ParamKind::Text { default: "" }, unit: "", label_en: "Text", label_fr: "Texte", modulatable: false, smooth: false },
-        ParamDef {
-            key: "emotion",
-            kind: ParamKind::Enum { values: &mv::EMOTIONS, default: 0 },
-            unit: "",
-            label_en: "Emotion",
-            label_fr: "Émotion",
-            modulatable: false,
-            smooth: false,
-        },
         number("intensity", 0.0, 1.0, 0.9, 0.01, Scale::Lin, "", "Intensity", "Intensité"),
         number("age", 0.0, 63.0, 16.0, 1.0, Scale::Lin, "", "Age (0 = 8 y, 63 = 71 y)", "Âge (0 = 8 ans, 63 = 71 ans)"),
         number("sex", 0.0, 15.0, 1.0, 1.0, Scale::Lin, "", "Sex (0 male - 15 female)", "Sexe (0 homme - 15 femme)"),
@@ -379,9 +370,9 @@ impl MvJobs {
         let w = job.wanted.clone();
         let utterance = job.utterances[index].clone();
         let w = &w;
-        let class = param(w, EMOTION).round().clamp(0.0, (mv::EMOTIONS.len() - 1) as f64) as usize;
         let intensity = param(w, INTENSITY) as f32;
-        let tokens = match mv::tokens(&utterance, Emotion::one(class, intensity), intensity) {
+        // the emotion comes from the text's tags only: text before the first tag is neutral
+        let tokens = match mv::tokens(&utterance, Emotion::NEUTRAL, intensity) {
             Ok(t) if t.ids.len() > 2 => t,
             Ok(_) => return Some(self.fail(i, "nothing to say in this sentence".into())),
             Err(e) => return Some(self.fail(i, e)),
