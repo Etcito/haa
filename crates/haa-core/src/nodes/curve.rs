@@ -143,7 +143,7 @@ impl Node for CurveNode {
 }
 
 /// Sona `validateGraph` clamps points to 0..1 and sorts them by time; a bad curve is flat.
-fn read_points(curve: Option<&serde_json::Value>, out: &mut Vec<(f64, f64)>) {
+pub(crate) fn read_points(curve: Option<&serde_json::Value>, out: &mut Vec<(f64, f64)>) {
     out.clear();
     // sona: `node.curve ?? [[0, 0], [.2, .8], [.75, 1], [1, 0]]` when the node has no curve.
     if curve.is_none() {
@@ -184,7 +184,7 @@ fn read_points(curve: Option<&serde_json::Value>, out: &mut Vec<(f64, f64)>) {
 }
 
 /// Sona `curveAt`: linear interpolation between sorted breakpoints.
-fn curve_at(points: &[(f64, f64)], t: f64) -> f64 {
+pub(crate) fn curve_at(points: &[(f64, f64)], t: f64) -> f64 {
     let Some(first) = points.first() else {
         return 0.0;
     };

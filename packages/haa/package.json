@@ -50,6 +50,10 @@
       "types": "./dist/speech.d.ts",
       "default": "./dist/speech.js"
     },
+    "./multivoice": {
+      "types": "./dist/multivoice.d.ts",
+      "default": "./dist/multivoice.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"

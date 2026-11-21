@@ -14,6 +14,7 @@ mod fit;
 mod master;
 mod lyrics;
 mod speech;
+mod multivoice;
 #[cfg(feature = "dizione")]
 mod dizione;
 

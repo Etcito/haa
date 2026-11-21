@@ -12,6 +12,7 @@ pub mod rng;
 pub mod validate;
 pub mod voice_performance;
 pub mod voice_script;
+pub mod multivoice;
 
 pub use catalog::catalog_json;
 pub use graph::Voice;

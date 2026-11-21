@@ -179,6 +179,7 @@ fn validate_with(
         return Err(issues);
     };
     let nodes = plan_in_order(nodes, &order, &edges);
+    let nodes = attach_multivoice_overrides(nodes, graph.duration, &mut issues);
     let performance = match &graph.performance {
         Some(perf) => match resolve_performance(perf, &nodes, &p.graph.connections, &inputs) {
             Some(resolved) => Some(resolved),
@@ -429,6 +430,50 @@ fn kahn_order(specs: &[NodeSpec], edges: &[Edge], issues: &mut Vec<Issue>) -> Op
     None
 }
 
+/// Hands each `multivoice` node the Automation curves wired into its overrides (crate::nodes::multivoice): a host
+/// with the model replaces predicted durations, f0, voicing and energy with them between the model's stages, so the
+/// node needs their breakpoints (in `PlanNode::curve`), not their samples.
+fn attach_multivoice_overrides(mut nodes: Vec<PlanNode>, patch_seconds: f64, issues: &mut Vec<Issue>) -> Vec<PlanNode> {
+    use crate::nodes::multivoice as mvn;
+    for i in 0..nodes.len() {
+        if nodes[i].def.type_name != mvn::DEF.type_name {
+            continue;
+        }
+        let mut wired = Vec::new();
+        let mut ignored = 0;
+        for m in &nodes[i].mods {
+            let Some(&(_, name)) = mvn::OVERRIDES.iter().find(|(p, _)| *p == m.param) else { continue };
+            let from = &nodes[m.from];
+            let patch_clock = from.params.get(1).copied().unwrap_or(0.0) < 0.5;
+            if from.def.type_name == "curve" && m.from_port.is_none() && patch_clock {
+                if from.muted {
+                    continue;
+                }
+                let mut points = Vec::new();
+                crate::nodes::curve::read_points(from.curve.as_ref(), &mut points);
+                wired.push((name, points, from.params.first().copied().unwrap_or(1.0) * m.amount));
+            } else {
+                ignored += 1;
+            }
+        }
+        if ignored > 0 {
+            let id = nodes[i].id.clone();
+            push(
+                issues,
+                Severity::Warning,
+                "multivoice-override",
+                format!("graph.nodes.{id}"),
+                Some(&id),
+                "Only an Automation curve on the patch clock overrides the HAA voice's duration, f0, voicing or energy; other wires into them are ignored",
+            );
+        }
+        if !wired.is_empty() {
+            nodes[i].curve = Some(mvn::overrides_json(&wired, patch_seconds));
+        }
+    }
+    nodes
+}
+
 /// Moves the checked nodes into plan order and attaches their wires and mods (plan indices).
 fn plan_in_order(nodes: Vec<Option<PlanNode>>, order: &[usize], edges: &[Edge]) -> Vec<PlanNode> {
     let mut slots = nodes;
@@ -571,6 +616,14 @@ fn plan_node(
     {
         for warning in crate::nodes::speak::parse_script(said).warnings {
             push(issues, Severity::Warning, "speak-script", format!("{path}.params.text"), id, &warning);
+        }
+    }
+    // the multivoice node's tags: an `and` mix the student does not blend
+    if def.type_name == "multivoice"
+        && let Some(Some(said)) = texts.get(crate::nodes::multivoice::TEXT)
+    {
+        for warning in crate::multivoice::warnings(said) {
+            push(issues, Severity::Warning, "multivoice-tags", format!("{path}.params.text"), id, &warning);
         }
     }
     for key in spec.params.keys() {
